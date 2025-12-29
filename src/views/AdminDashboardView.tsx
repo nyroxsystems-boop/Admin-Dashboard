@@ -88,15 +88,46 @@ export function AdminDashboardView() {
         );
     }
 
+    const [showTenantModal, setShowTenantModal] = useState(false);
+    const [newTenantName, setNewTenantName] = useState('');
+    const [newTenantEmail, setNewTenantEmail] = useState('');
+    const [newTenantPhone, setNewTenantPhone] = useState('');
+    const [newTenantWebsite, setNewTenantWebsite] = useState('');
+
+    const handleCreateTenant = async () => {
+        try {
+            await import('../api/wws').then(m => m.createTenant({
+                name: newTenantName,
+                email: newTenantEmail,
+                phone: newTenantPhone,
+                website: newTenantWebsite
+            }));
+            toast.success('Händler erfolgreich angelegt');
+            setShowTenantModal(false);
+            loadStats();
+        } catch (err: any) {
+            toast.error(err.message || 'Fehler beim Anlegen');
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
-                    <Shield className="w-8 h-8 text-primary" />
-                    Admin Dashboard
-                </h1>
-                <p className="text-muted-foreground">Zentrale Verwaltung aller Tenants, Benutzer und Gerätezugriffe.</p>
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
+                        <Shield className="w-8 h-8 text-primary" />
+                        Admin Dashboard
+                    </h1>
+                    <p className="text-muted-foreground">Zentrale Verwaltung aller Tenants, Benutzer und Gerätezugriffe.</p>
+                </div>
+                <button
+                    onClick={() => setShowTenantModal(true)}
+                    className="px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover shadow-lg flex items-center gap-2"
+                >
+                    <Plus className="w-5 h-5" />
+                    Händler anlegen
+                </button>
             </div>
 
             {/* Global Stats */}
@@ -276,6 +307,66 @@ export function AdminDashboardView() {
                                 Keine aktiven Geräte gefunden.
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Tenant Create Modal */}
+            {showTenantModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-2xl font-bold">Neuen Händler</h3>
+                            <button onClick={() => setShowTenantModal(false)} className="text-muted-foreground hover:text-foreground">X</button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Firmenname</label>
+                                <input
+                                    value={newTenantName}
+                                    onChange={e => setNewTenantName(e.target.value)}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">E-Mail</label>
+                                <input
+                                    value={newTenantEmail}
+                                    onChange={e => setNewTenantEmail(e.target.value)}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Telefon</label>
+                                <input
+                                    value={newTenantPhone}
+                                    onChange={e => setNewTenantPhone(e.target.value)}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Website</label>
+                                <input
+                                    value={newTenantWebsite}
+                                    onChange={e => setNewTenantWebsite(e.target.value)}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-8 flex gap-3">
+                            <button
+                                onClick={() => setShowTenantModal(false)}
+                                className="flex-1 px-4 py-2 bg-muted hover:bg-muted-hover rounded-xl transition-colors"
+                            >
+                                Abbrechen
+                            </button>
+                            <button
+                                onClick={handleCreateTenant}
+                                className="flex-1 px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all active:scale-95"
+                            >
+                                Händler anlegen
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

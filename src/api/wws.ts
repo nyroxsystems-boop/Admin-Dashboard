@@ -47,77 +47,53 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
     return response.json();
 }
 
+// Real API Implementation
 export async function getAdminStats(): Promise<AdminStats> {
-    // Mock data for now
+    // 1. Get KPIs
+    const kpis = await apiFetch('/api/admin/kpis');
+    // 2. Get Tenants (Dealers)
+    const tenants = await apiFetch('/api/admin/tenants');
+
     return {
-        total_tenants: 3,
-        total_users: 12,
-        total_devices: 8,
-        tenants: [
-            {
-                id: 1,
-                name: 'AutoTeile Müller GmbH',
-                slug: 'mueller',
-                user_count: 5,
-                max_users: 10,
-                device_count: 3,
-                max_devices: 5,
-                is_active: true,
-            },
-            {
-                id: 2,
-                name: 'KFZ Schmidt',
-                slug: 'schmidt',
-                user_count: 4,
-                max_users: 10,
-                device_count: 2,
-                max_devices: 5,
-                is_active: true,
-            },
-            {
-                id: 3,
-                name: 'Auto Weber',
-                slug: 'weber',
-                user_count: 3,
-                max_users: 5,
-                device_count: 3,
-                max_devices: 5,
-                is_active: false,
-            },
-        ],
+        total_tenants: tenants.length,
+        total_users: kpis.team.activeUsers, // using KPI data
+        total_devices: 0, // Not tracked yet
+        tenants: tenants
     };
 }
 
+export async function createTenant(data: { name: string, email: string, website?: string, phone?: string }): Promise<void> {
+    await apiFetch('/api/admin/tenants', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
 export async function listActiveDevices(tenantId: number): Promise<ActiveDevice[]> {
-    // Mock data
-    return [
-        {
-            id: '1',
-            device_id: 'device-abc-123',
-            user: 'admin@example.com',
-            last_seen: new Date().toISOString(),
-            ip: '192.168.1.100',
-        },
-    ];
+    return []; // Not implemented yet
 }
 
 export async function removeActiveDevice(tenantId: number, deviceId: string): Promise<void> {
-    // Mock implementation
-    console.log(`Removing device ${deviceId} from tenant ${tenantId}`);
+    // Not implemented yet
 }
 
 export async function updateTenantLimits(
     tenantId: number,
     limits: { max_users: number; max_devices: number }
 ): Promise<void> {
-    // Mock implementation
-    console.log(`Updating limits for tenant ${tenantId}:`, limits);
+    // Not implemented yet
 }
 
 export async function createTenantUser(
     tenantId: number,
     user: { email: string; username: string; password: string; role: string }
 ): Promise<void> {
-    // Mock implementation
-    console.log(`Creating user for tenant ${tenantId}:`, user);
+    await apiFetch('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({ ...user, tenant_id: tenantId })
+    });
+}
+
+export async function getTeam(): Promise<any[]> {
+    return await apiFetch('/api/admin/users');
 }
