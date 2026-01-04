@@ -20,7 +20,10 @@ export interface Tenant {
     max_devices: number;
     is_active: boolean;
     onboarding_status?: 'pending' | 'completed';
+
     payment_status?: 'paid' | 'trial' | 'overdue';
+    whatsapp_number?: string;
+    logo_url?: string;
 }
 
 export interface ActiveDevice {
@@ -66,7 +69,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     };
 }
 
-export async function createTenant(data: { name: string, email: string, website?: string, phone?: string, password?: string }): Promise<void> {
+export async function createTenant(data: { name: string, email: string, website?: string, phone?: string, password?: string, whatsapp_number?: string, logo_url?: string }): Promise<void> {
     await apiFetch('/api/admin/tenants', {
         method: 'POST',
         body: JSON.stringify(data)

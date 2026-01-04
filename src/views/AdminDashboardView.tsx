@@ -33,6 +33,8 @@ export function AdminDashboardView() {
     const [newTenantPhone, setNewTenantPhone] = useState('');
     const [newTenantWebsite, setNewTenantWebsite] = useState('');
     const [newTenantPassword, setNewTenantPassword] = useState('Start123!');
+    const [newTenantWhatsapp, setNewTenantWhatsapp] = useState('');
+    const [newTenantLogo, setNewTenantLogo] = useState('');
 
     const [showUserModal, setShowUserModal] = useState(false);
     const [newUserEmail, setNewUserEmail] = useState('');
@@ -84,8 +86,11 @@ export function AdminDashboardView() {
                 email: newTenantEmail,
                 phone: newTenantPhone,
                 website: newTenantWebsite,
-                password: newTenantPassword
+                password: newTenantPassword,
+                whatsapp_number: newTenantWhatsapp,
+                logo_url: newTenantLogo
             });
+
 
             toast.success('Händler erfolgreich angelegt');
             setShowTenantModal(false);
@@ -127,6 +132,7 @@ export function AdminDashboardView() {
     // --- Helpers ---
     const resetTenantForm = () => {
         setNewTenantName(''); setNewTenantEmail(''); setNewTenantPhone(''); setNewTenantWebsite('');
+        setNewTenantWhatsapp(''); setNewTenantLogo('');
     };
     const resetUserForm = () => {
         setNewUserEmail(''); setNewUsername(''); setNewUserPassword('');
@@ -354,9 +360,13 @@ export function AdminDashboardView() {
                                                     <tr key={tenant.id} className="hover:bg-muted/30 transition-colors group">
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-3">
-                                                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${['from-pink-500 to-rose-500', 'from-blue-500 to-indigo-500', 'from-amber-500 to-orange-500'][idx % 3]} flex items-center justify-center font-bold text-lg text-white shadow-md`}>
-                                                                    {tenant.name.charAt(0)}
-                                                                </div>
+                                                                {tenant.logo_url ? (
+                                                                    <img src={tenant.logo_url} alt={tenant.name} className="w-10 h-10 rounded-xl object-cover shadow-md bg-white" />
+                                                                ) : (
+                                                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${['from-pink-500 to-rose-500', 'from-blue-500 to-indigo-500', 'from-amber-500 to-orange-500'][idx % 3]} flex items-center justify-center font-bold text-lg text-white shadow-md`}>
+                                                                        {tenant.name.charAt(0)}
+                                                                    </div>
+                                                                )}
                                                                 <div>
                                                                     <div className="font-bold text-foreground text-sm">{tenant.name}</div>
                                                                     <div className="text-xs text-muted-foreground font-mono bg-muted/50 px-1.5 rounded inline-block mt-0.5">{tenant.slug}</div>
@@ -465,6 +475,8 @@ export function AdminDashboardView() {
                                 <Input label="E-Mail" value={newTenantEmail} onChange={setNewTenantEmail} />
                                 <Input label="Telefon" value={newTenantPhone} onChange={setNewTenantPhone} />
                                 <Input label="Website" value={newTenantWebsite} onChange={setNewTenantWebsite} />
+                                <Input label="WhatsApp Bot Nummer (Twilio)" value={newTenantWhatsapp} onChange={setNewTenantWhatsapp} placeholder="+49 151 ..." />
+                                <Input label="Logo URL" value={newTenantLogo} onChange={setNewTenantLogo} placeholder="https://..." />
                                 <Input label="Initial Passwort" value={newTenantPassword} onChange={setNewTenantPassword} />
                                 <div className="flex justify-end gap-3 mt-6">
                                     <Button variant="ghost" onClick={() => setShowTenantModal(false)}>Abbrechen</Button>
