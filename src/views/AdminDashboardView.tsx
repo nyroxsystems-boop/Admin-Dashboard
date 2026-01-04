@@ -32,6 +32,7 @@ export function AdminDashboardView() {
     const [newTenantEmail, setNewTenantEmail] = useState('');
     const [newTenantPhone, setNewTenantPhone] = useState('');
     const [newTenantWebsite, setNewTenantWebsite] = useState('');
+    const [newTenantPassword, setNewTenantPassword] = useState('Start123!');
 
     const [showUserModal, setShowUserModal] = useState(false);
     const [newUserEmail, setNewUserEmail] = useState('');
@@ -82,8 +83,10 @@ export function AdminDashboardView() {
                 name: newTenantName,
                 email: newTenantEmail,
                 phone: newTenantPhone,
-                website: newTenantWebsite
+                website: newTenantWebsite,
+                password: newTenantPassword
             });
+
             toast.success('Händler erfolgreich angelegt');
             setShowTenantModal(false);
             resetTenantForm();
@@ -462,6 +465,7 @@ export function AdminDashboardView() {
                                 <Input label="E-Mail" value={newTenantEmail} onChange={setNewTenantEmail} />
                                 <Input label="Telefon" value={newTenantPhone} onChange={setNewTenantPhone} />
                                 <Input label="Website" value={newTenantWebsite} onChange={setNewTenantWebsite} />
+                                <Input label="Initial Passwort" value={newTenantPassword} onChange={setNewTenantPassword} />
                                 <div className="flex justify-end gap-3 mt-6">
                                     <Button variant="ghost" onClick={() => setShowTenantModal(false)}>Abbrechen</Button>
                                     <Button onClick={handleCreateTenant}>Anlegen</Button>

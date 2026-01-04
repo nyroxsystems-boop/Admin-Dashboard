@@ -66,7 +66,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     };
 }
 
-export async function createTenant(data: { name: string, email: string, website?: string, phone?: string }): Promise<void> {
+export async function createTenant(data: { name: string, email: string, website?: string, phone?: string, password?: string }): Promise<void> {
     await apiFetch('/api/admin/tenants', {
         method: 'POST',
         body: JSON.stringify(data)
