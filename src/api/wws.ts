@@ -7,6 +7,7 @@ export interface AdminStats {
     total_users: number;
     total_devices: number;
     tenants: Tenant[];
+    history?: { name: string; orders: number; revenue: number }[];
 }
 
 export interface Tenant {
@@ -18,6 +19,8 @@ export interface Tenant {
     device_count: number;
     max_devices: number;
     is_active: boolean;
+    onboarding_status?: 'pending' | 'completed';
+    payment_status?: 'paid' | 'trial' | 'overdue';
 }
 
 export interface ActiveDevice {
@@ -58,7 +61,8 @@ export async function getAdminStats(): Promise<AdminStats> {
         total_tenants: tenants.length,
         total_users: kpis.team.activeUsers, // using KPI data
         total_devices: 0, // Not tracked yet
-        tenants: tenants
+        tenants: tenants,
+        history: kpis.history || []
     };
 }
 
@@ -70,18 +74,23 @@ export async function createTenant(data: { name: string, email: string, website?
 }
 
 export async function listActiveDevices(tenantId: number): Promise<ActiveDevice[]> {
-    return []; // Not implemented yet
+    return await apiFetch(`/api/admin/tenants/${tenantId}/devices`);
 }
 
 export async function removeActiveDevice(tenantId: number, deviceId: string): Promise<void> {
-    // Not implemented yet
+    await apiFetch(`/api/admin/tenants/${tenantId}/devices/${deviceId}`, {
+        method: 'DELETE'
+    });
 }
 
 export async function updateTenantLimits(
     tenantId: number,
     limits: { max_users: number; max_devices: number }
 ): Promise<void> {
-    // Not implemented yet
+    await apiFetch(`/api/admin/tenants/${tenantId}/limits`, {
+        method: 'PATCH',
+        body: JSON.stringify(limits)
+    });
 }
 
 export async function createTenantUser(
