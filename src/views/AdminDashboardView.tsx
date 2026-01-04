@@ -17,6 +17,12 @@ export function AdminDashboardView() {
     const [newUsername, setNewUsername] = useState('');
     const [newUserPassword, setNewUserPassword] = useState('');
 
+    const [showTenantModal, setShowTenantModal] = useState(false);
+    const [newTenantName, setNewTenantName] = useState('');
+    const [newTenantEmail, setNewTenantEmail] = useState('');
+    const [newTenantPhone, setNewTenantPhone] = useState('');
+    const [newTenantWebsite, setNewTenantWebsite] = useState('');
+
     const loadStats = async () => {
         try {
             setLoading(true);
@@ -87,12 +93,6 @@ export function AdminDashboardView() {
             </div>
         );
     }
-
-    const [showTenantModal, setShowTenantModal] = useState(false);
-    const [newTenantName, setNewTenantName] = useState('');
-    const [newTenantEmail, setNewTenantEmail] = useState('');
-    const [newTenantPhone, setNewTenantPhone] = useState('');
-    const [newTenantWebsite, setNewTenantWebsite] = useState('');
 
     const handleCreateTenant = async () => {
         try {
