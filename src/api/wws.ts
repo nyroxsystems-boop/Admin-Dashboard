@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 // Admin Dashboard API Module
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://whatsapp-bot-oem-ermittlung.onrender.com';
 const API_TOKEN = import.meta.env.VITE_WAWI_API_TOKEN;
 
 export interface AdminStats {
