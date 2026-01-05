@@ -655,11 +655,12 @@ const DeviceDrawer = ({ tenant, devices, onClose, onRemove }: any) => (
     </div>
 );
 
-const Input = ({ label, ...props }: any) => (
+const Input = ({ label, onChange, ...props }: any) => (
     <div>
         <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 ml-1">{label}</label>
         <input
             className="w-full px-4 py-2.5 bg-muted/50 border border-transparent focus:border-primary/50 focus:bg-background rounded-xl outline-none transition-all placeholder:text-muted-foreground/50"
+            onChange={(e) => onChange?.(e.target.value)}
             {...props}
         />
     </div>
