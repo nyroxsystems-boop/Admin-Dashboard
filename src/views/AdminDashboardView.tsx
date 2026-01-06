@@ -3,7 +3,7 @@ import {
     Users, Shield, Smartphone, Activity, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, PieChart, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -28,6 +28,7 @@ export function AdminDashboardView() {
 
     // Modal State
     const [showTenantModal, setShowTenantModal] = useState(false);
+    const [creatingTenant, setCreatingTenant] = useState(false);
     const [newTenantName, setNewTenantName] = useState('');
     const [newTenantEmail, setNewTenantEmail] = useState('');
     const [newTenantPhone, setNewTenantPhone] = useState('');
@@ -35,6 +36,13 @@ export function AdminDashboardView() {
     const [newTenantPassword, setNewTenantPassword] = useState('Start123!');
     const [newTenantWhatsapp, setNewTenantWhatsapp] = useState('');
     const [newTenantLogo, setNewTenantLogo] = useState('');
+
+    // Settings Modal State (for tenant limits & settings)
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [editingTenant, setEditingTenant] = useState<any>(null);
+    const [editMaxUsers, setEditMaxUsers] = useState(10);
+    const [editMaxDevices, setEditMaxDevices] = useState(5);
+    const [savingSettings, setSavingSettings] = useState(false);
 
     const [showUserModal, setShowUserModal] = useState(false);
     const [newUserEmail, setNewUserEmail] = useState('');
@@ -80,6 +88,11 @@ export function AdminDashboardView() {
     };
 
     const handleCreateTenant = async () => {
+        if (!newTenantName || !newTenantEmail) {
+            toast.error('Firmenname und E-Mail sind Pflichtfelder');
+            return;
+        }
+        setCreatingTenant(true);
         try {
             await createTenant({
                 name: newTenantName,
@@ -91,13 +104,15 @@ export function AdminDashboardView() {
                 logo_url: newTenantLogo
             });
 
-
-            toast.success('Händler erfolgreich angelegt');
+            toast.success('Händler erfolgreich angelegt!');
             setShowTenantModal(false);
             resetTenantForm();
-            loadStats();
+            // Auto-refresh the tenant list
+            await loadStats();
         } catch (err: any) {
-            toast.error(err.message || 'Fehler beim Anlegen');
+            toast.error(err.message || 'Fehler beim Anlegen des Händlers');
+        } finally {
+            setCreatingTenant(false);
         }
     };
 
@@ -120,13 +135,25 @@ export function AdminDashboardView() {
     };
 
     const handleUpdateLimits = async (tenantId: number, maxUsers: number, maxDevices: number) => {
+        setSavingSettings(true);
         try {
             await updateTenantLimits(tenantId, { max_users: maxUsers, max_devices: maxDevices });
-            toast.success('Limits aktualisiert');
-            loadStats();
+            toast.success('Limits erfolgreich aktualisiert!');
+            setShowSettingsModal(false);
+            setEditingTenant(null);
+            await loadStats();
         } catch (err) {
-            toast.error('Fehler beim Aktualisieren');
+            toast.error('Fehler beim Aktualisieren der Limits');
+        } finally {
+            setSavingSettings(false);
         }
+    };
+
+    const openSettingsModal = (tenant: any) => {
+        setEditingTenant(tenant);
+        setEditMaxUsers(tenant.max_users);
+        setEditMaxDevices(tenant.max_devices);
+        setShowSettingsModal(true);
     };
 
     // --- Helpers ---
@@ -395,10 +422,7 @@ export function AdminDashboardView() {
                                                             <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                                                 <ActionButton icon={<Smartphone className="w-4 h-4" />} onClick={() => { setSelectedTenant(tenant); loadDevices(tenant.id); }} tooltip="Geräte verwalten" />
                                                                 <ActionButton icon={<Users className="w-4 h-4" />} onClick={() => { setSelectedTenant(tenant); setShowUserModal(true); }} tooltip="Benutzer hinzufügen" />
-                                                                <ActionButton icon={<Settings className="w-4 h-4" />} onClick={() => {
-                                                                    const maxU = prompt('Neues Benutzer Limit:', tenant.max_users.toString());
-                                                                    if (maxU) handleUpdateLimits(tenant.id, parseInt(maxU), tenant.max_devices);
-                                                                }} tooltip="Limits anpassen" />
+                                                                <ActionButton icon={<Settings className="w-4 h-4" />} onClick={() => openSettingsModal(tenant)} tooltip="Limits anpassen" />
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -479,8 +503,17 @@ export function AdminDashboardView() {
                                 <Input label="Logo URL" value={newTenantLogo} onChange={setNewTenantLogo} placeholder="https://..." />
                                 <Input label="Initial Passwort" value={newTenantPassword} onChange={setNewTenantPassword} />
                                 <div className="flex justify-end gap-3 mt-6">
-                                    <Button variant="ghost" onClick={() => setShowTenantModal(false)}>Abbrechen</Button>
-                                    <Button onClick={handleCreateTenant}>Anlegen</Button>
+                                    <Button variant="ghost" onClick={() => setShowTenantModal(false)} disabled={creatingTenant}>Abbrechen</Button>
+                                    <Button onClick={handleCreateTenant} disabled={creatingTenant}>
+                                        {creatingTenant ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Wird angelegt...
+                                            </>
+                                        ) : (
+                                            'Anlegen'
+                                        )}
+                                    </Button>
                                 </div>
                             </div>
                         </Modal>
@@ -496,6 +529,91 @@ export function AdminDashboardView() {
                                 <div className="flex justify-end gap-3 mt-6">
                                     <Button variant="ghost" onClick={() => setShowUserModal(false)}>Abbrechen</Button>
                                     <Button onClick={handleCreateUser}>Benutzer erstellen</Button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )
+                }
+                {
+                    showSettingsModal && editingTenant && (
+                        <Modal onClose={() => { setShowSettingsModal(false); setEditingTenant(null); }} title={`Einstellungen: ${editingTenant.name}`}>
+                            <div className="space-y-6">
+                                {/* Tenant Info Header */}
+                                <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-xl">
+                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                                        {editingTenant.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold">{editingTenant.name}</h4>
+                                        <p className="text-xs text-muted-foreground font-mono">{editingTenant.slug}</p>
+                                    </div>
+                                </div>
+
+                                {/* Limits Section */}
+                                <div className="space-y-4">
+                                    <h5 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                                        <Users className="w-4 h-4" /> Benutzer & Geräte Limits
+                                    </h5>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Max. Benutzer</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={100}
+                                                value={editMaxUsers}
+                                                onChange={(e) => setEditMaxUsers(parseInt(e.target.value) || 1)}
+                                                className="w-full px-4 py-2.5 bg-muted/50 border border-transparent focus:border-primary/50 focus:bg-background rounded-xl outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Max. Geräte</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={50}
+                                                value={editMaxDevices}
+                                                onChange={(e) => setEditMaxDevices(parseInt(e.target.value) || 1)}
+                                                className="w-full px-4 py-2.5 bg-muted/50 border border-transparent focus:border-primary/50 focus:bg-background rounded-xl outline-none transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Payment Status Section */}
+                                <div className="space-y-4">
+                                    <h5 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                                        <CreditCard className="w-4 h-4" /> Zahlungsstatus
+                                    </h5>
+                                    <div className="flex gap-2">
+                                        <button className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${editingTenant.payment_status === 'paid' ? 'bg-green-500 text-white' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}>
+                                            Bezahlt
+                                        </button>
+                                        <button className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${editingTenant.payment_status === 'trial' ? 'bg-amber-500 text-white' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}>
+                                            Testphase
+                                        </button>
+                                        <button className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${editingTenant.payment_status === 'overdue' ? 'bg-red-500 text-white' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}>
+                                            Überfällig
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">Zahlungsstatus kann aktuell nur manuell geändert werden. Stripe-Integration folgt.</p>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                                    <Button variant="ghost" onClick={() => { setShowSettingsModal(false); setEditingTenant(null); }} disabled={savingSettings}>
+                                        Abbrechen
+                                    </Button>
+                                    <Button onClick={() => handleUpdateLimits(editingTenant.id, editMaxUsers, editMaxDevices)} disabled={savingSettings}>
+                                        {savingSettings ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Speichern...
+                                            </>
+                                        ) : (
+                                            'Speichern'
+                                        )}
+                                    </Button>
                                 </div>
                             </div>
                         </Modal>
@@ -666,11 +784,12 @@ const Input = ({ label, onChange, ...props }: any) => (
     </div>
 );
 
-const Button = ({ children, variant = 'primary', ...props }: any) => (
+const Button = ({ children, variant = 'primary', disabled, ...props }: any) => (
     <button
-        className={`px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95 ${variant === 'primary'
-            ? 'bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20'
-            : 'bg-transparent hover:bg-muted text-foreground'
+        disabled={disabled}
+        className={`px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95 flex items-center justify-center ${variant === 'primary'
+            ? 'bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed'
+            : 'bg-transparent hover:bg-muted text-foreground disabled:opacity-50 disabled:cursor-not-allowed'
             }`}
         {...props}
     >
