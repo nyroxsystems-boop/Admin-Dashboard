@@ -232,20 +232,31 @@ export function AdminDashboardView() {
 
     return (
         <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
+            {/* Mobile Overlay */}
+            <AnimatePresence>
+                {sidebarOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSidebarOpen(false)}
+                        className="fixed inset-0 bg-black/50 z-10 md:hidden"
+                    />
+                )}
+            </AnimatePresence>
+
             {/* Sidebar */}
             <motion.aside
                 initial={{ width: 0, opacity: 0 }}
                 animate={{ width: sidebarOpen ? 280 : 0, opacity: 1 }}
-                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 shadow-2xl"
-            >
-                <div className="p-6 flex items-center gap-3 border-b border-border/50">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-purple-400 flex items-center justify-center shadow-lg shadow-primary/20">
-                        <Shield className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="font-bold text-xl tracking-tight">Admin</h1>
-                        <p className="text-xs text-muted-foreground uppercase tracking-widest">Control Center</p>
-                    </div>
+                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 shadow-2xl overflow-hidden">
+                <div className="p-5 flex items-center gap-3 border-b border-border/50">
+                    <img
+                        src="/partsunion-logo.png"
+                        alt="Partsunion"
+                        className="h-10 w-auto object-contain"
+                    />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Admin</span>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
