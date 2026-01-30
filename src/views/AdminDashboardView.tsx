@@ -3,7 +3,7 @@ import {
     Users, Shield, Smartphone, Activity, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, PieChart, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive, Mail
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive, Mail, Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -13,6 +13,7 @@ import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimit
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
 import { MailsView } from './MailsView';
+import { BotTestingView } from './BotTestingView';
 import { useAuth } from '../context/AuthContext';
 
 // Mock Data for Charts (not used anymore, real data coming from API)
@@ -29,7 +30,7 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'mails' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'mails' | 'settings'>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Modal State
@@ -264,6 +265,12 @@ export function AdminDashboardView() {
                         label="OEM Registry"
                         active={activeTab === 'oem-registry'}
                         onClick={() => setActiveTab('oem-registry')}
+                    />
+                    <SidebarItem
+                        icon={<Bot />}
+                        label="Bot Testing"
+                        active={activeTab === 'bot-testing'}
+                        onClick={() => setActiveTab('bot-testing')}
                     />
                     <SidebarItem
                         icon={<Mail />}
@@ -505,6 +512,22 @@ export function AdminDashboardView() {
                                 exit={{ opacity: 0, y: -20 }}
                             >
                                 <OemRegistryView />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'bot-testing' && (
+                            <motion.div
+                                key="bot-testing"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="h-[calc(100vh-180px)]"
+                            >
+                                <div className="mb-6">
+                                    <h2 className="text-2xl font-bold">OEM Bot Testing</h2>
+                                    <p className="text-muted-foreground">WhatsApp-Bot Simulator – Direkte Logik ohne Twilio.</p>
+                                </div>
+                                <BotTestingView />
                             </motion.div>
                         )}
 
