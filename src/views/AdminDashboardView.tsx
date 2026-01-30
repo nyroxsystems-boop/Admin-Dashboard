@@ -3,14 +3,15 @@ import {
     Users, Shield, Smartphone, Activity, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, PieChart, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant } from '../api/wws';
+import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats } from '../api/wws';
 import { toast } from 'sonner';
+import { OemRegistryView } from './OemRegistryView';
 
 // Mock Data for Charts (not used anymore, real data coming from API)
 // const chartData = [];
@@ -23,7 +24,7 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'settings'>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Modal State
@@ -49,6 +50,11 @@ export function AdminDashboardView() {
     const [newUsername, setNewUsername] = useState('');
     const [newUserPassword, setNewUserPassword] = useState('');
 
+    // OEM Seeder State
+    const [oemStats, setOemStats] = useState<OemDatabaseStats | null>(null);
+    const [oemLoading, setOemLoading] = useState(false);
+    const [seeding, setSeeding] = useState(false);
+
     // --- Effects ---
     useEffect(() => {
         loadStats();
@@ -64,6 +70,39 @@ export function AdminDashboardView() {
             toast.error('Fehler beim Laden der Statistiken');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadOemStats = async () => {
+        try {
+            setOemLoading(true);
+            const data = await getOemDatabaseStats();
+            setOemStats(data);
+        } catch (err: any) {
+            console.error('Failed to load OEM stats:', err);
+        } finally {
+            setOemLoading(false);
+        }
+    };
+
+    // Load OEM stats when settings tab is active
+    useEffect(() => {
+        if (activeTab === 'settings') {
+            loadOemStats();
+        }
+    }, [activeTab]);
+
+    const handleTriggerSeeder = async (script: 'massive' | 'remaining' | 'standalone') => {
+        try {
+            setSeeding(true);
+            const result = await triggerOemSeeder(script);
+            toast.success(`Seeder gestartet: ${result.message}`);
+            // Reload stats after a delay
+            setTimeout(() => loadOemStats(), 5000);
+        } catch (err: any) {
+            toast.error(`Seeder-Fehler: ${err.message}`);
+        } finally {
+            setSeeding(false);
         }
     };
 
@@ -214,6 +253,12 @@ export function AdminDashboardView() {
                         label="Händler & Mandanten"
                         active={activeTab === 'tenants'}
                         onClick={() => setActiveTab('tenants')}
+                    />
+                    <SidebarItem
+                        icon={<Database />}
+                        label="OEM Registry"
+                        active={activeTab === 'oem-registry'}
+                        onClick={() => setActiveTab('oem-registry')}
                     />
                     <SidebarItem
                         icon={<Settings />}
@@ -434,6 +479,17 @@ export function AdminDashboardView() {
                             </motion.div>
                         )}
 
+                        {activeTab === 'oem-registry' && (
+                            <motion.div
+                                key="oem-registry"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                            >
+                                <OemRegistryView />
+                            </motion.div>
+                        )}
+
                         {activeTab === 'settings' && (
                             <motion.div
                                 key="settings"
@@ -471,6 +527,84 @@ export function AdminDashboardView() {
                                             <option>Deutsch (Standard)</option>
                                             <option>English</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                {/* OEM Database Management Section */}
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-bold flex items-center gap-2">
+                                        <Database className="w-5 h-5 text-primary" />
+                                        OEM Datenbank Management
+                                    </h3>
+
+                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm">
+                                        {/* Stats Display */}
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg">
+                                                    <HardDrive className="w-6 h-6" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-xl">
+                                                        {oemLoading ? '...' : (oemStats?.totalRecords?.toLocaleString() || '0')} OEMs
+                                                    </h4>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {oemStats?.sizeMB || '0'} MB • {oemStats?.brands?.length || 0} Marken
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={loadOemStats}
+                                                disabled={oemLoading}
+                                                className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                            >
+                                                <RefreshCcw className={`w-4 h-4 ${oemLoading ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        </div>
+
+                                        {/* Brand Distribution */}
+                                        {oemStats?.brands && oemStats.brands.length > 0 && (
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t border-border/50">
+                                                {oemStats.brands.slice(0, 8).map((b: any) => (
+                                                    <div key={b.brand} className="bg-muted/30 rounded-lg p-2 text-center">
+                                                        <div className="text-xs font-bold text-muted-foreground">{b.brand}</div>
+                                                        <div className="text-sm font-bold">{b.count.toLocaleString()}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons */}
+                                        <div className="flex flex-wrap gap-3 pt-4 border-t border-border/50">
+                                            <button
+                                                onClick={() => handleTriggerSeeder('massive')}
+                                                disabled={seeding}
+                                                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-xl font-medium shadow-lg shadow-primary/25 hover:shadow-xl transition-all disabled:opacity-50"
+                                            >
+                                                {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                                                Massive Seeder (1M+)
+                                            </button>
+                                            <button
+                                                onClick={() => handleTriggerSeeder('remaining')}
+                                                disabled={seeding}
+                                                className="flex items-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-all disabled:opacity-50"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                Weitere Marken
+                                            </button>
+                                            <button
+                                                onClick={() => handleTriggerSeeder('standalone')}
+                                                disabled={seeding}
+                                                className="flex items-center gap-2 px-4 py-2.5 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-all disabled:opacity-50"
+                                            >
+                                                <Database className="w-4 h-4" />
+                                                Registry OEMs
+                                            </button>
+                                        </div>
+
+                                        <p className="text-xs text-muted-foreground">
+                                            ⚠️ Der Massive Seeder kann mehrere Minuten dauern. Die Datenbank wird im Hintergrund befüllt.
+                                        </p>
                                     </div>
                                 </div>
                             </motion.div>

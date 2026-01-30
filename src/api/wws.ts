@@ -110,3 +110,137 @@ export async function createTenantUser(
 export async function getTeam(): Promise<any[]> {
     return await apiFetch('/api/admin/users');
 }
+
+// ============================================================================
+// OEM Database API
+// ============================================================================
+
+export interface OemDatabaseStats {
+    exists: boolean;
+    totalRecords: number;
+    sizeBytes: number;
+    sizeMB: string;
+    brands: { brand: string; count: number }[];
+    categories: { part_category: string; count: number }[];
+}
+
+export interface OemSeederJob {
+    jobId: string;
+    status: 'running' | 'completed' | 'failed';
+    pid: number;
+    startTime: string;
+    output: string[];
+}
+
+export async function getOemDatabaseStats(): Promise<OemDatabaseStats> {
+    return await apiFetch('/api/admin/oem-database/stats');
+}
+
+export async function triggerOemSeeder(script: 'massive' | 'remaining' | 'standalone' = 'massive'): Promise<{ success: boolean; jobId: string; message: string }> {
+    return await apiFetch('/api/admin/oem-database/seed', {
+        method: 'POST',
+        body: JSON.stringify({ script })
+    });
+}
+
+export async function getSeederJobStatus(jobId: string): Promise<OemSeederJob> {
+    return await apiFetch(`/api/admin/oem-database/seed/${jobId}`);
+}
+
+export async function quickSeedOem(brand: string = 'VOLKSWAGEN', count: number = 1000): Promise<{ success: boolean; added: number; totalRecords: number }> {
+    return await apiFetch('/api/admin/oem-database/quick-seed', {
+        method: 'POST',
+        body: JSON.stringify({ brand, count })
+    });
+}
+
+// ============================================================================
+// OEM Registry CRUD API
+// ============================================================================
+
+export interface OemRecord {
+    id: number;
+    oem: string;
+    brand: string;
+    part_category: string;
+    part_description: string;
+    model: string;
+    confidence: number;
+    sources: string;
+    created_at: string;
+}
+
+export interface OemRecordsResponse {
+    records: OemRecord[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    filters: {
+        brands: string[];
+        categories: string[];
+    };
+}
+
+export interface OemSearchParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    brand?: string;
+    category?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+}
+
+export async function getOemRecords(params: OemSearchParams = {}): Promise<OemRecordsResponse> {
+    const query = new URLSearchParams();
+    if (params.page) query.set('page', String(params.page));
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.search) query.set('search', params.search);
+    if (params.brand) query.set('brand', params.brand);
+    if (params.category) query.set('category', params.category);
+    if (params.sortBy) query.set('sortBy', params.sortBy);
+    if (params.sortOrder) query.set('sortOrder', params.sortOrder);
+
+    return await apiFetch(`/api/admin/oem-records?${query.toString()}`);
+}
+
+export async function getOemRecord(id: number): Promise<OemRecord> {
+    return await apiFetch(`/api/admin/oem-records/${id}`);
+}
+
+export async function updateOemRecord(id: number, data: Partial<OemRecord>): Promise<{ success: boolean }> {
+    return await apiFetch(`/api/admin/oem-records/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+}
+
+export async function createOemRecord(data: Omit<OemRecord, 'id' | 'created_at' | 'sources'>): Promise<{ success: boolean; id: number }> {
+    return await apiFetch('/api/admin/oem-records', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+export async function deleteOemRecord(id: number): Promise<{ success: boolean }> {
+    return await apiFetch(`/api/admin/oem-records/${id}`, {
+        method: 'DELETE'
+    });
+}
+
+export async function bulkDeleteOemRecords(ids: number[]): Promise<{ success: boolean; deleted: number }> {
+    return await apiFetch('/api/admin/oem-records/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ ids })
+    });
+}
+
+export async function runOemValidator(fix: boolean = false): Promise<{ success: boolean; jobId: string; message: string }> {
+    return await apiFetch('/api/admin/oem-database/validate', {
+        method: 'POST',
+        body: JSON.stringify({ fix })
+    });
+}
+
+
