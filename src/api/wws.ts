@@ -1,7 +1,224 @@
+/**
+ * Admin API Client for Admin Dashboard
+ * Handles all API communication with the backend
+ */
+
 /// <reference types="vite/client" />
-// Admin Dashboard API Module
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://whatsapp-bot-oem-ermittlung.onrender.com';
-const API_TOKEN = import.meta.env.VITE_WAWI_API_TOKEN;
+
+// ============================================================================
+// Auth State Management
+// ============================================================================
+
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+    authToken = token;
+    if (token) {
+        localStorage.setItem('admin_token', token);
+    } else {
+        localStorage.removeItem('admin_token');
+    }
+}
+
+export function getAuthToken(): string | null {
+    if (!authToken) {
+        authToken = localStorage.getItem('admin_token');
+    }
+    return authToken;
+}
+
+export function clearAuth() {
+    authToken = null;
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+}
+
+// ============================================================================
+// API Fetch Wrapper
+// ============================================================================
+
+async function apiFetch(endpoint: string, options: RequestInit = {}) {
+    const token = getAuthToken();
+
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...options.headers as Record<string, string>,
+    };
+
+    if (token) {
+        headers['Authorization'] = `Token ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+    });
+
+    if (response.status === 401) {
+        // Token expired or invalid
+        clearAuth();
+        window.location.href = '/login';
+        throw new Error('Session abgelaufen');
+    }
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(error.error || 'API Error');
+    }
+
+    return response.json();
+}
+
+// ============================================================================
+// Admin Authentication API
+// ============================================================================
+
+export interface AdminUser {
+    id: string;
+    username: string;
+    email: string;
+    must_change_password: boolean;
+}
+
+export interface LoginResponse {
+    access: string;
+    user: AdminUser;
+}
+
+export async function adminLogin(username: string, password: string): Promise<LoginResponse> {
+    const response = await apiFetch('/api/admin-auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password })
+    });
+
+    if (response.access) {
+        setAuthToken(response.access);
+        localStorage.setItem('admin_user', JSON.stringify(response.user));
+    }
+
+    return response;
+}
+
+export async function adminLogout(): Promise<void> {
+    try {
+        await apiFetch('/api/admin-auth/logout', { method: 'POST' });
+    } finally {
+        clearAuth();
+    }
+}
+
+export async function getAdminMe(): Promise<AdminUser> {
+    return await apiFetch('/api/admin-auth/me');
+}
+
+export async function requestPasswordReset(username: string): Promise<{ success: boolean; message: string }> {
+    return await apiFetch('/api/admin-auth/request-reset', {
+        method: 'POST',
+        body: JSON.stringify({ username })
+    });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    return await apiFetch('/api/admin-auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, newPassword })
+    });
+}
+
+// ============================================================================
+// Activity Log API
+// ============================================================================
+
+export interface ActivityLogEntry {
+    id: string;
+    admin_username: string;
+    action_type: string;
+    entity_type: string;
+    entity_id?: string;
+    entity_name?: string;
+    old_value?: string;
+    new_value?: string;
+    ip_address?: string;
+    timestamp: string;
+}
+
+export async function getActivityLog(limit: number = 50): Promise<ActivityLogEntry[]> {
+    return await apiFetch(`/api/admin/activity-log?limit=${limit}`);
+}
+
+// ============================================================================
+// Email Templates API
+// ============================================================================
+
+export interface GeneratedEmail {
+    subject: string;
+    preview: string;
+    htmlContent: string;
+    plainText: string;
+}
+
+export interface EmailRecipient {
+    email: string;
+    name: string;
+    id: string;
+}
+
+export async function generateEmailTemplate(prompt: string): Promise<{ success: boolean; email: GeneratedEmail }> {
+    return await apiFetch('/api/admin/emails/generate', {
+        method: 'POST',
+        body: JSON.stringify({ prompt })
+    });
+}
+
+export async function improveEmailTemplate(prompt: string, existingContent: string): Promise<{ success: boolean; email: GeneratedEmail }> {
+    return await apiFetch('/api/admin/emails/generate', {
+        method: 'POST',
+        body: JSON.stringify({ prompt, improve: true, existingContent })
+    });
+}
+
+export async function getEmailRecipients(type: 'active' | 'cancelled' | 'trial' | 'all'): Promise<{ type: string; count: number; recipients: EmailRecipient[] }> {
+    return await apiFetch(`/api/admin/emails/recipients/${type}`);
+}
+
+export async function sendMarketingEmail(
+    subject: string,
+    htmlContent: string,
+    recipientType?: string,
+    customEmails?: string[]
+): Promise<{ success: boolean; sent: number; failed: number; total: number }> {
+    return await apiFetch('/api/admin/emails/send', {
+        method: 'POST',
+        body: JSON.stringify({ subject, htmlContent, recipientType, customEmails })
+    });
+}
+
+export interface EmailTemplate {
+    id: string;
+    name: string;
+    subject: string;
+    html_content: string;
+    prompt?: string;
+    created_by?: string;
+    created_at: string;
+}
+
+export async function getSavedTemplates(): Promise<EmailTemplate[]> {
+    return await apiFetch('/api/admin/emails/templates');
+}
+
+export async function saveEmailTemplate(name: string, subject: string, htmlContent: string, prompt?: string): Promise<{ success: boolean; id: string }> {
+    return await apiFetch('/api/admin/emails/templates', {
+        method: 'POST',
+        body: JSON.stringify({ name, subject, htmlContent, prompt })
+    });
+}
+
+// ============================================================================
+// Re-export existing API functions with token integration
+// ============================================================================
 
 export interface AdminStats {
     total_tenants: number;
@@ -21,7 +238,6 @@ export interface Tenant {
     max_devices: number;
     is_active: boolean;
     onboarding_status?: 'pending' | 'completed';
-
     payment_status?: 'paid' | 'trial' | 'overdue';
     whatsapp_number?: string;
     logo_url?: string;
@@ -35,42 +251,28 @@ export interface ActiveDevice {
     ip: string;
 }
 
-async function apiFetch(endpoint: string, options: RequestInit = {}) {
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Token ${API_TOKEN}`,
-        ...options.headers,
-    };
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-    });
-
-    if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`);
-    }
-
-    return response.json();
-}
-
-// Real API Implementation
 export async function getAdminStats(): Promise<AdminStats> {
-    // 1. Get KPIs
     const kpis = await apiFetch('/api/admin/kpis');
-    // 2. Get Tenants (Dealers)
     const tenants = await apiFetch('/api/admin/tenants');
 
     return {
         total_tenants: tenants.length,
-        total_users: kpis.team.activeUsers, // using KPI data
-        total_devices: 0, // Not tracked yet
+        total_users: kpis.team?.activeUsers || 0,
+        total_devices: 0,
         tenants: tenants,
         history: kpis.history || []
     };
 }
 
-export async function createTenant(data: { name: string, email: string, website?: string, phone?: string, password?: string, whatsapp_number?: string, logo_url?: string }): Promise<void> {
+export async function createTenant(data: {
+    name: string;
+    email: string;
+    website?: string;
+    phone?: string;
+    password?: string;
+    whatsapp_number?: string;
+    logo_url?: string
+}): Promise<void> {
     await apiFetch('/api/admin/tenants', {
         method: 'POST',
         body: JSON.stringify(data)
@@ -107,10 +309,6 @@ export async function createTenantUser(
     });
 }
 
-export async function getTeam(): Promise<any[]> {
-    return await apiFetch('/api/admin/users');
-}
-
 // ============================================================================
 // OEM Database API
 // ============================================================================
@@ -124,14 +322,6 @@ export interface OemDatabaseStats {
     categories: { part_category: string; count: number }[];
 }
 
-export interface OemSeederJob {
-    jobId: string;
-    status: 'running' | 'completed' | 'failed';
-    pid: number;
-    startTime: string;
-    output: string[];
-}
-
 export async function getOemDatabaseStats(): Promise<OemDatabaseStats> {
     return await apiFetch('/api/admin/oem-database/stats');
 }
@@ -143,21 +333,7 @@ export async function triggerOemSeeder(script: 'massive' | 'remaining' | 'standa
     });
 }
 
-export async function getSeederJobStatus(jobId: string): Promise<OemSeederJob> {
-    return await apiFetch(`/api/admin/oem-database/seed/${jobId}`);
-}
-
-export async function quickSeedOem(brand: string = 'VOLKSWAGEN', count: number = 1000): Promise<{ success: boolean; added: number; totalRecords: number }> {
-    return await apiFetch('/api/admin/oem-database/quick-seed', {
-        method: 'POST',
-        body: JSON.stringify({ brand, count })
-    });
-}
-
-// ============================================================================
-// OEM Registry CRUD API
-// ============================================================================
-
+// OEM Registry CRUD
 export interface OemRecord {
     id: number;
     oem: string;
@@ -205,10 +381,6 @@ export async function getOemRecords(params: OemSearchParams = {}): Promise<OemRe
     return await apiFetch(`/api/admin/oem-records?${query.toString()}`);
 }
 
-export async function getOemRecord(id: number): Promise<OemRecord> {
-    return await apiFetch(`/api/admin/oem-records/${id}`);
-}
-
 export async function updateOemRecord(id: number, data: Partial<OemRecord>): Promise<{ success: boolean }> {
     return await apiFetch(`/api/admin/oem-records/${id}`, {
         method: 'PUT',
@@ -242,5 +414,3 @@ export async function runOemValidator(fix: boolean = false): Promise<{ success: 
         body: JSON.stringify({ fix })
     });
 }
-
-

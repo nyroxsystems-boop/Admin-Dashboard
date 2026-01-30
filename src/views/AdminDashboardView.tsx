@@ -3,7 +3,7 @@ import {
     Users, Shield, Smartphone, Activity, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, PieChart, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive, Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -12,11 +12,16 @@ import {
 import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats } from '../api/wws';
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
+import { MailsView } from './MailsView';
+import { useAuth } from '../context/AuthContext';
 
 // Mock Data for Charts (not used anymore, real data coming from API)
 // const chartData = [];
 
 export function AdminDashboardView() {
+    // --- Auth ---
+    const { user, logout } = useAuth();
+
     // --- State ---
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -24,7 +29,7 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'mails' | 'settings'>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Modal State
@@ -261,6 +266,12 @@ export function AdminDashboardView() {
                         onClick={() => setActiveTab('oem-registry')}
                     />
                     <SidebarItem
+                        icon={<Mail />}
+                        label="Mails"
+                        active={activeTab === 'mails'}
+                        onClick={() => setActiveTab('mails')}
+                    />
+                    <SidebarItem
                         icon={<Settings />}
                         label="Einstellungen"
                         active={activeTab === 'settings'}
@@ -268,19 +279,26 @@ export function AdminDashboardView() {
                     />
                 </nav>
 
-                <div className="p-4 border-t border-border/50">
+                <div className="p-4 border-t border-border/50 space-y-3">
                     <div className="bg-primary/5 rounded-xl p-4 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                             <Activity className="w-4 h-4 text-primary" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium">System Status</p>
+                            <p className="text-sm font-medium">{user?.username || 'Admin'}</p>
                             <p className="text-xs text-green-500 font-bold flex items-center gap-1">
                                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                Operational
+                                Online
                             </p>
                         </div>
                     </div>
+                    <button
+                        onClick={logout}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        <span className="text-sm font-medium">Abmelden</span>
+                    </button>
                 </div>
             </motion.aside>
 
@@ -487,6 +505,22 @@ export function AdminDashboardView() {
                                 exit={{ opacity: 0, y: -20 }}
                             >
                                 <OemRegistryView />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'mails' && (
+                            <motion.div
+                                key="mails"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="h-[calc(100vh-180px)]"
+                            >
+                                <div className="mb-6">
+                                    <h2 className="text-2xl font-bold">E-Mail Marketing</h2>
+                                    <p className="text-muted-foreground">KI-gestützte E-Mail-Kampagnen erstellen und versenden.</p>
+                                </div>
+                                <MailsView />
                             </motion.div>
                         )}
 
