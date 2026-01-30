@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
 import { MailsView } from './MailsView';
 import { BotTestingView } from './BotTestingView';
+import { InboxView } from './InboxView';
 import { useAuth } from '../context/AuthContext';
 
 // Mock Data for Charts (not used anymore, real data coming from API)
@@ -30,7 +31,7 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'mails' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'inbox' | 'mails' | 'settings'>('overview');
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Modal State
@@ -274,7 +275,13 @@ export function AdminDashboardView() {
                     />
                     <SidebarItem
                         icon={<Mail />}
-                        label="Mails"
+                        label="Postfach"
+                        active={activeTab === 'inbox'}
+                        onClick={() => setActiveTab('inbox')}
+                    />
+                    <SidebarItem
+                        icon={<Zap />}
+                        label="Marketing"
                         active={activeTab === 'mails'}
                         onClick={() => setActiveTab('mails')}
                     />
@@ -528,6 +535,22 @@ export function AdminDashboardView() {
                                     <p className="text-muted-foreground">WhatsApp-Bot Simulator – Direkte Logik ohne Twilio.</p>
                                 </div>
                                 <BotTestingView />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'inbox' && (
+                            <motion.div
+                                key="inbox"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="h-[calc(100vh-180px)]"
+                            >
+                                <div className="mb-6">
+                                    <h2 className="text-2xl font-bold">E-Mail Postfach</h2>
+                                    <p className="text-muted-foreground">Lese und beantworte E-Mails mit KI-Unterstützung.</p>
+                                </div>
+                                <InboxView />
                             </motion.div>
                         )}
 
