@@ -165,16 +165,7 @@ export function LoginView({ onForgotPassword }: Props) {
                             </div>
                         </div>
 
-                        {/* Forgot Password Link */}
-                        <div className="text-right">
-                            <button
-                                type="button"
-                                onClick={onForgotPassword}
-                                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                            >
-                                Passwort vergessen?
-                            </button>
-                        </div>
+
 
                         {/* Submit Button */}
                         <motion.button

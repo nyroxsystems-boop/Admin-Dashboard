@@ -78,16 +78,7 @@ function AppRouter() {
         );
     }
 
-    // Must change password - force reset
-    if (user?.must_change_password) {
-        return (
-            <PasswordResetView
-                onBack={() => setView('login')}
-            />
-        );
-    }
-
-    // Authenticated - show dashboard
+    // Authenticated - show dashboard (password change is in Settings)
     return <AdminDashboardView />;
 }
 

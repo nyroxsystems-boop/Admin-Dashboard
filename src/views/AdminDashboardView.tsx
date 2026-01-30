@@ -577,7 +577,77 @@ export function AdminDashboardView() {
                                 animate={{ opacity: 1, y: 0 }}
                                 className="max-w-4xl space-y-8"
                             >
+                                {/* Profile Section */}
                                 <div>
+                                    <h2 className="text-2xl font-bold">Mein Profil</h2>
+                                    <p className="text-muted-foreground">Passwort und Signatur verwalten.</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Password Change */}
+                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500"><Shield className="w-5 h-5" /></div>
+                                            <h3 className="font-bold">Passwort ändern</h3>
+                                        </div>
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const form = e.currentTarget;
+                                            const current = (form.elements.namedItem('currentPw') as HTMLInputElement).value;
+                                            const newPw = (form.elements.namedItem('newPw') as HTMLInputElement).value;
+                                            const confirm = (form.elements.namedItem('confirmPw') as HTMLInputElement).value;
+                                            if (newPw !== confirm) { toast.error('Passwörter stimmen nicht überein'); return; }
+                                            if (newPw.length < 8) { toast.error('Mindestens 8 Zeichen'); return; }
+                                            try {
+                                                const token = localStorage.getItem('admin_token');
+                                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app'}/api/admin-auth/change-password`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+                                                    body: JSON.stringify({ currentPassword: current, newPassword: newPw })
+                                                });
+                                                const data = await res.json();
+                                                if (res.ok) { toast.success('Passwort geändert'); form.reset(); }
+                                                else { toast.error(data.error); }
+                                            } catch { toast.error('Fehler beim Ändern'); }
+                                        }} className="space-y-3">
+                                            <input name="currentPw" type="password" placeholder="Aktuelles Passwort" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
+                                            <input name="newPw" type="password" placeholder="Neues Passwort" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
+                                            <input name="confirmPw" type="password" placeholder="Passwort bestätigen" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
+                                            <button type="submit" className="w-full py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors">Passwort ändern</button>
+                                        </form>
+                                    </div>
+
+                                    {/* Email Signature */}
+                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="p-2 rounded-lg bg-green-500/10 text-green-500"><Edit className="w-5 h-5" /></div>
+                                            <h3 className="font-bold">E-Mail Signatur</h3>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">Wird automatisch an deine E-Mails angehängt.</p>
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const form = e.currentTarget;
+                                            const sig = (form.elements.namedItem('signature') as HTMLTextAreaElement).value;
+                                            try {
+                                                const token = localStorage.getItem('admin_token');
+                                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app'}/api/admin-auth/update-signature`, {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+                                                    body: JSON.stringify({ signature: sig })
+                                                });
+                                                const data = await res.json();
+                                                if (res.ok) { toast.success('Signatur gespeichert'); }
+                                                else { toast.error(data.error); }
+                                            } catch { toast.error('Fehler beim Speichern'); }
+                                        }} className="space-y-3">
+                                            <textarea name="signature" rows={4} placeholder="Mit freundlichen Grüßen,&#10;Dein Name" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none" />
+                                            <button type="submit" className="w-full py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl font-medium transition-colors">Signatur speichern</button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="border-t border-border/50 pt-8">
                                     <h2 className="text-2xl font-bold">Globale Einstellungen</h2>
                                     <p className="text-muted-foreground">Konfigurieren Sie das Systemverhalten.</p>
                                 </div>
