@@ -41,8 +41,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     const userData = await getAdminMe();
                     setUser(userData);
                 } catch (error) {
-                    // Token invalid or expired
+                    // Token invalid or expired - force re-login
+                    console.log('[Auth] Token invalid, clearing auth');
                     clearAuth();
+                    setUser(null);
                 }
             }
             setIsLoading(false);
