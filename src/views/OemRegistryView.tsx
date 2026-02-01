@@ -249,7 +249,7 @@ export function OemRegistryView() {
                     className="px-4 py-2.5 bg-card border border-border/50 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none min-w-[150px]"
                 >
                     <option value="">Alle Marken</option>
-                    {data?.filters.brands.map(b => (
+                    {(data?.filters?.brands || []).map(b => (
                         <option key={b} value={b}>{b}</option>
                     ))}
                 </select>
@@ -260,7 +260,7 @@ export function OemRegistryView() {
                     className="px-4 py-2.5 bg-card border border-border/50 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none min-w-[150px]"
                 >
                     <option value="">Alle Kategorien</option>
-                    {data?.filters.categories.map(c => (
+                    {(data?.filters?.categories || []).map(c => (
                         <option key={c} value={c}>{c}</option>
                     ))}
                 </select>
@@ -357,8 +357,8 @@ export function OemRegistryView() {
                                         <td className="px-4 py-3 text-sm">{record.model || '-'}</td>
                                         <td className="px-4 py-3 text-center">
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${record.confidence >= 0.8 ? 'bg-green-500/10 text-green-600' :
-                                                    record.confidence >= 0.5 ? 'bg-amber-500/10 text-amber-600' :
-                                                        'bg-red-500/10 text-red-600'
+                                                record.confidence >= 0.5 ? 'bg-amber-500/10 text-amber-600' :
+                                                    'bg-red-500/10 text-red-600'
                                                 }`}>
                                                 {record.confidence >= 0.8 ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
                                                 {Math.round(record.confidence * 100)}%
