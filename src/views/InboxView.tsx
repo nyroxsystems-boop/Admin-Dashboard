@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
     Mail, Inbox, Send, RefreshCw, Search, Loader2, ArrowLeft,
     User, Clock, Paperclip, Reply, Sparkles, CheckCircle, AlertCircle,
-    Settings, Key, ChevronDown
+    Settings, Key, ChevronDown, PenSquare, X, Wand2, Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -73,6 +73,17 @@ export function InboxView() {
     const [aiLoading, setAiLoading] = useState(false);
     const [sendingReply, setSendingReply] = useState(false);
 
+    // Compose state
+    const [showCompose, setShowCompose] = useState(false);
+    const [composeData, setComposeData] = useState({
+        to: '',
+        subject: '',
+        body: ''
+    });
+    const [composeSending, setComposeSending] = useState(false);
+    const [composeAiLoading, setComposeAiLoading] = useState(false);
+    const [composeAiPrompt, setComposeAiPrompt] = useState('');
+
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Get auth headers dynamically to always use fresh token
@@ -97,11 +108,8 @@ export function InboxView() {
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
-                // Prompt for IMAP setup if not configured
-                if (!data.has_imap_setup) {
-                    setNeedsSetup(true);
-                    setShowSetup(true);
-                }
+                // Only prompt for IMAP setup when on personal mailbox
+                // Shared mailbox works without personal IMAP credentials
             }
         } catch (error) {
             console.error('Failed to load profile:', error);
@@ -221,6 +229,71 @@ export function InboxView() {
         }
     };
 
+    // Send new email
+    const sendCompose = async () => {
+        if (!composeData.to || !composeData.subject || !composeData.body) {
+            toast.error('Bitte alle Felder ausfüllen');
+            return;
+        }
+        setComposeSending(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/inbox/send`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                    to: composeData.to,
+                    subject: composeData.subject,
+                    body: composeData.body,
+                    useSharedMailbox: mailbox === 'shared'
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success('E-Mail gesendet');
+                setShowCompose(false);
+                setComposeData({ to: '', subject: '', body: '' });
+                setComposeAiPrompt('');
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setComposeSending(false);
+        }
+    };
+
+    // Generate AI email content
+    const generateComposeAI = async () => {
+        if (!composeAiPrompt.trim()) {
+            toast.error('Bitte einen Prompt eingeben');
+            return;
+        }
+        setComposeAiLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/emails/generate`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({ prompt: composeAiPrompt })
+            });
+            const data = await res.json();
+            if (res.ok && data.email) {
+                setComposeData(prev => ({
+                    ...prev,
+                    subject: data.email.subject || prev.subject,
+                    body: data.email.textContent || data.email.htmlContent || prev.body
+                }));
+                toast.success('E-Mail generiert');
+            } else {
+                throw new Error(data.error || 'Generierung fehlgeschlagen');
+            }
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setComposeAiLoading(false);
+        }
+    };
+
     const filteredEmails = emails.filter(e =>
         e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.from.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -333,6 +406,13 @@ export function InboxView() {
                             className="pl-10 pr-4 py-2 bg-muted border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 w-64"
                         />
                     </div>
+                    <button
+                        onClick={() => setShowCompose(true)}
+                        className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
+                    >
+                        <PenSquare className="w-4 h-4" />
+                        Neue E-Mail
+                    </button>
                     <button
                         onClick={loadEmails}
                         disabled={isLoading}
@@ -499,6 +579,130 @@ export function InboxView() {
                     )}
                 </div>
             </div>
+
+            {/* Compose Modal */}
+            <AnimatePresence>
+                {showCompose && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                        onClick={() => setShowCompose(false)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+                        >
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                                        <PenSquare className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold">Neue E-Mail</h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            Von: {mailbox === 'shared' ? 'info@partsunion.de' : profile?.email}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowCompose(false)}
+                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Form */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                {/* AI Generator */}
+                                <div className="bg-muted/50 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Sparkles className="w-4 h-4 text-purple-500" />
+                                        <span className="text-sm font-medium">KI-Assistent</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={composeAiPrompt}
+                                            onChange={(e) => setComposeAiPrompt(e.target.value)}
+                                            placeholder="z.B. Schreibe eine Willkommens-E-Mail für neue Händler..."
+                                            className="flex-1 px-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                        />
+                                        <button
+                                            onClick={generateComposeAI}
+                                            disabled={composeAiLoading || !composeAiPrompt.trim()}
+                                            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {composeAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                                            Generieren
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* To */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">An</label>
+                                    <input
+                                        type="email"
+                                        value={composeData.to}
+                                        onChange={(e) => setComposeData(prev => ({ ...prev, to: e.target.value }))}
+                                        placeholder="empfaenger@example.com"
+                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    />
+                                </div>
+
+                                {/* Subject */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Betreff</label>
+                                    <input
+                                        type="text"
+                                        value={composeData.subject}
+                                        onChange={(e) => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
+                                        placeholder="Betreff der E-Mail"
+                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    />
+                                </div>
+
+                                {/* Body */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Nachricht</label>
+                                    <textarea
+                                        value={composeData.body}
+                                        onChange={(e) => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+                                        placeholder="Ihre Nachricht..."
+                                        rows={10}
+                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
+                                <button
+                                    onClick={() => setShowCompose(false)}
+                                    className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-colors"
+                                >
+                                    Abbrechen
+                                </button>
+                                <button
+                                    onClick={sendCompose}
+                                    disabled={composeSending || !composeData.to || !composeData.subject || !composeData.body}
+                                    className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {composeSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    E-Mail senden
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
