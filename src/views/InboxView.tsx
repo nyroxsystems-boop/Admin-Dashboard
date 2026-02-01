@@ -676,10 +676,13 @@ export function InboxView() {
                                                 className="text-sm bg-muted border-0 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
                                             >
                                                 <option value="shared">info@partsunion.de (Shared)</option>
-                                                {profile?.email && (
+                                                {profile?.email && profile.email.toLowerCase() !== 'info@partsunion.de' && (
                                                     <option value="personal">{profile.email} (Persönlich)</option>
                                                 )}
                                             </select>
+                                            {profile?.email && profile.email.toLowerCase() === 'info@partsunion.de' && (
+                                                <span className="text-xs text-muted-foreground">({profile.username})</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
