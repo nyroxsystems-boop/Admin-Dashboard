@@ -78,11 +78,24 @@ export function InboxView() {
     const [composeData, setComposeData] = useState({
         to: '',
         subject: '',
-        body: ''
+        body: '',
+        htmlContent: ''
     });
     const [composeSending, setComposeSending] = useState(false);
     const [composeAiLoading, setComposeAiLoading] = useState(false);
     const [composeAiPrompt, setComposeAiPrompt] = useState('');
+    const [recipientType, setRecipientType] = useState<'manual' | 'group'>('manual');
+    const [selectedGroup, setSelectedGroup] = useState<string>('');
+    const [recipientList, setRecipientList] = useState<{ email: string; name: string }[]>([]);
+    const [loadingRecipients, setLoadingRecipients] = useState(false);
+
+    // Recipient groups
+    const RECIPIENT_GROUPS = [
+        { id: 'active', label: 'Aktive Händler', icon: '✓' },
+        { id: 'cancelled', label: 'Gekündigte Kunden', icon: '✗' },
+        { id: 'trial', label: 'Probe-Nutzer', icon: '⏱' },
+        { id: 'all', label: 'Alle Kunden', icon: '📋' }
+    ];
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -229,30 +242,58 @@ export function InboxView() {
         }
     };
 
-    // Send new email
+    // Send new email (supports both manual and group recipients)
     const sendCompose = async () => {
-        if (!composeData.to || !composeData.subject || !composeData.body) {
-            toast.error('Bitte alle Felder ausfüllen');
+        const hasManualRecipient = recipientType === 'manual' && composeData.to.trim();
+        const hasGroupRecipients = recipientType === 'group' && recipientList.length > 0;
+
+        if (!hasManualRecipient && !hasGroupRecipients) {
+            toast.error('Bitte Empfänger auswählen');
             return;
         }
+        if (!composeData.subject || !composeData.body) {
+            toast.error('Bitte Betreff und Nachricht ausfüllen');
+            return;
+        }
+
         setComposeSending(true);
         try {
-            const res = await fetch(`${API_BASE}/api/inbox/send`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({
-                    to: composeData.to,
-                    subject: composeData.subject,
-                    body: composeData.body,
-                    useSharedMailbox: mailbox === 'shared'
-                })
-            });
+            let res;
+            if (recipientType === 'group' && recipientList.length > 0) {
+                // Use marketing email endpoint for group sending
+                res = await fetch(`${API_BASE}/api/admin/emails/send`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        subject: composeData.subject,
+                        htmlContent: composeData.htmlContent || `<p>${composeData.body.replace(/\n/g, '</p><p>')}</p>`,
+                        customEmails: recipientList.map(r => r.email)
+                    })
+                });
+            } else {
+                // Single recipient via inbox endpoint
+                res = await fetch(`${API_BASE}/api/inbox/send`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        to: composeData.to,
+                        subject: composeData.subject,
+                        body: composeData.body,
+                        useSharedMailbox: mailbox === 'shared'
+                    })
+                });
+            }
+
             const data = await res.json();
             if (res.ok) {
-                toast.success('E-Mail gesendet');
+                const sentCount = data.sent || 1;
+                toast.success(`${sentCount} E-Mail${sentCount > 1 ? 's' : ''} gesendet`);
                 setShowCompose(false);
-                setComposeData({ to: '', subject: '', body: '' });
+                setComposeData({ to: '', subject: '', body: '', htmlContent: '' });
                 setComposeAiPrompt('');
+                setRecipientType('manual');
+                setSelectedGroup('');
+                setRecipientList([]);
             } else {
                 throw new Error(data.error);
             }
@@ -271,7 +312,7 @@ export function InboxView() {
         }
         setComposeAiLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/emails/generate`, {
+            const res = await fetch(`${API_BASE}/api/admin/emails/generate`, {
                 method: 'POST',
                 headers: getHeaders(),
                 body: JSON.stringify({ prompt: composeAiPrompt })
@@ -281,7 +322,8 @@ export function InboxView() {
                 setComposeData(prev => ({
                     ...prev,
                     subject: data.email.subject || prev.subject,
-                    body: data.email.textContent || data.email.htmlContent || prev.body
+                    body: data.email.plainText || data.email.htmlContent?.replace(/<[^>]*>/g, '') || prev.body,
+                    htmlContent: data.email.htmlContent || prev.htmlContent
                 }));
                 toast.success('E-Mail generiert');
             } else {
@@ -291,6 +333,25 @@ export function InboxView() {
             toast.error(error.message);
         } finally {
             setComposeAiLoading(false);
+        }
+    };
+
+    // Load recipients by group
+    const loadRecipientsByGroup = async (groupId: string) => {
+        setLoadingRecipients(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/emails/recipients/${groupId}`, {
+                headers: getHeaders()
+            });
+            const data = await res.json();
+            if (res.ok && data.recipients) {
+                setRecipientList(data.recipients);
+                toast.success(`${data.count} Empfänger geladen`);
+            }
+        } catch (error: any) {
+            toast.error('Empfänger konnten nicht geladen werden');
+        } finally {
+            setLoadingRecipients(false);
         }
     };
 
@@ -580,7 +641,7 @@ export function InboxView() {
                 </div>
             </div>
 
-            {/* Compose Modal */}
+            {/* Compose Modal - Two Column Layout */}
             <AnimatePresence>
                 {showCompose && (
                     <motion.div
@@ -595,16 +656,16 @@ export function InboxView() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+                            className="bg-card border border-border rounded-2xl w-full max-w-6xl h-[85vh] overflow-hidden flex flex-col shadow-2xl"
                         >
                             {/* Header */}
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
                                         <PenSquare className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
-                                        <h2 className="text-lg font-semibold">Neue E-Mail</h2>
+                                        <h2 className="text-lg font-semibold">Neue E-Mail erstellen</h2>
                                         <p className="text-sm text-muted-foreground">
                                             Von: {mailbox === 'shared' ? 'info@partsunion.de' : profile?.email}
                                         </p>
@@ -618,86 +679,202 @@ export function InboxView() {
                                 </button>
                             </div>
 
-                            {/* Form */}
-                            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                                {/* AI Generator */}
-                                <div className="bg-muted/50 rounded-xl p-4">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Sparkles className="w-4 h-4 text-purple-500" />
-                                        <span className="text-sm font-medium">KI-Assistent</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
+                            {/* Two Column Layout */}
+                            <div className="flex-1 flex overflow-hidden">
+                                {/* Left Column - AI Generator & Recipients */}
+                                <div className="w-1/2 border-r border-border flex flex-col overflow-y-auto p-6 space-y-6">
+                                    {/* AI Generator Section */}
+                                    <div className="bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl p-5 border border-purple-500/20">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <Sparkles className="w-5 h-5 text-purple-500" />
+                                            <span className="font-semibold">KI E-Mail Generator</span>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mb-4">
+                                            Beschreibe, was du senden möchtest. Die KI generiert Betreff und Inhalt im Partsunion-Stil.
+                                        </p>
+                                        <textarea
                                             value={composeAiPrompt}
                                             onChange={(e) => setComposeAiPrompt(e.target.value)}
-                                            placeholder="z.B. Schreibe eine Willkommens-E-Mail für neue Händler..."
-                                            className="flex-1 px-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="z.B. Schreibe eine Willkommens-E-Mail für neue Händler die sich gerade angemeldet haben. Erkläre die wichtigsten Features unserer Plattform..."
+                                            rows={5}
+                                            className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 resize-none mb-4"
                                         />
                                         <button
                                             onClick={generateComposeAI}
                                             disabled={composeAiLoading || !composeAiPrompt.trim()}
-                                            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 flex items-center gap-2"
+                                            className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 flex items-center justify-center gap-2"
                                         >
-                                            {composeAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                                            Generieren
+                                            {composeAiLoading ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Generiere...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Wand2 className="w-4 h-4" />
+                                                    E-Mail generieren
+                                                </>
+                                            )}
                                         </button>
+                                    </div>
+
+                                    {/* Recipients Section */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="w-5 h-5 text-primary" />
+                                            <span className="font-semibold">Empfänger auswählen</span>
+                                        </div>
+
+                                        {/* Toggle Manual vs Group */}
+                                        <div className="flex bg-muted rounded-xl p-1">
+                                            <button
+                                                onClick={() => setRecipientType('manual')}
+                                                className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${recipientType === 'manual' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                Manuelle Eingabe
+                                            </button>
+                                            <button
+                                                onClick={() => setRecipientType('group')}
+                                                className={`flex-1 py-2 rounded-lg font-medium text-sm transition-all ${recipientType === 'group' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                Kundengruppe
+                                            </button>
+                                        </div>
+
+                                        {recipientType === 'manual' ? (
+                                            <div>
+                                                <label className="block text-sm font-medium mb-2 text-muted-foreground">E-Mail-Adresse(n)</label>
+                                                <input
+                                                    type="text"
+                                                    value={composeData.to}
+                                                    onChange={(e) => setComposeData(prev => ({ ...prev, to: e.target.value }))}
+                                                    placeholder="name@firma.de, weitere@firma.de"
+                                                    className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                />
+                                                <p className="text-xs text-muted-foreground mt-2">Mehrere E-Mails mit Komma trennen</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {RECIPIENT_GROUPS.map(group => (
+                                                        <button
+                                                            key={group.id}
+                                                            onClick={() => {
+                                                                setSelectedGroup(group.id);
+                                                                loadRecipientsByGroup(group.id);
+                                                            }}
+                                                            className={`p-3 rounded-xl border text-left transition-all ${selectedGroup === group.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-lg">{group.icon}</span>
+                                                                <span className="font-medium text-sm">{group.label}</span>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                {loadingRecipients && (
+                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Lade Empfänger...
+                                                    </div>
+                                                )}
+
+                                                {recipientList.length > 0 && (
+                                                    <div className="bg-muted/50 rounded-xl p-3">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="text-sm font-medium">{recipientList.length} Empfänger ausgewählt</span>
+                                                        </div>
+                                                        <div className="max-h-32 overflow-y-auto space-y-1">
+                                                            {recipientList.slice(0, 10).map((r, i) => (
+                                                                <div key={i} className="text-xs text-muted-foreground truncate">
+                                                                    {r.name} ({r.email})
+                                                                </div>
+                                                            ))}
+                                                            {recipientList.length > 10 && (
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    ... und {recipientList.length - 10} weitere
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* To */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">An</label>
-                                    <input
-                                        type="email"
-                                        value={composeData.to}
-                                        onChange={(e) => setComposeData(prev => ({ ...prev, to: e.target.value }))}
-                                        placeholder="empfaenger@example.com"
-                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    />
-                                </div>
+                                {/* Right Column - Email Preview */}
+                                <div className="w-1/2 flex flex-col overflow-y-auto p-6">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Mail className="w-5 h-5 text-primary" />
+                                        <span className="font-semibold">E-Mail Vorschau</span>
+                                    </div>
 
-                                {/* Subject */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Betreff</label>
-                                    <input
-                                        type="text"
-                                        value={composeData.subject}
-                                        onChange={(e) => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
-                                        placeholder="Betreff der E-Mail"
-                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                    />
-                                </div>
+                                    {/* Email Form */}
+                                    <div className="flex-1 space-y-4">
+                                        {/* Subject */}
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">Betreff</label>
+                                            <input
+                                                type="text"
+                                                value={composeData.subject}
+                                                onChange={(e) => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
+                                                placeholder="Betreff der E-Mail"
+                                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                                            />
+                                        </div>
 
-                                {/* Body */}
-                                <div>
-                                    <label className="block text-sm font-medium mb-2">Nachricht</label>
-                                    <textarea
-                                        value={composeData.body}
-                                        onChange={(e) => setComposeData(prev => ({ ...prev, body: e.target.value }))}
-                                        placeholder="Ihre Nachricht..."
-                                        rows={10}
-                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-                                    />
+                                        {/* Body */}
+                                        <div className="flex-1 flex flex-col min-h-0">
+                                            <label className="block text-sm font-medium mb-2">Nachricht</label>
+                                            <textarea
+                                                value={composeData.body}
+                                                onChange={(e) => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+                                                placeholder="Ihre Nachricht..."
+                                                className="flex-1 w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none min-h-[300px]"
+                                            />
+                                        </div>
+
+                                        {/* HTML Preview (if available) */}
+                                        {composeData.htmlContent && (
+                                            <div className="border border-border rounded-xl overflow-hidden">
+                                                <div className="px-3 py-2 bg-muted text-xs font-medium border-b border-border">
+                                                    HTML Vorschau
+                                                </div>
+                                                <div
+                                                    className="p-4 bg-white text-black text-sm max-h-48 overflow-y-auto"
+                                                    dangerouslySetInnerHTML={{ __html: composeData.htmlContent }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Footer */}
-                            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
-                                <button
-                                    onClick={() => setShowCompose(false)}
-                                    className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-colors"
-                                >
-                                    Abbrechen
-                                </button>
-                                <button
-                                    onClick={sendCompose}
-                                    disabled={composeSending || !composeData.to || !composeData.subject || !composeData.body}
-                                    className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {composeSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    E-Mail senden
-                                </button>
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-border shrink-0">
+                                <div className="text-sm text-muted-foreground">
+                                    {recipientType === 'group' && recipientList.length > 0
+                                        ? `${recipientList.length} Empfänger ausgewählt`
+                                        : composeData.to ? `Empfänger: ${composeData.to}` : 'Kein Empfänger'}
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowCompose(false)}
+                                        className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-colors"
+                                    >
+                                        Abbrechen
+                                    </button>
+                                    <button
+                                        onClick={sendCompose}
+                                        disabled={composeSending || (!composeData.to && recipientList.length === 0) || !composeData.subject || !composeData.body}
+                                        className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {composeSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                        E-Mail senden
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>
