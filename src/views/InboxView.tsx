@@ -88,6 +88,7 @@ export function InboxView() {
     const [selectedGroup, setSelectedGroup] = useState<string>('');
     const [recipientList, setRecipientList] = useState<{ email: string; name: string }[]>([]);
     const [loadingRecipients, setLoadingRecipients] = useState(false);
+    const [sendFromMailbox, setSendFromMailbox] = useState<'shared' | 'personal'>('shared');
 
     // Recipient groups
     const RECIPIENT_GROUPS = [
@@ -279,7 +280,7 @@ export function InboxView() {
                         to: composeData.to,
                         subject: composeData.subject,
                         body: composeData.body,
-                        useSharedMailbox: mailbox === 'shared'
+                        useSharedMailbox: sendFromMailbox === 'shared'
                     })
                 });
             }
@@ -294,6 +295,7 @@ export function InboxView() {
                 setRecipientType('manual');
                 setSelectedGroup('');
                 setRecipientList([]);
+                setSendFromMailbox('shared');
             } else {
                 throw new Error(data.error);
             }
@@ -666,9 +668,19 @@ export function InboxView() {
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold">Neue E-Mail erstellen</h2>
-                                        <p className="text-sm text-muted-foreground">
-                                            Von: {mailbox === 'shared' ? 'info@partsunion.de' : profile?.email}
-                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-sm text-muted-foreground">Von:</span>
+                                            <select
+                                                value={sendFromMailbox}
+                                                onChange={(e) => setSendFromMailbox(e.target.value as 'shared' | 'personal')}
+                                                className="text-sm bg-muted border-0 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                                            >
+                                                <option value="shared">info@partsunion.de (Shared)</option>
+                                                {profile?.email && (
+                                                    <option value="personal">{profile.email} (Persönlich)</option>
+                                                )}
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                                 <button
