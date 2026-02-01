@@ -97,6 +97,11 @@ export function InboxView() {
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
+                // Prompt for IMAP setup if not configured
+                if (!data.has_imap_setup) {
+                    setNeedsSetup(true);
+                    setShowSetup(true);
+                }
             }
         } catch (error) {
             console.error('Failed to load profile:', error);
