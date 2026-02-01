@@ -3,7 +3,7 @@ import {
     Users, Shield, Smartphone, Activity, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, PieChart, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive, Mail, Bot
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive, Mail, Bot, UserCog
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -61,6 +61,11 @@ export function AdminDashboardView() {
     const [oemStats, setOemStats] = useState<OemDatabaseStats | null>(null);
     const [oemLoading, setOemLoading] = useState(false);
     const [seeding, setSeeding] = useState(false);
+
+    // Admin User Management State (Fecat only)
+    const [adminUsers, setAdminUsers] = useState<any[]>([]);
+    const [adminLoading, setAdminLoading] = useState(false);
+    const [editingAdminEmail, setEditingAdminEmail] = useState<{ id: number, email: string } | null>(null);
 
     // --- Effects ---
     useEffect(() => {
@@ -201,6 +206,55 @@ export function AdminDashboardView() {
         setEditMaxDevices(tenant.max_devices);
         setShowSettingsModal(true);
     };
+
+    // Admin User Management Functions (Fecat only)
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app';
+    const getHeaders = () => ({
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${localStorage.getItem('admin_token')}`
+    });
+
+    const loadAdminUsers = async () => {
+        setAdminLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin-auth/list-admins`, { headers: getHeaders() });
+            if (res.ok) {
+                const data = await res.json();
+                setAdminUsers(data.admins || []);
+            }
+        } catch (err) {
+            console.error('Failed to load admin users:', err);
+        } finally {
+            setAdminLoading(false);
+        }
+    };
+
+    const updateAdminEmail = async (adminId: number, email: string) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/admin-auth/update-email`, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify({ adminId, email })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(`E-Mail geändert: ${email}`);
+                setEditingAdminEmail(null);
+                loadAdminUsers();
+            } else {
+                toast.error(data.error || 'Fehler');
+            }
+        } catch (err) {
+            toast.error('Fehler beim Aktualisieren');
+        }
+    };
+
+    // Load admin users when settings tab is active and user is Fecat
+    useEffect(() => {
+        if (activeTab === 'settings' && user?.username?.toLowerCase() === 'fecat') {
+            loadAdminUsers();
+        }
+    }, [activeTab, user]);
 
     // --- Helpers ---
     const resetTenantForm = () => {
@@ -768,6 +822,93 @@ export function AdminDashboardView() {
                                         </p>
                                     </div>
                                 </div>
+
+                                {/* Admin User Management - Fecat Only */}
+                                {user?.username?.toLowerCase() === 'fecat' && (
+                                    <div className="space-y-4 border-t border-border/50 pt-8">
+                                        <h3 className="text-lg font-bold flex items-center gap-2">
+                                            <UserCog className="w-5 h-5 text-primary" />
+                                            Admin-Benutzerverwaltung
+                                            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-2">Nur Fecat</span>
+                                        </h3>
+
+                                        <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Verwalte die E-Mail-Adressen aller Admin-Benutzer
+                                                </p>
+                                                <button
+                                                    onClick={loadAdminUsers}
+                                                    disabled={adminLoading}
+                                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                                >
+                                                    <RefreshCcw className={`w-4 h-4 ${adminLoading ? 'animate-spin' : ''}`} />
+                                                </button>
+                                            </div>
+
+                                            {adminLoading ? (
+                                                <div className="flex justify-center py-8">
+                                                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {adminUsers.map((admin) => (
+                                                        <div key={admin.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white font-bold">
+                                                                    {admin.username?.charAt(0).toUpperCase() || '?'}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="font-bold">{admin.username}</div>
+                                                                    {editingAdminEmail?.id === admin.id ? (
+                                                                        <div className="flex items-center gap-2 mt-1">
+                                                                            <input
+                                                                                type="email"
+                                                                                value={editingAdminEmail.email}
+                                                                                onChange={(e) => setEditingAdminEmail({ ...editingAdminEmail, email: e.target.value })}
+                                                                                className="px-2 py-1 bg-background border border-border rounded-lg text-sm w-64 focus:ring-2 focus:ring-primary/20 outline-none"
+                                                                                placeholder="neue@email.de"
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => updateAdminEmail(editingAdminEmail.id, editingAdminEmail.email)}
+                                                                                className="px-3 py-1 bg-primary text-white rounded-lg text-sm hover:bg-primary/90"
+                                                                            >
+                                                                                Speichern
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => setEditingAdminEmail(null)}
+                                                                                className="px-3 py-1 bg-muted text-foreground rounded-lg text-sm hover:bg-muted/80"
+                                                                            >
+                                                                                Abbrechen
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                                                            <Mail className="w-3 h-3" />
+                                                                            {admin.email || 'Keine E-Mail'}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            {editingAdminEmail?.id !== admin.id && (
+                                                                <button
+                                                                    onClick={() => setEditingAdminEmail({ id: admin.id, email: admin.email || '' })}
+                                                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                                                    title="E-Mail bearbeiten"
+                                                                >
+                                                                    <Edit className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                    {adminUsers.length === 0 && (
+                                                        <p className="text-center text-muted-foreground py-4">Keine Admin-Benutzer gefunden</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
