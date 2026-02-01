@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { getAuthToken } from '../api/wws';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app';
 
@@ -54,7 +55,7 @@ const AI_PROMPTS = [
 ];
 
 export function InboxView() {
-    const { token } = useAuth();
+    const { user } = useAuth();
     const [mailbox, setMailbox] = useState<'shared' | 'personal'>('shared');
     const [emails, setEmails] = useState<EmailMessage[]>([]);
     const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
@@ -74,10 +75,11 @@ export function InboxView() {
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const authHeaders = {
+    // Get auth headers dynamically to always use fresh token
+    const getHeaders = () => ({
         'Content-Type': 'application/json',
-        'Authorization': `Token ${token}`
-    };
+        'Authorization': `Token ${getAuthToken()}`
+    });
 
     // Load profile on mount
     useEffect(() => {
@@ -91,7 +93,7 @@ export function InboxView() {
 
     const loadProfile = async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin-auth/profile`, { headers: authHeaders });
+            const res = await fetch(`${API_BASE}/api/admin-auth/profile`, { headers: getHeaders() });
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
@@ -105,7 +107,7 @@ export function InboxView() {
         setIsLoading(true);
         setSelectedEmail(null);
         try {
-            const res = await fetch(`${API_BASE}/api/inbox/emails?mailbox=${mailbox}`, { headers: authHeaders });
+            const res = await fetch(`${API_BASE}/api/inbox/emails?mailbox=${mailbox}`, { headers: getHeaders() });
             const data = await res.json();
 
             if (data.needsSetup) {
@@ -132,7 +134,7 @@ export function InboxView() {
         try {
             const res = await fetch(`${API_BASE}/api/inbox/setup`, {
                 method: 'POST',
-                headers: authHeaders,
+                headers: getHeaders(),
                 body: JSON.stringify({ imapPassword })
             });
             const data = await res.json();
@@ -158,7 +160,7 @@ export function InboxView() {
         try {
             const res = await fetch(`${API_BASE}/api/inbox/email/ai-reply`, {
                 method: 'POST',
-                headers: authHeaders,
+                headers: getHeaders(),
                 body: JSON.stringify({
                     originalEmail: {
                         from: selectedEmail.from.address,
@@ -190,7 +192,7 @@ export function InboxView() {
         try {
             const res = await fetch(`${API_BASE}/api/inbox/email/send`, {
                 method: 'POST',
-                headers: authHeaders,
+                headers: getHeaders(),
                 body: JSON.stringify({
                     to: selectedEmail.from.address,
                     subject: `Re: ${selectedEmail.subject}`,
@@ -369,8 +371,8 @@ export function InboxView() {
                                     {email.assignment && (
                                         <div className="flex items-center gap-2 mt-2">
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${email.assignment.status === 'done' ? 'bg-green-500/20 text-green-600' :
-                                                    email.assignment.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-600' :
-                                                        'bg-blue-500/20 text-blue-600'
+                                                email.assignment.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-600' :
+                                                    'bg-blue-500/20 text-blue-600'
                                                 }`}>
                                                 {email.assignment.assigned_to}
                                             </span>
