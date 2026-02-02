@@ -273,7 +273,7 @@ export function InboxView() {
                 });
             } else {
                 // Single recipient via inbox endpoint
-                res = await fetch(`${API_BASE}/api/inbox/send`, {
+                res = await fetch(`${API_BASE}/api/inbox/email/send`, {
                     method: 'POST',
                     headers: getHeaders(),
                     body: JSON.stringify({
