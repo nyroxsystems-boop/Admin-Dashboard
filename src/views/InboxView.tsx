@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
     Mail, Inbox, Send, RefreshCw, Search, Loader2, ArrowLeft,
     User, Clock, Paperclip, Reply, Sparkles, CheckCircle, AlertCircle,
-    Settings, Key, ChevronDown, PenSquare, X, Wand2, Users
+    Settings, Key, ChevronDown, PenSquare, X, Wand2, Users, Megaphone, FileText, Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
@@ -88,6 +88,8 @@ export function InboxView() {
     const [selectedGroup, setSelectedGroup] = useState<string>('');
     const [recipientList, setRecipientList] = useState<{ email: string; name: string }[]>([]);
     const [loadingRecipients, setLoadingRecipients] = useState(false);
+    const [emailType, setEmailType] = useState<'normal' | 'promotional'>('normal');
+    const [showPreview, setShowPreview] = useState(false);
     const [sendFromMailbox, setSendFromMailbox] = useState<'shared' | 'personal'>('shared');
 
     // Recipient groups
@@ -317,7 +319,10 @@ export function InboxView() {
             const res = await fetch(`${API_BASE}/api/admin/emails/generate`, {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify({ prompt: composeAiPrompt })
+                body: JSON.stringify({
+                    prompt: composeAiPrompt,
+                    type: emailType // 'normal' or 'promotional'
+                })
             });
             const data = await res.json();
             if (res.ok && data.email) {
@@ -327,7 +332,11 @@ export function InboxView() {
                     body: data.email.plainText || data.email.htmlContent?.replace(/<[^>]*>/g, '') || prev.body,
                     htmlContent: data.email.htmlContent || prev.htmlContent
                 }));
-                toast.success('E-Mail generiert');
+                // Auto-show preview for promotional emails with HTML
+                if (emailType === 'promotional' && data.email.htmlContent) {
+                    setShowPreview(true);
+                }
+                toast.success(emailType === 'promotional' ? 'Werbe-Mail generiert' : 'E-Mail generiert');
             } else {
                 throw new Error(data.error || 'Generierung fehlgeschlagen');
             }
@@ -698,26 +707,62 @@ export function InboxView() {
                             <div className="flex-1 flex overflow-hidden">
                                 {/* Left Column - AI Generator & Recipients */}
                                 <div className="w-1/2 border-r border-border flex flex-col overflow-y-auto p-6 space-y-6">
+                                    {/* Email Type Toggle */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <Mail className="w-5 h-5 text-primary" />
+                                            <span className="font-semibold">E-Mail Typ</span>
+                                        </div>
+                                        <div className="flex bg-muted rounded-xl p-1">
+                                            <button
+                                                onClick={() => setEmailType('normal')}
+                                                className={`flex-1 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${emailType === 'normal' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                                Normal
+                                            </button>
+                                            <button
+                                                onClick={() => setEmailType('promotional')}
+                                                className={`flex-1 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${emailType === 'promotional' ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                            >
+                                                <Megaphone className="w-4 h-4" />
+                                                Werbe-Mail
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {emailType === 'normal'
+                                                ? 'Einfache Text-E-Mail für direkte Kommunikation'
+                                                : 'Gestylte HTML-E-Mail mit Partsunion Branding für Marketing'
+                                            }
+                                        </p>
+                                    </div>
+
                                     {/* AI Generator Section */}
-                                    <div className="bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-xl p-5 border border-purple-500/20">
+                                    <div className={`rounded-xl p-5 border ${emailType === 'promotional' ? 'bg-gradient-to-br from-orange-500/10 to-pink-500/10 border-orange-500/20' : 'bg-gradient-to-br from-purple-500/10 to-indigo-500/10 border-purple-500/20'}`}>
                                         <div className="flex items-center gap-2 mb-4">
-                                            <Sparkles className="w-5 h-5 text-purple-500" />
+                                            <Sparkles className={`w-5 h-5 ${emailType === 'promotional' ? 'text-orange-500' : 'text-purple-500'}`} />
                                             <span className="font-semibold">KI E-Mail Generator</span>
                                         </div>
                                         <p className="text-sm text-muted-foreground mb-4">
-                                            Beschreibe, was du senden möchtest. Die KI generiert Betreff und Inhalt im Partsunion-Stil.
+                                            {emailType === 'promotional'
+                                                ? 'Beschreibe deine Werbekampagne. Die KI generiert gestylte HTML-E-Mails mit Partsunion Branding.'
+                                                : 'Beschreibe, was du senden möchtest. Die KI generiert Betreff und Inhalt im Partsunion-Stil.'
+                                            }
                                         </p>
                                         <textarea
                                             value={composeAiPrompt}
                                             onChange={(e) => setComposeAiPrompt(e.target.value)}
-                                            placeholder="z.B. Schreibe eine Willkommens-E-Mail für neue Händler die sich gerade angemeldet haben. Erkläre die wichtigsten Features unserer Plattform..."
+                                            placeholder={emailType === 'promotional'
+                                                ? 'z.B. Erstelle eine Werbe-E-Mail für unsere neue WAWI-Integration. Betone die Zeitersparnis und einfache Bedienung. Füge einen Call-to-Action Button hinzu...'
+                                                : 'z.B. Schreibe eine Willkommens-E-Mail für neue Händler die sich gerade angemeldet haben. Erkläre die wichtigsten Features unserer Plattform...'
+                                            }
                                             rows={5}
-                                            className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 resize-none mb-4"
+                                            className={`w-full px-4 py-3 bg-background border border-border rounded-xl text-sm focus:outline-none resize-none mb-4 ${emailType === 'promotional' ? 'focus:ring-2 focus:ring-orange-500/30' : 'focus:ring-2 focus:ring-purple-500/30'}`}
                                         />
                                         <button
                                             onClick={generateComposeAI}
                                             disabled={composeAiLoading || !composeAiPrompt.trim()}
-                                            className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-medium hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 flex items-center justify-center gap-2"
+                                            className={`w-full px-4 py-3 text-white rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2 ${emailType === 'promotional' ? 'bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-500 hover:to-pink-500' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500'}`}
                                         >
                                             {composeAiLoading ? (
                                                 <>
@@ -727,7 +772,7 @@ export function InboxView() {
                                             ) : (
                                                 <>
                                                     <Wand2 className="w-4 h-4" />
-                                                    E-Mail generieren
+                                                    {emailType === 'promotional' ? 'Werbe-Mail generieren' : 'E-Mail generieren'}
                                                 </>
                                             )}
                                         </button>
@@ -820,14 +865,25 @@ export function InboxView() {
                                 </div>
 
                                 {/* Right Column - Email Preview */}
-                                <div className="w-1/2 flex flex-col overflow-y-auto p-6">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <Mail className="w-5 h-5 text-primary" />
-                                        <span className="font-semibold">E-Mail Vorschau</span>
+                                <div className="w-1/2 flex flex-col overflow-hidden p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <Mail className="w-5 h-5 text-primary" />
+                                            <span className="font-semibold">E-Mail {showPreview ? 'Vorschau' : 'Bearbeiten'}</span>
+                                        </div>
+                                        {(composeData.htmlContent || emailType === 'promotional') && (
+                                            <button
+                                                onClick={() => setShowPreview(!showPreview)}
+                                                className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${showPreview ? 'bg-primary text-white' : 'bg-muted hover:bg-muted/80'}`}
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                                {showPreview ? 'Editor' : 'Vorschau'}
+                                            </button>
+                                        )}
                                     </div>
 
-                                    {/* Email Form */}
-                                    <div className="flex-1 space-y-4">
+                                    {/* Email Form / Preview */}
+                                    <div className="flex-1 space-y-4 overflow-y-auto">
                                         {/* Subject */}
                                         <div>
                                             <label className="block text-sm font-medium mb-2">Betreff</label>
@@ -840,27 +896,57 @@ export function InboxView() {
                                             />
                                         </div>
 
-                                        {/* Body */}
-                                        <div className="flex-1 flex flex-col min-h-0">
-                                            <label className="block text-sm font-medium mb-2">Nachricht</label>
-                                            <textarea
-                                                value={composeData.body}
-                                                onChange={(e) => setComposeData(prev => ({ ...prev, body: e.target.value }))}
-                                                placeholder="Ihre Nachricht..."
-                                                className="flex-1 w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none min-h-[300px]"
-                                            />
-                                        </div>
-
-                                        {/* HTML Preview (if available) */}
-                                        {composeData.htmlContent && (
-                                            <div className="border border-border rounded-xl overflow-hidden">
-                                                <div className="px-3 py-2 bg-muted text-xs font-medium border-b border-border">
-                                                    HTML Vorschau
+                                        {showPreview && composeData.htmlContent ? (
+                                            /* Full HTML Preview */
+                                            <div className="flex-1 border border-border rounded-xl overflow-hidden">
+                                                <div className="px-4 py-3 bg-gradient-to-r from-orange-500/10 to-pink-500/10 text-sm font-medium border-b border-border flex items-center gap-2">
+                                                    <Megaphone className="w-4 h-4 text-orange-500" />
+                                                    Werbe-Mail Vorschau
                                                 </div>
                                                 <div
-                                                    className="p-4 bg-white text-black text-sm max-h-48 overflow-y-auto"
+                                                    className="bg-white min-h-[400px] overflow-y-auto"
                                                     dangerouslySetInnerHTML={{ __html: composeData.htmlContent }}
                                                 />
+                                            </div>
+                                        ) : (
+                                            /* Body Editor */
+                                            <div className="flex-1 flex flex-col min-h-0">
+                                                <label className="block text-sm font-medium mb-2">Nachricht</label>
+                                                <textarea
+                                                    value={composeData.body}
+                                                    onChange={(e) => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+                                                    placeholder={emailType === 'promotional' ? 'Werbe-Text hier eingeben oder KI generieren lassen...' : 'Ihre Nachricht...'}
+                                                    className="flex-1 w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none min-h-[300px]"
+                                                />
+                                                {emailType === 'promotional' && !composeData.htmlContent && (
+                                                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                                                        <Sparkles className="w-3 h-3" />
+                                                        Nutze den KI-Generator für professionelles HTML-Design
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Mini HTML Preview when not in full preview mode */}
+                                        {!showPreview && composeData.htmlContent && (
+                                            <div className="border border-border rounded-xl overflow-hidden">
+                                                <div className="px-3 py-2 bg-muted text-xs font-medium border-b border-border flex items-center justify-between">
+                                                    <span className="flex items-center gap-1">
+                                                        <Megaphone className="w-3 h-3 text-orange-500" />
+                                                        HTML generiert
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setShowPreview(true)}
+                                                        className="text-primary hover:underline"
+                                                    >
+                                                        Vorschau anzeigen
+                                                    </button>
+                                                </div>
+                                                <div
+                                                    className="p-4 bg-white text-black text-sm max-h-32 overflow-hidden relative"
+                                                    dangerouslySetInnerHTML={{ __html: composeData.htmlContent }}
+                                                />
+                                                <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                                             </div>
                                         )}
                                     </div>
