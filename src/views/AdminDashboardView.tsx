@@ -615,13 +615,15 @@ export function AdminDashboardView() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="h-[calc(100vh-180px)]"
+                                className="flex-1 flex flex-col min-h-0 h-[calc(100vh-140px)] md:h-[calc(100vh-180px)]"
                             >
-                                <div className="mb-6">
+                                <div className="mb-4 md:mb-6 hidden md:block">
                                     <h2 className="text-2xl font-bold">OEM Bot Testing</h2>
                                     <p className="text-muted-foreground">WhatsApp-Bot Simulator – Direkte Logik ohne Twilio.</p>
                                 </div>
-                                <BotTestingView />
+                                <div className="flex-1 min-h-0">
+                                    <BotTestingView />
+                                </div>
                             </motion.div>
                         )}
 

@@ -163,23 +163,24 @@ export function BotTestingView() {
     ];
 
     return (
-        <div className="h-full flex gap-6">
-            {/* Chat Panel */}
-            <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/50">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                            <Bot className="w-5 h-5 text-white" />
+        <div className="h-full flex flex-col md:flex-row gap-4 md:gap-6">
+            {/* Chat Panel - Full width on mobile */}
+            <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden min-h-0">
+                {/* Header - Compact on mobile */}
+                <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-border bg-muted/50">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg md:rounded-xl flex items-center justify-center">
+                            <Bot className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
                         <div>
-                            <h3 className="text-foreground font-semibold">OEM Bot Simulator</h3>
-                            <p className="text-muted-foreground text-sm">Twilio Bypass - Direkte Bot-Logik</p>
+                            <h3 className="text-foreground font-semibold text-sm md:text-base">OEM Bot</h3>
+                            <p className="text-muted-foreground text-xs hidden md:block">Twilio Bypass - Direkte Bot-Logik</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border">
+                        {/* Phone input - hidden on mobile */}
+                        <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border">
                             <Phone className="w-4 h-4 text-muted-foreground" />
                             <input
                                 type="text"
@@ -194,32 +195,32 @@ export function BotTestingView() {
                             className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                             title="Konversation zurücksetzen"
                         >
-                            <RotateCcw className="w-5 h-5" />
+                            <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
                         </button>
                     </div>
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 min-h-0">
                     {messages.length === 0 && (
-                        <div className="h-full flex flex-col items-center justify-center text-center">
-                            <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
-                                <MessageSquare className="w-8 h-8 text-muted-foreground" />
+                        <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                            <div className="w-12 h-12 md:w-16 md:h-16 bg-muted rounded-xl md:rounded-2xl flex items-center justify-center mb-3 md:mb-4">
+                                <MessageSquare className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground" />
                             </div>
-                            <h4 className="text-foreground font-medium mb-2">Bot Simulator bereit</h4>
-                            <p className="text-muted-foreground text-sm max-w-xs mb-6">
-                                Senden Sie eine Nachricht um den OEM-Bot zu testen. Die Antworten werden direkt berechnet.
+                            <h4 className="text-foreground font-medium mb-2 text-sm md:text-base">Bot Simulator bereit</h4>
+                            <p className="text-muted-foreground text-xs md:text-sm max-w-xs mb-4 md:mb-6">
+                                Senden Sie eine Nachricht um den OEM-Bot zu testen.
                             </p>
 
-                            {/* Quick prompts */}
+                            {/* Quick prompts - scrollable on mobile */}
                             <div className="flex flex-wrap gap-2 max-w-md justify-center">
-                                {quickPrompts.map((prompt, i) => (
+                                {quickPrompts.slice(0, 3).map((prompt, i) => (
                                     <button
                                         key={i}
                                         onClick={() => setInputText(prompt)}
                                         className="px-3 py-1.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground text-xs rounded-full transition-colors border border-border"
                                     >
-                                        {prompt}
+                                        {prompt.length > 25 ? prompt.substring(0, 25) + '...' : prompt}
                                     </button>
                                 ))}
                             </div>
@@ -234,18 +235,18 @@ export function BotTestingView() {
                                 animate={{ opacity: 1, y: 0 }}
                                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                                <div className={`flex items-start gap-2 max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${msg.role === 'user'
+                                <div className={`flex items-start gap-2 max-w-[85%] md:max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                                    <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex-shrink-0 flex items-center justify-center ${msg.role === 'user'
                                         ? 'bg-blue-600'
                                         : 'bg-gradient-to-br from-green-500 to-emerald-600'
                                         }`}>
                                         {msg.role === 'user' ? (
-                                            <User className="w-4 h-4 text-white" />
+                                            <User className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
                                         ) : (
-                                            <Bot className="w-4 h-4 text-white" />
+                                            <Bot className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
                                         )}
                                     </div>
-                                    <div className={`px-4 py-3 rounded-2xl ${msg.role === 'user'
+                                    <div className={`px-3 py-2 md:px-4 md:py-3 rounded-2xl ${msg.role === 'user'
                                         ? 'bg-blue-600 text-white'
                                         : 'bg-muted text-foreground border border-border'
                                         }`}>
@@ -262,7 +263,7 @@ export function BotTestingView() {
                             animate={{ opacity: 1 }}
                             className="flex justify-start"
                         >
-                            <div className="flex items-center gap-2 px-4 py-3 bg-muted rounded-2xl border border-border">
+                            <div className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 bg-muted rounded-2xl border border-border">
                                 <Loader2 className="w-4 h-4 text-green-500 animate-spin" />
                                 <span className="text-muted-foreground text-sm">Bot denkt nach...</span>
                             </div>
@@ -272,16 +273,16 @@ export function BotTestingView() {
                     <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input Area */}
-                <div className="p-4 border-t border-border">
-                    <div className="flex gap-3">
+                {/* Input Area - Always visible and accessible */}
+                <div className="p-3 md:p-4 border-t border-border bg-card">
+                    <div className="flex gap-2 md:gap-3">
                         <input
                             type="text"
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                             placeholder="Nachricht eingeben..."
-                            className="flex-1 px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-green-500/50"
+                            className="flex-1 px-3 py-2.5 md:px-4 md:py-3 bg-muted border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-green-500/50 text-sm md:text-base"
                             disabled={isLoading}
                         />
                         <motion.button
@@ -289,16 +290,16 @@ export function BotTestingView() {
                             disabled={isLoading || !inputText.trim()}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Send className="w-5 h-5" />
+                            <Send className="w-4 h-4 md:w-5 md:h-5" />
                         </motion.button>
                     </div>
                 </div>
             </div>
 
-            {/* Details Panel */}
-            <div className="w-80 flex flex-col gap-4">
+            {/* Details Panel - Hidden on mobile */}
+            <div className="hidden md:flex w-80 flex-col gap-4">
                 {/* OEM Stats Card */}
                 <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center gap-3 mb-4">
