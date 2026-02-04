@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
-    Users, Shield, Smartphone, Activity, Server,
+    Users, Shield, Smartphone, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
-    LayoutDashboard, PieChart, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, Zap, HardDrive, Mail, Bot, UserCog
+    LayoutDashboard, Search, Bell, Menu, X,
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, HardDrive, Mail, Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -12,7 +12,6 @@ import {
 import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats } from '../api/wws';
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
-import { MailsView } from './MailsView';
 import { BotTestingView } from './BotTestingView';
 import { InboxView } from './InboxView';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +30,8 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'inbox' | 'mails' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'inbox' | 'settings'>('overview');
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     // Modal State
@@ -313,71 +313,93 @@ export function AdminDashboardView() {
                     <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Admin</span>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-2">
+                {/* Mobile Close Button */}
+                <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors md:hidden"
+                >
+                    <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+
+                <nav className="flex-1 p-4 space-y-1">
                     <SidebarItem
                         icon={<LayoutDashboard />}
                         label="Übersicht"
                         active={activeTab === 'overview'}
-                        onClick={() => setActiveTab('overview')}
+                        onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
                     />
                     <SidebarItem
                         icon={<Users />}
                         label="Händler & Mandanten"
                         active={activeTab === 'tenants'}
-                        onClick={() => setActiveTab('tenants')}
+                        onClick={() => { setActiveTab('tenants'); setSidebarOpen(false); }}
                     />
                     <SidebarItem
                         icon={<Database />}
                         label="OEM Registry"
                         active={activeTab === 'oem-registry'}
-                        onClick={() => setActiveTab('oem-registry')}
+                        onClick={() => { setActiveTab('oem-registry'); setSidebarOpen(false); }}
                     />
                     <SidebarItem
                         icon={<Bot />}
                         label="Bot Testing"
                         active={activeTab === 'bot-testing'}
-                        onClick={() => setActiveTab('bot-testing')}
+                        onClick={() => { setActiveTab('bot-testing'); setSidebarOpen(false); }}
                     />
                     <SidebarItem
                         icon={<Mail />}
                         label="Postfach"
                         active={activeTab === 'inbox'}
-                        onClick={() => setActiveTab('inbox')}
-                    />
-                    <SidebarItem
-                        icon={<Zap />}
-                        label="Marketing"
-                        active={activeTab === 'mails'}
-                        onClick={() => setActiveTab('mails')}
-                    />
-                    <SidebarItem
-                        icon={<Settings />}
-                        label="Einstellungen"
-                        active={activeTab === 'settings'}
-                        onClick={() => setActiveTab('settings')}
+                        onClick={() => { setActiveTab('inbox'); setSidebarOpen(false); }}
                     />
                 </nav>
 
-                <div className="p-4 border-t border-border/50 space-y-3">
-                    <div className="bg-primary/5 rounded-xl p-4 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                            <Activity className="w-4 h-4 text-primary" />
+                {/* Profile Section with Dropdown */}
+                <div className="p-4 border-t border-border/50 relative">
+                    <button
+                        onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                        className="w-full bg-muted/50 hover:bg-muted rounded-xl p-3 flex items-center gap-3 transition-colors"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-white text-sm shadow-lg">
+                            {(user?.username || 'A').charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                            <p className="text-sm font-medium">{user?.username || 'Admin'}</p>
-                            <p className="text-xs text-green-500 font-bold flex items-center gap-1">
-                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <div className="flex-1 text-left">
+                            <p className="text-sm font-semibold text-foreground">{user?.username || 'Admin'}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                                 Online
                             </p>
                         </div>
-                    </div>
-                    <button
-                        onClick={logout}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                    >
-                        <LogOut className="w-5 h-5" />
-                        <span className="text-sm font-medium">Abmelden</span>
+                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${profileMenuOpen ? 'rotate-90' : ''}`} />
                     </button>
+
+                    {/* Profile Dropdown Menu */}
+                    <AnimatePresence>
+                        {profileMenuOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 8 }}
+                                className="absolute bottom-full left-4 right-4 mb-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50"
+                            >
+                                <button
+                                    onClick={() => { setActiveTab('settings'); setProfileMenuOpen(false); setSidebarOpen(false); }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors"
+                                >
+                                    <Settings className="w-4 h-4 text-muted-foreground" />
+                                    Einstellungen
+                                </button>
+                                <div className="border-t border-border" />
+                                <button
+                                    onClick={logout}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                    Abmelden
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </motion.aside>
 
@@ -619,21 +641,8 @@ export function AdminDashboardView() {
                             </motion.div>
                         )}
 
-                        {activeTab === 'mails' && (
-                            <motion.div
-                                key="mails"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="h-[calc(100vh-180px)]"
-                            >
-                                <div className="mb-6">
-                                    <h2 className="text-2xl font-bold">E-Mail Marketing</h2>
-                                    <p className="text-muted-foreground">KI-gestützte E-Mail-Kampagnen erstellen und versenden.</p>
-                                </div>
-                                <MailsView />
-                            </motion.div>
-                        )}
+
+
 
                         {activeTab === 'settings' && (
                             <motion.div
@@ -796,7 +805,7 @@ export function AdminDashboardView() {
                                                 disabled={seeding}
                                                 className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-xl font-medium shadow-lg shadow-primary/25 hover:shadow-xl transition-all disabled:opacity-50"
                                             >
-                                                {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                                                {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />}
                                                 Massive Seeder (1M+)
                                             </button>
                                             <button
@@ -827,7 +836,7 @@ export function AdminDashboardView() {
                                 {user?.username?.toLowerCase() === 'fecat' && (
                                     <div className="space-y-4 border-t border-border/50 pt-8">
                                         <h3 className="text-lg font-bold flex items-center gap-2">
-                                            <UserCog className="w-5 h-5 text-primary" />
+                                            <Shield className="w-5 h-5 text-primary" />
                                             Admin-Benutzerverwaltung
                                             <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-2">Nur Fecat</span>
                                         </h3>

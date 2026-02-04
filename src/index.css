@@ -212,6 +212,54 @@ select:focus {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
   }
+
+  /* Mobile-first table improvements */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Compact cards on mobile */
+  .glass-card {
+    padding: 1rem;
+  }
+
+  /* Stack grid items on mobile */
+  .grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Hide search on mobile */
+  .search-desktop {
+    display: none;
+  }
+
+  /* Full-width buttons on mobile */
+  button.primary-action {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+
+  .grid-cols-3,
+  .grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Smaller padding on very small screens */
+  .content-area {
+    padding: 0.75rem;
+  }
 }
 
 @media (min-width: 769px) {
@@ -219,6 +267,7 @@ select:focus {
     display: none !important;
   }
 }
+
 
 /* Focus Ring Enhancement */
 input:focus,
