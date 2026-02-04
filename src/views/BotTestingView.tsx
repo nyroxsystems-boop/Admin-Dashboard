@@ -9,7 +9,7 @@ import {
     MessageSquare, Send, RotateCcw, Loader2,
     Bot, User, Trash2, ChevronDown,
     Phone, Sparkles, CheckCircle, AlertCircle,
-    Car, Package, Hash
+    Car, Package, Hash, ImagePlus, X, Image
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,6 +19,7 @@ interface Message {
     role: 'user' | 'bot';
     text: string;
     timestamp: Date;
+    imagePreview?: string; // Base64 preview for images
 }
 
 interface OrderDetails {
@@ -56,7 +57,9 @@ export function BotTestingView() {
     const [isLoading, setIsLoading] = useState(false);
     const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
     const [oemStats, setOemStats] = useState<OemStats | null>(null);
+    const [imageData, setImageData] = useState<{ base64: string; preview: string } | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -80,18 +83,60 @@ export function BotTestingView() {
         }
     };
 
+    // Handle image selection
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error('Bitte nur Bilder hochladen');
+            return;
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('Bild ist zu groß (max. 10MB)');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target?.result as string;
+            setImageData({
+                base64: base64.split(',')[1], // Remove data:image/...;base64, prefix
+                preview: base64 // Keep full for preview
+            });
+            toast.success('Bild hinzugefügt - Fahrzeugschein erkannt?');
+        };
+        reader.readAsDataURL(file);
+
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    // Remove selected image
+    const removeImage = () => {
+        setImageData(null);
+    };
+
     // Send message
     const sendMessage = async () => {
-        if (!inputText.trim() || isLoading) return;
+        if ((!inputText.trim() && !imageData) || isLoading) return;
 
         const userMessage: Message = {
             role: 'user',
-            text: inputText.trim(),
-            timestamp: new Date()
+            text: inputText.trim() || (imageData ? '📷 Fahrzeugschein-Bild' : ''),
+            timestamp: new Date(),
+            imagePreview: imageData?.preview
         };
 
         setMessages(prev => [...prev, userMessage]);
         setInputText('');
+        const currentImageData = imageData;
+        setImageData(null);
         setIsLoading(true);
 
         try {
@@ -100,7 +145,8 @@ export function BotTestingView() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     from: phoneNumber,
-                    text: userMessage.text
+                    text: userMessage.text,
+                    imageBase64: currentImageData?.base64
                 })
             });
 
@@ -148,6 +194,7 @@ export function BotTestingView() {
 
             setMessages([]);
             setOrderDetails(null);
+            setImageData(null);
             toast.success('Konversation zurückgesetzt');
         } catch (err: any) {
             toast.error(`Reset fehlgeschlagen: ${err.message}`);
@@ -250,6 +297,14 @@ export function BotTestingView() {
                                         ? 'bg-blue-600 text-white'
                                         : 'bg-muted text-foreground border border-border'
                                         }`}>
+                                        {/* Image preview if present */}
+                                        {msg.imagePreview && (
+                                            <img
+                                                src={msg.imagePreview}
+                                                alt="Anhang"
+                                                className="max-h-40 w-auto rounded-lg mb-2 border border-white/20"
+                                            />
+                                        )}
                                         <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                                     </div>
                                 </div>
@@ -275,7 +330,44 @@ export function BotTestingView() {
 
                 {/* Input Area - Always visible and accessible */}
                 <div className="p-3 md:p-4 border-t border-border bg-card">
+                    {/* Image Preview */}
+                    {imageData && (
+                        <div className="mb-3 relative inline-block">
+                            <img
+                                src={imageData.preview}
+                                alt="Vorschau"
+                                className="h-20 w-auto rounded-lg border border-border object-cover"
+                            />
+                            <button
+                                onClick={removeImage}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    )}
+
                     <div className="flex gap-2 md:gap-3">
+                        {/* Hidden file input */}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                        />
+
+                        {/* Image upload button */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isLoading}
+                            className="px-3 py-2.5 md:py-3 bg-muted border border-border rounded-xl text-muted-foreground hover:text-foreground hover:border-blue-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            title="Fahrzeugschein-Bild hochladen"
+                        >
+                            <ImagePlus className="w-5 h-5" />
+                            <span className="hidden md:inline text-sm">Bild</span>
+                        </button>
+
                         <input
                             type="text"
                             value={inputText}
@@ -287,7 +379,7 @@ export function BotTestingView() {
                         />
                         <motion.button
                             onClick={sendMessage}
-                            disabled={isLoading || !inputText.trim()}
+                            disabled={isLoading || (!inputText.trim() && !imageData)}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
