@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats } from '../api/wws';
+import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature } from '../api/wws';
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
 import { BotTestingView } from './BotTestingView';
@@ -139,15 +139,27 @@ export function AdminDashboardView() {
     };
 
     const handleCreateTenant = async () => {
-        if (!newTenantName || !newTenantEmail) {
-            toast.error('Firmenname und E-Mail sind Pflichtfelder');
+        const trimmedName = newTenantName.trim();
+        const trimmedEmail = newTenantEmail.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!trimmedName) {
+            toast.error('Firmenname darf nicht leer sein');
+            return;
+        }
+        if (!emailRegex.test(trimmedEmail)) {
+            toast.error('Bitte eine gültige E-Mail-Adresse eingeben');
+            return;
+        }
+        if (newTenantPassword && newTenantPassword.length < 8) {
+            toast.error('Passwort muss mindestens 8 Zeichen haben');
             return;
         }
         setCreatingTenant(true);
         try {
             await createTenant({
-                name: newTenantName,
-                email: newTenantEmail,
+                name: trimmedName,
+                email: trimmedEmail,
                 phone: newTenantPhone,
                 website: newTenantWebsite,
                 password: newTenantPassword,
@@ -169,9 +181,13 @@ export function AdminDashboardView() {
 
     const handleCreateUser = async () => {
         if (!selectedTenant) return;
+        if (!newUserEmail.trim() || !newUsername.trim() || !newUserPassword) {
+            toast.error('Alle Felder sind Pflichtfelder');
+            return;
+        }
         try {
             await createTenantUser(selectedTenant.id, {
-                email: newUserEmail,
+                email: newUserEmail.trim(),
                 username: newUsername,
                 password: newUserPassword,
                 role: 'TENANT_ADMIN'
@@ -208,20 +224,11 @@ export function AdminDashboardView() {
     };
 
     // Admin User Management Functions (Fecat only)
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app';
-    const getHeaders = () => ({
-        'Content-Type': 'application/json',
-        'Authorization': `Token ${localStorage.getItem('admin_token')}`
-    });
-
     const loadAdminUsers = async () => {
         setAdminLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin-auth/list-admins`, { headers: getHeaders() });
-            if (res.ok) {
-                const data = await res.json();
-                setAdminUsers(data.admins || []);
-            }
+            const data = await fetchAdminUsers();
+            setAdminUsers(data.admins || []);
         } catch (err) {
             console.error('Failed to load admin users:', err);
         } finally {
@@ -231,21 +238,12 @@ export function AdminDashboardView() {
 
     const updateAdminEmail = async (adminId: number, email: string) => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin-auth/update-email`, {
-                method: 'PUT',
-                headers: getHeaders(),
-                body: JSON.stringify({ adminId, email })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                toast.success(`E-Mail geändert: ${email}`);
-                setEditingAdminEmail(null);
-                loadAdminUsers();
-            } else {
-                toast.error(data.error || 'Fehler');
-            }
-        } catch (err) {
-            toast.error('Fehler beim Aktualisieren');
+            await updateAdminUserEmail(adminId, email);
+            toast.success(`E-Mail geändert: ${email}`);
+            setEditingAdminEmail(null);
+            loadAdminUsers();
+        } catch (err: any) {
+            toast.error(err.message || 'Fehler beim Aktualisieren');
         }
     };
 
@@ -259,7 +257,7 @@ export function AdminDashboardView() {
     // --- Helpers ---
     const resetTenantForm = () => {
         setNewTenantName(''); setNewTenantEmail(''); setNewTenantPhone(''); setNewTenantWebsite('');
-        setNewTenantWhatsapp(''); setNewTenantLogo('');
+        setNewTenantWhatsapp(''); setNewTenantLogo(''); setNewTenantPassword('Start123!');
     };
     const resetUserForm = () => {
         setNewUserEmail(''); setNewUsername(''); setNewUserPassword('');
@@ -675,16 +673,10 @@ export function AdminDashboardView() {
                                             if (newPw !== confirm) { toast.error('Passwörter stimmen nicht überein'); return; }
                                             if (newPw.length < 8) { toast.error('Mindestens 8 Zeichen'); return; }
                                             try {
-                                                const token = localStorage.getItem('admin_token');
-                                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app'}/api/admin-auth/change-password`, {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
-                                                    body: JSON.stringify({ currentPassword: current, newPassword: newPw })
-                                                });
-                                                const data = await res.json();
-                                                if (res.ok) { toast.success('Passwort geändert'); form.reset(); }
-                                                else { toast.error(data.error); }
-                                            } catch { toast.error('Fehler beim Ändern'); }
+                                                await changePassword(current, newPw);
+                                                toast.success('Passwort geändert');
+                                                form.reset();
+                                            } catch (err: any) { toast.error(err.message || 'Fehler beim Ändern'); }
                                         }} className="space-y-3">
                                             <input name="currentPw" type="password" placeholder="Aktuelles Passwort" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
                                             <input name="newPw" type="password" placeholder="Neues Passwort" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
@@ -705,16 +697,9 @@ export function AdminDashboardView() {
                                             const form = e.currentTarget;
                                             const sig = (form.elements.namedItem('signature') as HTMLTextAreaElement).value;
                                             try {
-                                                const token = localStorage.getItem('admin_token');
-                                                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app'}/api/admin-auth/update-signature`, {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
-                                                    body: JSON.stringify({ signature: sig })
-                                                });
-                                                const data = await res.json();
-                                                if (res.ok) { toast.success('Signatur gespeichert'); }
-                                                else { toast.error(data.error); }
-                                            } catch { toast.error('Fehler beim Speichern'); }
+                                                await updateSignature(sig);
+                                                toast.success('Signatur gespeichert');
+                                            } catch (err: any) { toast.error(err.message || 'Fehler beim Speichern'); }
                                         }} className="space-y-3">
                                             <textarea name="signature" rows={4} placeholder="Mit freundlichen Grüßen,&#10;Dein Name" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none" />
                                             <button type="submit" className="w-full py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl font-medium transition-colors">Signatur speichern</button>
@@ -1033,15 +1018,15 @@ export function AdminDashboardView() {
                                         <CreditCard className="w-4 h-4" /> Zahlungsstatus
                                     </h5>
                                     <div className="flex gap-2">
-                                        <button className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${editingTenant.payment_status === 'paid' ? 'bg-green-500 text-white' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}>
+                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'paid' ? 'bg-green-500 text-white' : 'bg-muted/50 text-muted-foreground'}`}>
                                             Bezahlt
-                                        </button>
-                                        <button className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${editingTenant.payment_status === 'trial' ? 'bg-amber-500 text-white' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}>
+                                        </span>
+                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'trial' ? 'bg-amber-500 text-white' : 'bg-muted/50 text-muted-foreground'}`}>
                                             Testphase
-                                        </button>
-                                        <button className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${editingTenant.payment_status === 'overdue' ? 'bg-red-500 text-white' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}>
+                                        </span>
+                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'overdue' ? 'bg-red-500 text-white' : 'bg-muted/50 text-muted-foreground'}`}>
                                             Überfällig
-                                        </button>
+                                        </span>
                                     </div>
                                     <p className="text-xs text-muted-foreground">Zahlungsstatus kann aktuell nur manuell geändert werden. Stripe-Integration folgt.</p>
                                 </div>
@@ -1108,7 +1093,7 @@ const StatsCard = ({ title, value, icon, trend, color }: any) => (
 );
 
 const LimitBar = ({ current, max, label }: any) => {
-    const percentage = Math.min((current / max) * 100, 100);
+    const percentage = max > 0 ? Math.min((current / max) * 100, 100) : 0;
     const isCritical = percentage > 80;
 
     return (
@@ -1158,11 +1143,12 @@ const ActionButton = ({ icon, onClick, tooltip }: any) => (
 );
 
 const Modal = ({ children, onClose, title }: any) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
         <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
             className="bg-card w-full max-w-md rounded-2xl shadow-2xl border border-white/10 overflow-hidden"
         >
             <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/20">

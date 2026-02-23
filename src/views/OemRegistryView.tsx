@@ -72,11 +72,10 @@ export function OemRegistryView() {
         loadData();
     }, [loadData]);
 
-    // Debounced search
+    // Debounced search — only reset page; loadData triggers via useCallback dependency chain
     useEffect(() => {
         const timer = setTimeout(() => {
             setPage(1);
-            loadData();
         }, 300);
         return () => clearTimeout(timer);
     }, [search]);

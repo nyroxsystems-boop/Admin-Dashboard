@@ -5,7 +5,7 @@
 
 /// <reference types="vite/client" />
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://whatsapp-bot-oem-ermittlung.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app';
 
 // ============================================================================
 // Auth State Management
@@ -76,7 +76,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
 // ============================================================================
 
 export interface AdminUser {
-    id: string;
+    id: number;
     username: string;
     email: string;
     must_change_password: boolean;
@@ -117,6 +117,31 @@ export async function requestPasswordReset(username: string): Promise<{ success:
     return await apiFetch('/api/admin-auth/request-reset', {
         method: 'POST',
         body: JSON.stringify({ username })
+    });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    return await apiFetch('/api/admin-auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword })
+    });
+}
+
+export async function updateSignature(signature: string): Promise<{ success: boolean }> {
+    return await apiFetch('/api/admin-auth/update-signature', {
+        method: 'PATCH',
+        body: JSON.stringify({ signature })
+    });
+}
+
+export async function listAdminUsers(): Promise<{ admins: AdminUser[] }> {
+    return await apiFetch('/api/admin-auth/list-admins');
+}
+
+export async function updateAdminUserEmail(adminId: number, email: string): Promise<{ success: boolean }> {
+    return await apiFetch('/api/admin-auth/update-email', {
+        method: 'PUT',
+        body: JSON.stringify({ adminId, email })
     });
 }
 

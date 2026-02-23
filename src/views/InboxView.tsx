@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { getAuthToken } from '../api/wws';
+import DOMPurify from 'dompurify';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app';
 
@@ -905,7 +906,7 @@ export function InboxView() {
                                                 </div>
                                                 <div
                                                     className="bg-white min-h-[400px] overflow-y-auto"
-                                                    dangerouslySetInnerHTML={{ __html: composeData.htmlContent }}
+                                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(composeData.htmlContent) }}
                                                 />
                                             </div>
                                         ) : (
@@ -944,7 +945,7 @@ export function InboxView() {
                                                 </div>
                                                 <div
                                                     className="p-4 bg-white text-black text-sm max-h-32 overflow-hidden relative"
-                                                    dangerouslySetInnerHTML={{ __html: composeData.htmlContent }}
+                                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(composeData.htmlContent) }}
                                                 />
                                                 <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                                             </div>
