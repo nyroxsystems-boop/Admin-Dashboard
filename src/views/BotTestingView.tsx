@@ -37,6 +37,7 @@ interface ChatResponse {
     reply: string;
     orderId?: string;
     orderDetails?: OrderDetails;
+    interimMessages?: string[];
     session: {
         from: string;
         history: Message[];
@@ -156,6 +157,16 @@ export function BotTestingView() {
 
             const data: ChatResponse = await res.json();
 
+            // Show interim messages first (e.g., "🔍 Ich suche...")
+            if (data.interimMessages && data.interimMessages.length > 0) {
+                const interimMsgs: Message[] = data.interimMessages.map(msg => ({
+                    role: 'bot' as const,
+                    text: msg,
+                    timestamp: new Date()
+                }));
+                setMessages(prev => [...prev, ...interimMsgs]);
+            }
+
             const botMessage: Message = {
                 role: 'bot',
                 text: data.reply,
@@ -183,8 +194,12 @@ export function BotTestingView() {
         }
     };
 
-    // Reset conversation
+    // Reset conversation with confirmation
     const resetConversation = async () => {
+        if (messages.length > 0 && !window.confirm('Gesamte Konversation löschen und Bot-Session zurücksetzen?')) {
+            return;
+        }
+
         try {
             await fetch(`${API_BASE_URL}/api/bot-testing/reset`, {
                 method: 'POST',
@@ -195,7 +210,7 @@ export function BotTestingView() {
             setMessages([]);
             setOrderDetails(null);
             setImageData(null);
-            toast.success('Konversation zurückgesetzt');
+            toast.success('Konversation gelöscht & Session zurückgesetzt');
         } catch (err: any) {
             toast.error(`Reset fehlgeschlagen: ${err.message}`);
         }
@@ -239,10 +254,11 @@ export function BotTestingView() {
                         </div>
                         <button
                             onClick={resetConversation}
-                            className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                            title="Konversation zurücksetzen"
+                            className="flex items-center gap-1.5 px-3 py-2 text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 rounded-lg transition-all text-sm font-medium"
+                            title="Konversation löschen & zurücksetzen"
                         >
-                            <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
+                            <Trash2 className="w-4 h-4" />
+                            <span className="hidden md:inline">Reset</span>
                         </button>
                     </div>
                 </div>
