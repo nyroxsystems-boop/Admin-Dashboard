@@ -297,8 +297,8 @@ export async function createTenant(data: {
     password?: string;
     whatsapp_number?: string;
     logo_url?: string
-}): Promise<void> {
-    await apiFetch('/api/admin/tenants', {
+}): Promise<any> {
+    return apiFetch('/api/admin/tenants', {
         method: 'POST',
         body: JSON.stringify(data)
     });

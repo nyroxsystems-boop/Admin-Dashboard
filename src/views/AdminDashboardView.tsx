@@ -157,7 +157,7 @@ export function AdminDashboardView() {
         }
         setCreatingTenant(true);
         try {
-            await createTenant({
+            const result = await createTenant({
                 name: trimmedName,
                 email: trimmedEmail,
                 phone: newTenantPhone,
@@ -167,10 +167,19 @@ export function AdminDashboardView() {
                 logo_url: newTenantLogo
             });
 
-            toast.success('Händler erfolgreich angelegt!');
+            // Show generated credentials so admin can share with dealer
+            const creds = result?.user_created;
+            if (creds?.initial_password) {
+                toast.success(
+                    `Händler angelegt!\nBenutzer: ${creds.username}\nPasswort: ${creds.initial_password}`,
+                    { duration: 15000 }
+                );
+            } else {
+                toast.success('Händler erfolgreich angelegt!', { duration: 5000 });
+            }
+
             setShowTenantModal(false);
             resetTenantForm();
-            // Auto-refresh the tenant list
             await loadStats();
         } catch (err: any) {
             toast.error(err.message || 'Fehler beim Anlegen des Händlers');
