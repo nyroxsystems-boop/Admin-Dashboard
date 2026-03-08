@@ -12,6 +12,7 @@ import {
     Car, Package, Hash, ImagePlus, X, Image
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getAuthToken } from '../api/wws';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app';
 
@@ -74,7 +75,12 @@ export function BotTestingView() {
 
     const loadOemStats = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/bot-testing/oem-stats`);
+            const token = getAuthToken();
+            const res = await fetch(`${API_BASE_URL}/api/bot-testing/oem-stats`, {
+                headers: {
+                    ...(token ? { 'Authorization': `Token ${token}` } : {})
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setOemStats(data);
@@ -141,9 +147,13 @@ export function BotTestingView() {
         setIsLoading(true);
 
         try {
+            const token = getAuthToken();
             const res = await fetch(`${API_BASE_URL}/api/bot-testing/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Token ${token}` } : {})
+                },
                 body: JSON.stringify({
                     from: phoneNumber,
                     text: userMessage.text,
@@ -201,9 +211,13 @@ export function BotTestingView() {
         }
 
         try {
+            const token = getAuthToken();
             await fetch(`${API_BASE_URL}/api/bot-testing/reset`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Token ${token}` } : {})
+                },
                 body: JSON.stringify({ from: phoneNumber })
             });
 
