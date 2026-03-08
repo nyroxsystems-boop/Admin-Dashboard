@@ -41,7 +41,7 @@ export function AdminDashboardView() {
     const [newTenantEmail, setNewTenantEmail] = useState('');
     const [newTenantPhone, setNewTenantPhone] = useState('');
     const [newTenantWebsite, setNewTenantWebsite] = useState('');
-    const [newTenantPassword, setNewTenantPassword] = useState('Start123!');
+    const [newTenantPassword, setNewTenantPassword] = useState('');
     const [newTenantWhatsapp, setNewTenantWhatsapp] = useState('');
     const [newTenantLogo, setNewTenantLogo] = useState('');
 
@@ -308,9 +308,10 @@ export function AdminDashboardView() {
 
             {/* Sidebar */}
             <motion.aside
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: sidebarOpen ? 280 : 0, opacity: 1 }}
-                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 shadow-2xl overflow-hidden">
+                initial={false}
+                animate={{ x: sidebarOpen ? 0 : -280 }}
+                transition={{ type: 'tween', duration: 0.2 }}
+                className="h-screen w-[280px] bg-card border-r border-border flex flex-col fixed md:relative z-20 shadow-2xl will-change-transform">
                 <div className="p-5 flex items-center gap-3 border-b border-border/50">
                     <img
                         src="/partsunion-logo.png"
@@ -445,9 +446,10 @@ export function AdminDashboardView() {
                         {activeTab === 'overview' && (
                             <motion.div
                                 key="overview"
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
                                 className="space-y-8"
                             >
                                 <div className="flex justify-between items-end">
@@ -524,9 +526,10 @@ export function AdminDashboardView() {
                         {activeTab === 'tenants' && (
                             <motion.div
                                 key="tenants"
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
                                 className="space-y-6"
                             >
                                 <div className="flex justify-between items-center">
@@ -608,9 +611,10 @@ export function AdminDashboardView() {
                         {activeTab === 'oem-registry' && (
                             <motion.div
                                 key="oem-registry"
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
                             >
                                 <OemRegistryView />
                             </motion.div>
@@ -619,9 +623,10 @@ export function AdminDashboardView() {
                         {activeTab === 'bot-testing' && (
                             <motion.div
                                 key="bot-testing"
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
                                 className="flex-1 flex flex-col min-h-0 h-[calc(100vh-140px)] md:h-[calc(100vh-180px)]"
                             >
                                 <div className="mb-4 md:mb-6 hidden md:block">
@@ -637,9 +642,10 @@ export function AdminDashboardView() {
                         {activeTab === 'inbox' && (
                             <motion.div
                                 key="inbox"
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
                                 className="h-[calc(100vh-180px)]"
                             >
                                 <div className="mb-6">

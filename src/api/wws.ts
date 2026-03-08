@@ -277,8 +277,11 @@ export interface ActiveDevice {
 }
 
 export async function getAdminStats(): Promise<AdminStats> {
-    const kpis = await apiFetch('/api/admin/kpis');
-    const tenants = await apiFetch('/api/admin/tenants');
+    // Parallel fetch — was sequential before, causing lag
+    const [kpis, tenants] = await Promise.all([
+        apiFetch('/api/admin/kpis'),
+        apiFetch('/api/admin/tenants'),
+    ]);
 
     return {
         total_tenants: tenants.length,
