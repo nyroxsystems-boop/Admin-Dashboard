@@ -9,7 +9,7 @@ import {
     MessageSquare, Send, RotateCcw, Loader2,
     Bot, User, Trash2, ChevronDown,
     Phone, Sparkles, CheckCircle, AlertCircle,
-    Car, Package, Hash, ImagePlus, X, Image
+    Car, Package, Hash, ImagePlus, X, Image, Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAuthToken } from '../api/wws';
@@ -60,6 +60,7 @@ export function BotTestingView() {
     const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
     const [oemStats, setOemStats] = useState<OemStats | null>(null);
     const [imageData, setImageData] = useState<{ base64: string; preview: string } | null>(null);
+    const [reverseLookup, setReverseLookup] = useState<{ loading: boolean; result: any | null }>({ loading: false, result: null });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -484,10 +485,58 @@ export function BotTestingView() {
                             )}
 
                             {orderDetails.oem_number && (
-                                <div className="flex items-center gap-2">
-                                    <Hash className="w-4 h-4 text-green-500" />
-                                    <span className="text-green-500 font-mono">{orderDetails.oem_number}</span>
-                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Hash className="w-4 h-4 text-green-500" />
+                                        <span className="text-green-500 font-mono font-bold">{orderDetails.oem_number}</span>
+                                        <CheckCircle className="w-4 h-4 text-green-500" />
+                                        <button
+                                            onClick={async () => {
+                                                setReverseLookup({ loading: true, result: null });
+                                                try {
+                                                    const res = await fetch(`${API_BASE_URL}/api/bot-testing/oem-reverse-lookup`, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+                                                        body: JSON.stringify({ oem: orderDetails.oem_number }),
+                                                    });
+                                                    const data = await res.json();
+                                                    setReverseLookup({ loading: false, result: data });
+                                                } catch (err) {
+                                                    setReverseLookup({ loading: false, result: { error: 'Fehler bei Rücksuche' } });
+                                                }
+                                            }}
+                                            disabled={reverseLookup.loading}
+                                            className="ml-1 px-2 py-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg flex items-center gap-1 transition-colors"
+                                            title="KI-Rücksuche: Welches Teil gehört zu dieser OEM-Nummer?"
+                                        >
+                                            {reverseLookup.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                                            Rücksuche
+                                        </button>
+                                    </div>
+                                    {reverseLookup.result && !reverseLookup.result.error && (
+                                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-xs space-y-1">
+                                            <div className="text-blue-400 font-semibold">
+                                                🔍 {reverseLookup.result.partName || 'Unbekannt'}
+                                            </div>
+                                            {reverseLookup.result.partCategory && (
+                                                <div className="text-muted-foreground">Kategorie: {reverseLookup.result.partCategory}</div>
+                                            )}
+                                            {reverseLookup.result.vehicles && (
+                                                <div className="text-muted-foreground">Fahrzeuge: {reverseLookup.result.vehicles}</div>
+                                            )}
+                                            {reverseLookup.result.manufacturer && (
+                                                <div className="text-muted-foreground">Hersteller: {reverseLookup.result.manufacturer}</div>
+                                            )}
+                                            {reverseLookup.result.confidence !== undefined && (
+                                                <div className={`font-mono ${reverseLookup.result.confidence >= 0.7 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                    Confidence: {Math.round(reverseLookup.result.confidence * 100)}%
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {reverseLookup.result?.error && (
+                                        <div className="text-red-400 text-xs">{reverseLookup.result.error}</div>
+                                    )}
                                 </div>
                             )}
 
