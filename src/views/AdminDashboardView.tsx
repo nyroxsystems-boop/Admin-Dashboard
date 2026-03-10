@@ -309,105 +309,111 @@ export function AdminDashboardView() {
             {/* Sidebar */}
             <motion.aside
                 initial={false}
-                animate={{ x: sidebarOpen ? 0 : -280 }}
+                animate={{
+                    width: sidebarOpen ? 280 : 0,
+                    opacity: sidebarOpen ? 1 : 0,
+                }}
                 transition={{ type: 'tween', duration: 0.2 }}
-                className="h-screen w-[280px] bg-card border-r border-border flex flex-col fixed md:relative z-20 shadow-2xl will-change-transform">
-                <div className="p-5 flex items-center gap-3 border-b border-border/50">
-                    <img
-                        src="/partsunion-logo.png"
-                        alt="Partsunion"
-                        className="h-10 w-auto object-contain"
-                    />
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Admin</span>
-                </div>
+                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 shadow-2xl will-change-[width] overflow-hidden"
+                style={{ minWidth: 0 }}>
+                <div className="w-[280px] flex flex-col h-full">
+                    <div className="p-5 flex items-center gap-3 border-b border-border/50">
+                        <img
+                            src="/partsunion-logo.png"
+                            alt="Partsunion"
+                            className="h-10 w-auto object-contain"
+                        />
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Admin</span>
+                    </div>
 
-                {/* Mobile Close Button */}
-                <button
-                    onClick={() => setSidebarOpen(false)}
-                    className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors md:hidden"
-                >
-                    <X className="w-5 h-5 text-muted-foreground" />
-                </button>
-
-                <nav className="flex-1 p-4 space-y-1">
-                    <SidebarItem
-                        icon={<LayoutDashboard />}
-                        label="Übersicht"
-                        active={activeTab === 'overview'}
-                        onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
-                    />
-                    <SidebarItem
-                        icon={<Users />}
-                        label="Händler & Mandanten"
-                        active={activeTab === 'tenants'}
-                        onClick={() => { setActiveTab('tenants'); setSidebarOpen(false); }}
-                    />
-                    <SidebarItem
-                        icon={<Database />}
-                        label="OEM Registry"
-                        active={activeTab === 'oem-registry'}
-                        onClick={() => { setActiveTab('oem-registry'); setSidebarOpen(false); }}
-                    />
-                    <SidebarItem
-                        icon={<Bot />}
-                        label="Bot Testing"
-                        active={activeTab === 'bot-testing'}
-                        onClick={() => { setActiveTab('bot-testing'); setSidebarOpen(false); }}
-                    />
-                    <SidebarItem
-                        icon={<Mail />}
-                        label="Postfach"
-                        active={activeTab === 'inbox'}
-                        onClick={() => { setActiveTab('inbox'); setSidebarOpen(false); }}
-                    />
-                </nav>
-
-                {/* Profile Section with Dropdown */}
-                <div className="p-4 border-t border-border/50 relative">
+                    {/* Mobile Close Button */}
                     <button
-                        onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                        className="w-full bg-muted/50 hover:bg-muted rounded-xl p-3 flex items-center gap-3 transition-colors"
+                        onClick={() => setSidebarOpen(false)}
+                        className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors md:hidden"
                     >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-white text-sm shadow-lg">
-                            {(user?.username || 'A').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-foreground">{user?.username || 'Admin'}</p>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                Online
-                            </p>
-                        </div>
-                        <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${profileMenuOpen ? 'rotate-90' : ''}`} />
+                        <X className="w-5 h-5 text-muted-foreground" />
                     </button>
 
-                    {/* Profile Dropdown Menu */}
-                    <AnimatePresence>
-                        {profileMenuOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 8 }}
-                                className="absolute bottom-full left-4 right-4 mb-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50"
-                            >
-                                <button
-                                    onClick={() => { setActiveTab('settings'); setProfileMenuOpen(false); setSidebarOpen(false); }}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors"
+                    <nav className="flex-1 p-4 space-y-1">
+                        <SidebarItem
+                            icon={<LayoutDashboard />}
+                            label="Übersicht"
+                            active={activeTab === 'overview'}
+                            onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
+                        />
+                        <SidebarItem
+                            icon={<Users />}
+                            label="Händler & Mandanten"
+                            active={activeTab === 'tenants'}
+                            onClick={() => { setActiveTab('tenants'); setSidebarOpen(false); }}
+                        />
+                        <SidebarItem
+                            icon={<Database />}
+                            label="OEM Registry"
+                            active={activeTab === 'oem-registry'}
+                            onClick={() => { setActiveTab('oem-registry'); setSidebarOpen(false); }}
+                        />
+                        <SidebarItem
+                            icon={<Bot />}
+                            label="Bot Testing"
+                            active={activeTab === 'bot-testing'}
+                            onClick={() => { setActiveTab('bot-testing'); setSidebarOpen(false); }}
+                        />
+                        <SidebarItem
+                            icon={<Mail />}
+                            label="Postfach"
+                            active={activeTab === 'inbox'}
+                            onClick={() => { setActiveTab('inbox'); setSidebarOpen(false); }}
+                        />
+                    </nav>
+
+                    {/* Profile Section with Dropdown */}
+                    <div className="p-4 border-t border-border/50 relative">
+                        <button
+                            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                            className="w-full bg-muted/50 hover:bg-muted rounded-xl p-3 flex items-center gap-3 transition-colors"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-white text-sm shadow-lg">
+                                {(user?.username || 'A').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 text-left">
+                                <p className="text-sm font-semibold text-foreground">{user?.username || 'Admin'}</p>
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                    Online
+                                </p>
+                            </div>
+                            <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${profileMenuOpen ? 'rotate-90' : ''}`} />
+                        </button>
+
+                        {/* Profile Dropdown Menu */}
+                        <AnimatePresence>
+                            {profileMenuOpen && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 8 }}
+                                    className="absolute bottom-full left-4 right-4 mb-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50"
                                 >
-                                    <Settings className="w-4 h-4 text-muted-foreground" />
-                                    Einstellungen
-                                </button>
-                                <div className="border-t border-border" />
-                                <button
-                                    onClick={logout}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-                                >
-                                    <LogOut className="w-4 h-4" />
-                                    Abmelden
-                                </button>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                    <button
+                                        onClick={() => { setActiveTab('settings'); setProfileMenuOpen(false); setSidebarOpen(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors"
+                                    >
+                                        <Settings className="w-4 h-4 text-muted-foreground" />
+                                        Einstellungen
+                                    </button>
+                                    <div className="border-t border-border" />
+                                    <button
+                                        onClick={logout}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        Abmelden
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                 </div>
             </motion.aside>
 
