@@ -5,7 +5,7 @@
 
 /// <reference types="vite/client" />
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://autoteile-bot-service-production.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // ============================================================================
 // Auth State Management
