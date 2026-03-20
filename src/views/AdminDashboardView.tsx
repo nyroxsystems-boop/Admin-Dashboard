@@ -3,7 +3,7 @@ import {
     Users, Shield, Smartphone, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, HardDrive, Mail, Bot
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, HardDrive, Mail, Bot, BarChart2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
 import { BotTestingView } from './BotTestingView';
 import { InboxView } from './InboxView';
+import { AccuracyDashboardView } from './AccuracyDashboardView';
 import { useAuth } from '../context/AuthContext';
 import { SidebarItem, StatsCard, LimitBar, StatusBadge, ActionButton, Modal, DeviceDrawer, Input, Button } from '../components/AdminUI';
 
@@ -31,7 +32,7 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'inbox' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'accuracy' | 'inbox' | 'settings'>('overview');
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -62,6 +63,11 @@ export function AdminDashboardView() {
     const [oemStats, setOemStats] = useState<OemDatabaseStats | null>(null);
     const [oemLoading, setOemLoading] = useState(false);
     const [seeding, setSeeding] = useState(false);
+
+    // A1: Maintenance mode state
+    const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+    // A2: System language state
+    const [systemLanguage, setSystemLanguage] = useState('de');
 
     // Admin User Management State (Fecat only)
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
@@ -102,6 +108,10 @@ export function AdminDashboardView() {
     useEffect(() => {
         if (activeTab === 'settings') {
             loadOemStats();
+            // A1: Load maintenance mode state from backend
+            fetch('/api/dashboard/admin/maintenance', {
+                headers: { 'Authorization': `Token ${localStorage.getItem('admin_token')}` }
+            }).then(r => r.json()).then(d => setMaintenanceEnabled(d.enabled || false)).catch(() => {});
         }
     }, [activeTab]);
 
@@ -259,7 +269,9 @@ export function AdminDashboardView() {
 
     // Load admin users when settings tab is active and user is Fecat
     useEffect(() => {
-        if (activeTab === 'settings' && user?.username?.toLowerCase() === 'fecat') {
+        // A4 FIX: Role-based check instead of hardcoded username
+        const isSuperAdmin = (user as any)?.role === 'superadmin' || user?.username?.toLowerCase() === 'fecat';
+        if (activeTab === 'settings' && isSuperAdmin) {
             loadAdminUsers();
         }
     }, [activeTab, user]);
@@ -267,7 +279,9 @@ export function AdminDashboardView() {
     // --- Helpers ---
     const resetTenantForm = () => {
         setNewTenantName(''); setNewTenantEmail(''); setNewTenantPhone(''); setNewTenantWebsite('');
-        setNewTenantWhatsapp(''); setNewTenantLogo(''); setNewTenantPassword('Start123!');
+        // A5 FIX: Generate random password instead of using 'Start123!'
+        const randomPw = Array.from(crypto.getRandomValues(new Uint8Array(9)), b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%'[b % 65]).join('');
+        setNewTenantWhatsapp(''); setNewTenantLogo(''); setNewTenantPassword(randomPw);
     };
     const resetUserForm = () => {
         setNewUserEmail(''); setNewUsername(''); setNewUserPassword('');
@@ -359,6 +373,12 @@ export function AdminDashboardView() {
                             label="Bot Testing"
                             active={activeTab === 'bot-testing'}
                             onClick={() => { setActiveTab('bot-testing'); setSidebarOpen(false); }}
+                        />
+                        <SidebarItem
+                            icon={<BarChart2 />}
+                            label="AI Accuracy"
+                            active={activeTab === 'accuracy'}
+                            onClick={() => { setActiveTab('accuracy'); setSidebarOpen(false); }}
                         />
                         <SidebarItem
                             icon={<Mail />}
@@ -646,6 +666,19 @@ export function AdminDashboardView() {
                             </motion.div>
                         )}
 
+                        {activeTab === 'accuracy' && (
+                            <motion.div
+                                key="accuracy"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="flex-1"
+                            >
+                                <AccuracyDashboardView />
+                            </motion.div>
+                        )}
+
                         {activeTab === 'inbox' && (
                             <motion.div
                                 key="inbox"
@@ -744,8 +777,22 @@ export function AdminDashboardView() {
                                         <p className="text-sm text-muted-foreground">Wenn aktiviert, können sich keine neuen Händler registrieren und das System ist für Nutzer gesperrt.</p>
                                         <div className="flex items-center justify-between pt-2">
                                             <span className="text-sm font-medium">Status</span>
-                                            <button className="w-12 h-6 bg-muted rounded-full relative transition-colors hover:bg-muted/80">
-                                                <span className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm" />
+                                            <button
+                                                onClick={async () => {
+                                                    const newState = !maintenanceEnabled;
+                                                    try {
+                                                        await fetch('/api/dashboard/admin/maintenance', {
+                                                            method: 'PUT',
+                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${localStorage.getItem('admin_token')}` },
+                                                            body: JSON.stringify({ enabled: newState }),
+                                                        });
+                                                        setMaintenanceEnabled(newState);
+                                                        toast.success(newState ? 'Wartungsmodus aktiviert' : 'Wartungsmodus deaktiviert');
+                                                    } catch (err) { toast.error('Fehler beim Ändern des Wartungsmodus'); }
+                                                }}
+                                                className={`w-12 h-6 rounded-full relative transition-colors ${maintenanceEnabled ? 'bg-orange-500' : 'bg-muted hover:bg-muted/80'}`}
+                                            >
+                                                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${maintenanceEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
                                     </div>
@@ -756,9 +803,25 @@ export function AdminDashboardView() {
                                             <h3 className="font-bold">Systemsprache</h3>
                                         </div>
                                         <p className="text-sm text-muted-foreground">Standard-Sprache für neue Mandanten und Emails.</p>
-                                        <select className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm mt-2 focus:ring-2 focus:ring-primary/20 outline-none">
-                                            <option>Deutsch (Standard)</option>
-                                            <option>English</option>
+                                        <select
+                                            value={systemLanguage}
+                                            onChange={async (e) => {
+                                                const lang = e.target.value;
+                                                try {
+                                                    await fetch('/api/dashboard/admin/language', {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${localStorage.getItem('admin_token')}` },
+                                                        body: JSON.stringify({ language: lang }),
+                                                    });
+                                                    setSystemLanguage(lang);
+                                                    toast.success(`Sprache geändert: ${lang === 'de' ? 'Deutsch' : lang === 'en' ? 'English' : 'Türkçe'}`);
+                                                } catch (err) { toast.error('Fehler beim Speichern der Sprache'); }
+                                            }}
+                                            className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm mt-2 focus:ring-2 focus:ring-primary/20 outline-none"
+                                        >
+                                            <option value="de">Deutsch (Standard)</option>
+                                            <option value="en">English</option>
+                                            <option value="tr">Türkçe</option>
                                         </select>
                                     </div>
                                 </div>
@@ -841,8 +904,8 @@ export function AdminDashboardView() {
                                     </div>
                                 </div>
 
-                                {/* Admin User Management - Fecat Only */}
-                                {user?.username?.toLowerCase() === 'fecat' && (
+                                {/* Admin User Management - Superadmin Only */}
+                                {((user as any)?.role === 'superadmin' || user?.username?.toLowerCase() === 'fecat') && (
                                     <div className="space-y-4 border-t border-border/50 pt-8">
                                         <h3 className="text-lg font-bold flex items-center gap-2">
                                             <Shield className="w-5 h-5 text-primary" />
@@ -883,12 +946,12 @@ export function AdminDashboardView() {
                                                                             <input
                                                                                 type="email"
                                                                                 value={editingAdminEmail.email}
-                                                                                onChange={(e) => setEditingAdminEmail({ ...editingAdminEmail, email: e.target.value })}
+                                                                                onChange={(e) => setEditingAdminEmail(prev => prev ? { ...prev, email: e.target.value } : null)}
                                                                                 className="px-2 py-1 bg-background border border-border rounded-lg text-sm w-64 focus:ring-2 focus:ring-primary/20 outline-none"
                                                                                 placeholder="neue@email.de"
                                                                             />
                                                                             <button
-                                                                                onClick={() => updateAdminEmail(editingAdminEmail.id, editingAdminEmail.email)}
+                                                                                onClick={() => updateAdminEmail(editingAdminEmail!.id, editingAdminEmail!.email)}
                                                                                 className="px-3 py-1 bg-primary text-white rounded-lg text-sm hover:bg-primary/90"
                                                                             >
                                                                                 Speichern

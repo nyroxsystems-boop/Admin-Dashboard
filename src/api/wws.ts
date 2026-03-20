@@ -442,3 +442,27 @@ export async function runOemValidator(fix: boolean = false): Promise<{ success: 
         body: JSON.stringify({ fix })
     });
 }
+
+// ============================================================================
+// Accuracy Analytics API
+// ============================================================================
+
+export interface AccuracyStats {
+    totalResolutions: number;
+    withOem: number;
+    withoutOem: number;
+    confirmed: number;
+    rejected: number;
+    pending: number;
+    resolutionRate: number;
+    accuracyRate: number;
+    avgConfidence: number;
+    avgDurationMs: number;
+    sourceStats: Record<string, { contributed: number; confirmed: number; rejected: number }>;
+    brandStats: Record<string, { total: number; resolved: number; confirmed: number }>;
+}
+
+export async function fetchAccuracyStats(): Promise<AccuracyStats> {
+    const res = await apiFetch('/api/v1/admin/accuracy/stats');
+    return res.data;
+}
