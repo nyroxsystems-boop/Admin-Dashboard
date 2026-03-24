@@ -277,18 +277,18 @@ export interface ActiveDevice {
 }
 
 export async function getAdminStats(): Promise<AdminStats> {
-    // Parallel fetch — was sequential before, causing lag
-    const [kpis, tenants] = await Promise.all([
-        apiFetch('/api/admin/kpis'),
-        apiFetch('/api/admin/tenants'),
+    // Use the combined /stats endpoint — returns everything in one call
+    const [stats, kpis] = await Promise.all([
+        apiFetch('/api/admin/stats'),
+        apiFetch('/api/admin/kpis').catch(() => null),
     ]);
 
     return {
-        total_tenants: tenants.length,
-        total_users: kpis.team?.activeUsers || 0,
-        total_devices: 0,
-        tenants: tenants,
-        history: kpis.history || []
+        total_tenants: stats.total_tenants,
+        total_users: stats.total_users,
+        total_devices: stats.total_devices,
+        tenants: stats.tenants,
+        history: kpis?.history || []
     };
 }
 
@@ -312,8 +312,9 @@ export async function listActiveDevices(tenantId: number): Promise<ActiveDevice[
 }
 
 export async function removeActiveDevice(tenantId: number, deviceId: string): Promise<void> {
-    await apiFetch(`/api/admin/tenants/${tenantId}/devices/${deviceId}`, {
-        method: 'DELETE'
+    await apiFetch(`/api/admin/tenants/${tenantId}/remove-device`, {
+        method: 'POST',
+        body: JSON.stringify({ device_id: deviceId })
     });
 }
 
@@ -321,7 +322,7 @@ export async function updateTenantLimits(
     tenantId: number,
     limits: { max_users: number; max_devices: number }
 ): Promise<void> {
-    await apiFetch(`/api/admin/tenants/${tenantId}/limits`, {
+    await apiFetch(`/api/admin/tenants/${tenantId}`, {
         method: 'PATCH',
         body: JSON.stringify(limits)
     });
@@ -331,9 +332,9 @@ export async function createTenantUser(
     tenantId: number,
     user: { email: string; username: string; password: string; role: string }
 ): Promise<void> {
-    await apiFetch('/api/admin/users', {
+    await apiFetch(`/api/admin/tenants/${tenantId}/users`, {
         method: 'POST',
-        body: JSON.stringify({ ...user, tenant_id: tenantId })
+        body: JSON.stringify(user)
     });
 }
 
