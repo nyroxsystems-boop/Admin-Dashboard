@@ -467,3 +467,53 @@ export async function fetchAccuracyStats(): Promise<AccuracyStats> {
     const res = await apiFetch('/api/v1/admin/accuracy/stats');
     return res.data;
 }
+
+// ============================================================================
+// OEM Lookup Tester
+// ============================================================================
+
+export interface OemLookupResult {
+    oem: string;
+    existsInRegistry: boolean;
+    registryRecord: {
+        id: number;
+        oem: string;
+        brand: string;
+        part_category: string;
+        part_description: string;
+        model: string;
+        confidence: number;
+    } | null;
+    aiResult: {
+        partName: string;
+        brand: string;
+        part_category: string;
+        part_description: string;
+        model: string;
+        vehicles: string;
+        manufacturer: string;
+        confidence: number;
+        notes: string;
+    };
+}
+
+export async function lookupOem(oem: string): Promise<OemLookupResult> {
+    return apiFetch('/api/admin/oem-lookup', {
+        method: 'POST',
+        body: JSON.stringify({ oem })
+    });
+}
+
+export async function approveOemResult(data: {
+    oem: string;
+    brand: string;
+    part_category: string;
+    part_description: string;
+    model: string;
+    confidence: number;
+}): Promise<{ success: boolean; action: string; id: number }> {
+    return apiFetch('/api/admin/oem-lookup/approve', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}

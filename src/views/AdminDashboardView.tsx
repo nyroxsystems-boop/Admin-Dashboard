@@ -12,6 +12,7 @@ import {
 import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature } from '../api/wws';
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
+import { OemLookupView } from './OemLookupView';
 import { BotTestingView } from './BotTestingView';
 import { InboxView } from './InboxView';
 import { AccuracyDashboardView } from './AccuracyDashboardView';
@@ -32,7 +33,7 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'bot-testing' | 'accuracy' | 'inbox' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'settings'>('overview');
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -369,6 +370,12 @@ export function AdminDashboardView() {
                             onClick={() => { setActiveTab('oem-registry'); setSidebarOpen(false); }}
                         />
                         <SidebarItem
+                            icon={<Search />}
+                            label="OEM Lookup"
+                            active={activeTab === 'oem-lookup'}
+                            onClick={() => { setActiveTab('oem-lookup'); setSidebarOpen(false); }}
+                        />
+                        <SidebarItem
                             icon={<Bot />}
                             label="Bot Testing"
                             active={activeTab === 'bot-testing'}
@@ -644,6 +651,18 @@ export function AdminDashboardView() {
                                 transition={{ duration: 0.15 }}
                             >
                                 <OemRegistryView />
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'oem-lookup' && (
+                            <motion.div
+                                key="oem-lookup"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                            >
+                                <OemLookupView />
                             </motion.div>
                         )}
 
