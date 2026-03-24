@@ -3,7 +3,7 @@ import {
     Users, Shield, Smartphone, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, HardDrive, Mail, Bot, BarChart2
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, HardDrive, Mail, Bot, BarChart2, Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -16,6 +16,7 @@ import { OemLookupView } from './OemLookupView';
 import { BotTestingView } from './BotTestingView';
 import { InboxView } from './InboxView';
 import { AccuracyDashboardView } from './AccuracyDashboardView';
+import { TenantDetailView } from './TenantDetailView';
 import { useAuth } from '../context/AuthContext';
 import { SidebarItem, StatsCard, LimitBar, StatusBadge, ActionButton, Modal, DeviceDrawer, Input, Button } from '../components/AdminUI';
 
@@ -31,6 +32,7 @@ export function AdminDashboardView() {
     const [loading, setLoading] = useState(true);
     const [selectedTenant, setSelectedTenant] = useState<any | null>(null);
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
+    const [viewingTenant, setViewingTenant] = useState<any | null>(null);
 
     // UI State
     const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'audit' | 'settings'>('overview');
@@ -608,6 +610,14 @@ export function AdminDashboardView() {
                                 transition={{ duration: 0.15 }}
                                 className="space-y-6"
                             >
+                                {viewingTenant ? (
+                                    <TenantDetailView
+                                        tenant={viewingTenant}
+                                        onBack={() => setViewingTenant(null)}
+                                        onRefresh={() => { loadStats(); setViewingTenant(null); }}
+                                    />
+                                ) : (
+                                <>
                                 <div className="flex justify-between items-center">
                                     <h2 className="text-2xl font-bold">Mandantenverwaltung</h2>
                                     <button
@@ -644,8 +654,8 @@ export function AdminDashboardView() {
                                                                         {tenant.name.charAt(0)}
                                                                     </div>
                                                                 )}
-                                                                <div>
-                                                                    <div className="font-bold text-foreground text-sm">{tenant.name}</div>
+                                                                <div className="cursor-pointer" onClick={() => setViewingTenant(tenant)}>
+                                                                    <div className="font-bold text-foreground text-sm hover:text-primary transition-colors">{tenant.name}</div>
                                                                     <div className="text-xs text-muted-foreground font-mono bg-muted/50 px-1.5 rounded inline-block mt-0.5">{tenant.slug}</div>
                                                                 </div>
                                                             </div>
@@ -670,6 +680,7 @@ export function AdminDashboardView() {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                                <ActionButton icon={<Eye className="w-4 h-4" />} onClick={() => setViewingTenant(tenant)} tooltip="Details anzeigen" />
                                                                 <ActionButton icon={<Smartphone className="w-4 h-4" />} onClick={() => { setSelectedTenant(tenant); loadDevices(tenant.id); }} tooltip="Geräte verwalten" />
                                                                 <ActionButton icon={<Users className="w-4 h-4" />} onClick={() => { setSelectedTenant(tenant); setShowUserModal(true); }} tooltip="Benutzer hinzufügen" />
                                                                 <ActionButton icon={<Settings className="w-4 h-4" />} onClick={() => openSettingsModal(tenant)} tooltip="Limits anpassen" />
@@ -701,6 +712,7 @@ export function AdminDashboardView() {
                                         </table>
                                     </div>
                                 </div>
+                                </>)}
                             </motion.div>
                         )}
 

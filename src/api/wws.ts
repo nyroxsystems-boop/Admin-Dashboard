@@ -302,6 +302,35 @@ export async function getAdminStats(): Promise<AdminStats> {
     };
 }
 
+export interface TenantDetail {
+    id: string;
+    users: Array<{
+        id: string; name: string; email: string; username: string;
+        role: string; is_active: boolean; created_at: string;
+    }>;
+    devices: Array<{
+        device_id: string; user_agent: string; ip_address: string;
+        created_at: string; last_seen_at: string;
+    }>;
+    orders: Array<{
+        id: string; status: string; oem_number: string | null;
+        part_name: string; customer: string; created_at: string;
+        total: number | null; vehicle_brand: string | null;
+        vehicle_model: string | null; vehicle_year: number | null;
+    }>;
+    settings: { max_users: number; max_devices: number; whatsapp_number?: string; onboarding_status?: string; payment_status?: string };
+    stats: {
+        total_orders: number; oem_resolved: number; oem_rate: number;
+        total_messages: number; revenue: number;
+        user_count: number; device_count: number;
+    };
+    audit: Array<{ id: number; admin_user: string; action: string; details: string | null; created_at: string }>;
+}
+
+export async function getTenantDetail(tenantId: number | string): Promise<{ tenant: TenantDetail }> {
+    return apiFetch(`/api/admin/tenants/${tenantId}/detail`);
+}
+
 export async function deactivateTenant(tenantId: number | string): Promise<{ success: boolean }> {
     return apiFetch(`/api/admin/tenants/${tenantId}/deactivate`, { method: 'POST' });
 }
