@@ -251,6 +251,11 @@ export interface AdminStats {
     total_devices: number;
     tenants: Tenant[];
     history?: { name: string; orders: number; revenue: number }[];
+    kpis?: {
+        sales: { totalOrders: number; ordersToday: number; revenue: number; conversionRate: number };
+        team: { activeUsers: number; tenantCount: number; messagesSent: number };
+        oem: { resolvedCount: number; successRate: number };
+    };
 }
 
 export interface Tenant {
@@ -288,8 +293,34 @@ export async function getAdminStats(): Promise<AdminStats> {
         total_users: stats.total_users,
         total_devices: stats.total_devices,
         tenants: stats.tenants,
-        history: kpis?.history || []
+        history: kpis?.history || [],
+        kpis: kpis ? {
+            sales: kpis.sales,
+            team: kpis.team,
+            oem: kpis.oem,
+        } : undefined,
     };
+}
+
+export async function deactivateTenant(tenantId: number | string): Promise<{ success: boolean }> {
+    return apiFetch(`/api/admin/tenants/${tenantId}/deactivate`, { method: 'POST' });
+}
+
+export async function activateTenant(tenantId: number | string): Promise<{ success: boolean }> {
+    return apiFetch(`/api/admin/tenants/${tenantId}/activate`, { method: 'POST' });
+}
+
+export interface AuditLogEntry {
+    id: number;
+    admin_user: string;
+    action: string;
+    details: string | null;
+    ip_address: string;
+    created_at: string;
+}
+
+export async function getAuditLog(): Promise<{ logs: AuditLogEntry[] }> {
+    return apiFetch('/api/admin/audit-log');
 }
 
 export async function createTenant(data: {

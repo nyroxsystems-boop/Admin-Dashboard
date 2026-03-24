@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature } from '../api/wws';
+import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature, deactivateTenant, activateTenant, getAuditLog, AuditLogEntry } from '../api/wws';
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
 import { OemLookupView } from './OemLookupView';
@@ -33,7 +33,7 @@ export function AdminDashboardView() {
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'audit' | 'settings'>('overview');
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -75,10 +75,20 @@ export function AdminDashboardView() {
     const [adminLoading, setAdminLoading] = useState(false);
     const [editingAdminEmail, setEditingAdminEmail] = useState<{ id: number, email: string } | null>(null);
 
+    // Audit Log State
+    const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+
     // --- Effects ---
     useEffect(() => {
         loadStats();
     }, []);
+
+    // Auto-load audit logs when switching to audit tab
+    useEffect(() => {
+        if (activeTab === 'audit') {
+            getAuditLog().then(d => setAuditLogs(d.logs)).catch(() => {});
+        }
+    }, [activeTab]);
 
     // --- Actions ---
     const loadStats = async () => {
@@ -393,6 +403,12 @@ export function AdminDashboardView() {
                             active={activeTab === 'inbox'}
                             onClick={() => { setActiveTab('inbox'); setSidebarOpen(false); }}
                         />
+                        <SidebarItem
+                            icon={<Shield />}
+                            label="Audit Log"
+                            active={activeTab === 'audit'}
+                            onClick={() => { setActiveTab('audit'); setSidebarOpen(false); }}
+                        />
                     </nav>
 
                     {/* Profile Section with Dropdown */}
@@ -524,6 +540,32 @@ export function AdminDashboardView() {
                                     />
                                 </div>
 
+                                {/* Business KPIs */}
+                                {stats?.kpis && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="glass-card rounded-2xl p-5 border border-border/50">
+                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Bestellungen Gesamt</div>
+                                            <div className="text-3xl font-bold text-foreground">{stats.kpis.sales.totalOrders}</div>
+                                            <div className="text-sm text-green-500 mt-1">+{stats.kpis.sales.ordersToday} heute</div>
+                                        </div>
+                                        <div className="glass-card rounded-2xl p-5 border border-border/50">
+                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Umsatz</div>
+                                            <div className="text-3xl font-bold text-foreground">€{(stats.kpis.sales.revenue || 0).toLocaleString('de-DE', { minimumFractionDigits: 2 })}</div>
+                                            <div className="text-sm text-muted-foreground mt-1">{stats.kpis.sales.conversionRate}% Conversion</div>
+                                        </div>
+                                        <div className="glass-card rounded-2xl p-5 border border-border/50">
+                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">OEM Aufgelöst</div>
+                                            <div className="text-3xl font-bold text-foreground">{stats.kpis.oem.resolvedCount}</div>
+                                            <div className="text-sm text-blue-500 mt-1">{stats.kpis.oem.successRate}% Erfolgsquote</div>
+                                        </div>
+                                        <div className="glass-card rounded-2xl p-5 border border-border/50">
+                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nachrichten</div>
+                                            <div className="text-3xl font-bold text-foreground">{stats.kpis.team.messagesSent}</div>
+                                            <div className="text-sm text-purple-500 mt-1">{stats.kpis.team.activeUsers} aktive User</div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Chart Section */}
                                 <div className="glass-card rounded-2xl p-6 border border-border/50">
                                     <div className="flex items-center justify-between mb-6">
@@ -631,6 +673,26 @@ export function AdminDashboardView() {
                                                                 <ActionButton icon={<Smartphone className="w-4 h-4" />} onClick={() => { setSelectedTenant(tenant); loadDevices(tenant.id); }} tooltip="Geräte verwalten" />
                                                                 <ActionButton icon={<Users className="w-4 h-4" />} onClick={() => { setSelectedTenant(tenant); setShowUserModal(true); }} tooltip="Benutzer hinzufügen" />
                                                                 <ActionButton icon={<Settings className="w-4 h-4" />} onClick={() => openSettingsModal(tenant)} tooltip="Limits anpassen" />
+                                                                <ActionButton
+                                                                    icon={tenant.is_active ? <Shield className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                                                                    onClick={async () => {
+                                                                        if (tenant.is_active) {
+                                                                            if (!confirm(`Händler "${tenant.name}" wirklich deaktivieren?`)) return;
+                                                                            try {
+                                                                                await deactivateTenant(tenant.id);
+                                                                                toast.success(`${tenant.name} deaktiviert`);
+                                                                                loadStats();
+                                                                            } catch (err: any) { toast.error(err.message); }
+                                                                        } else {
+                                                                            try {
+                                                                                await activateTenant(tenant.id);
+                                                                                toast.success(`${tenant.name} aktiviert`);
+                                                                                loadStats();
+                                                                            } catch (err: any) { toast.error(err.message); }
+                                                                        }
+                                                                    }}
+                                                                    tooltip={tenant.is_active ? 'Deaktivieren' : 'Aktivieren'}
+                                                                />
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -716,7 +778,78 @@ export function AdminDashboardView() {
                         )}
 
 
+                        {activeTab === 'audit' && (
+                            <motion.div
+                                key="audit"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="space-y-6"
+                            >
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <h2 className="text-2xl font-bold flex items-center gap-2">
+                                            <Shield className="w-6 h-6 text-primary" />
+                                            Audit Log
+                                        </h2>
+                                        <p className="text-muted-foreground text-sm mt-1">Alle Admin-Aktivitäten im Überblick</p>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            getAuditLog().then(d => setAuditLogs(d.logs)).catch(() => toast.error('Fehler beim Laden'));
+                                        }}
+                                        className="p-2 hover:bg-muted rounded-xl"
+                                    >
+                                        <RefreshCcw className="w-5 h-5 text-muted-foreground" />
+                                    </button>
+                                </div>
 
+                                <div className="glass-card rounded-2xl overflow-hidden border border-border/50">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="bg-muted/40 border-b border-border/50">
+                                                <th className="text-left px-6 py-3 text-[11px] font-bold text-muted-foreground uppercase">Zeit</th>
+                                                <th className="text-left px-6 py-3 text-[11px] font-bold text-muted-foreground uppercase">Admin</th>
+                                                <th className="text-left px-6 py-3 text-[11px] font-bold text-muted-foreground uppercase">Aktion</th>
+                                                <th className="text-left px-6 py-3 text-[11px] font-bold text-muted-foreground uppercase">Details</th>
+                                                <th className="text-left px-6 py-3 text-[11px] font-bold text-muted-foreground uppercase">IP</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border/30">
+                                            {auditLogs.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                                                        Keine Audit-Einträge vorhanden
+                                                    </td>
+                                                </tr>
+                                            ) : auditLogs.map((log) => (
+                                                <tr key={log.id} className="hover:bg-muted/20 transition-colors">
+                                                    <td className="px-6 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                                                        {new Date(log.created_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                    </td>
+                                                    <td className="px-6 py-3 text-sm font-medium">{log.admin_user}</td>
+                                                    <td className="px-6 py-3">
+                                                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                                            log.action.includes('deactivat') ? 'bg-red-500/10 text-red-500' :
+                                                            log.action.includes('activat') ? 'bg-green-500/10 text-green-500' :
+                                                            log.action.includes('creat') ? 'bg-blue-500/10 text-blue-500' :
+                                                            'bg-muted text-muted-foreground'
+                                                        }`}>
+                                                            {log.action.replace(/_/g, ' ')}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-3 text-sm text-muted-foreground max-w-[200px] truncate">
+                                                        {log.details ? JSON.stringify(JSON.parse(log.details)).replace(/[{}"]/g, '') : '-'}
+                                                    </td>
+                                                    <td className="px-6 py-3 text-xs text-muted-foreground font-mono">{log.ip_address}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </motion.div>
+                        )}
 
                         {activeTab === 'settings' && (
                             <motion.div
