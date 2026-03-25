@@ -206,7 +206,7 @@ export function OemRegistryView() {
                     <button
                         onClick={() => handleRunValidator(false)}
                         disabled={validating}
-                        className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 rounded-lg text-sm font-medium transition-all"
+                        className="flex items-center gap-2 px-3 py-2 bg-warn-light hover:bg-warn-light text-warn rounded-lg text-sm font-medium transition-all"
                     >
                         {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
                         Prüfen
@@ -214,7 +214,7 @@ export function OemRegistryView() {
                     <button
                         onClick={() => handleRunValidator(true)}
                         disabled={validating}
-                        className="flex items-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-lg text-sm font-medium transition-all"
+                        className="flex items-center gap-2 px-3 py-2 bg-danger-light hover:bg-danger-light text-danger rounded-lg text-sm font-medium transition-all"
                     >
                         <Trash2 className="w-4 h-4" />
                         Bereinigen
@@ -283,7 +283,7 @@ export function OemRegistryView() {
                     <span className="font-medium">{selectedIds.size} ausgewählt</span>
                     <button
                         onClick={handleBulkDelete}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-danger text-white rounded-lg text-sm font-medium hover:bg-danger transition-colors"
                     >
                         <Trash2 className="w-4 h-4" />
                         Alle löschen
@@ -355,9 +355,9 @@ export function OemRegistryView() {
                                         <td className="px-4 py-3 text-sm text-muted-foreground truncate max-w-[200px]">{record.part_description || '-'}</td>
                                         <td className="px-4 py-3 text-sm">{record.model || '-'}</td>
                                         <td className="px-4 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${record.confidence >= 0.8 ? 'bg-green-500/10 text-green-600' :
-                                                record.confidence >= 0.5 ? 'bg-amber-500/10 text-amber-600' :
-                                                    'bg-red-500/10 text-red-600'
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${record.confidence >= 0.8 ? 'bg-success-light text-success' :
+                                                record.confidence >= 0.5 ? 'bg-warn-light text-warn' :
+                                                    'bg-danger-light text-danger'
                                                 }`}>
                                                 {record.confidence >= 0.8 ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
                                                 {Math.round(record.confidence * 100)}%
@@ -374,7 +374,7 @@ export function OemRegistryView() {
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(record.id)}
-                                                    className="p-2 hover:bg-red-500 hover:text-white rounded-lg transition-colors text-muted-foreground"
+                                                    className="p-2 hover:bg-danger hover:text-white rounded-lg transition-colors text-muted-foreground"
                                                     title="Löschen"
                                                 >
                                                     <Trash2 className="w-4 h-4" />

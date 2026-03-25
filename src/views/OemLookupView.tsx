@@ -109,10 +109,10 @@ export function OemLookupView() {
     };
 
     const confidenceColor = (c: number) =>
-        c >= 0.8 ? 'text-green-500' : c >= 0.5 ? 'text-amber-500' : 'text-red-500';
+        c >= 0.8 ? 'text-success' : c >= 0.5 ? 'text-warn' : 'text-danger';
 
     const confidenceBg = (c: number) =>
-        c >= 0.8 ? 'bg-green-500/10 border-green-500/20' : c >= 0.5 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20';
+        c >= 0.8 ? 'bg-success-light border-brand/15' : c >= 0.5 ? 'bg-warn-light border-amber-500/20' : 'bg-danger-light border-destructive/15';
 
     // Quick test OEM numbers
     const quickOems = [
@@ -208,10 +208,10 @@ export function OemLookupView() {
                     >
                         {/* Registry Status */}
                         {currentResult.existsInRegistry && (
-                            <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-                                <CheckCircle className="w-5 h-5 text-green-500" />
+                            <div className="flex items-center gap-3 p-4 bg-success-light border border-brand/15 rounded-xl">
+                                <CheckCircle className="w-5 h-5 text-success" />
                                 <div>
-                                    <span className="text-green-500 font-semibold">Bereits im Registry</span>
+                                    <span className="text-success font-semibold">Bereits im Registry</span>
                                     <span className="text-muted-foreground text-sm ml-2">
                                         — {currentResult.registryRecord?.brand} | {currentResult.registryRecord?.part_category} | {Math.round((currentResult.registryRecord?.confidence || 0) * 100)}% Konfidenz
                                     </span>
@@ -319,7 +319,7 @@ export function OemLookupView() {
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         {currentResult.aiResult.confidence < 0.5 && (
                                             <>
-                                                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                                <AlertTriangle className="w-4 h-4 text-warn" />
                                                 <span>Niedrige Konfidenz — bitte Daten prüfen</span>
                                             </>
                                         )}
@@ -349,8 +349,8 @@ export function OemLookupView() {
 
                         {/* AI Notes */}
                         {currentResult.aiResult.notes && (
-                            <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl text-sm text-muted-foreground">
-                                <span className="font-semibold text-blue-400 mr-2">📝 KI-Notizen:</span>
+                            <div className="p-4 bg-brand-light border border-brand/15 rounded-xl text-sm text-muted-foreground">
+                                <span className="font-semibold text-brand mr-2">📝 KI-Notizen:</span>
                                 {currentResult.aiResult.notes}
                             </div>
                         )}
@@ -373,8 +373,8 @@ export function OemLookupView() {
                                 animate={{ opacity: 1, x: 0 }}
                                 className="flex items-center gap-4 p-3 bg-card border border-border/30 rounded-xl hover:bg-muted/20 transition-colors"
                             >
-                                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                <div className="w-8 h-8 rounded-lg bg-success-light flex items-center justify-center">
+                                    <CheckCircle className="w-4 h-4 text-success" />
                                 </div>
                                 <code className="font-mono font-bold text-sm">{item.oem}</code>
                                 <ArrowRight className="w-4 h-4 text-muted-foreground" />

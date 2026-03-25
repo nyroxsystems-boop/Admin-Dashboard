@@ -528,9 +528,9 @@ export function InboxView() {
                                     <p className="text-sm text-muted-foreground truncate">{email.snippet}</p>
                                     {email.assignment && (
                                         <div className="flex items-center gap-2 mt-2">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${email.assignment.status === 'done' ? 'bg-green-500/20 text-green-600' :
-                                                email.assignment.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-600' :
-                                                    'bg-blue-500/20 text-blue-600'
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${email.assignment.status === 'done' ? 'bg-success-light text-success' :
+                                                email.assignment.status === 'in_progress' ? 'bg-warn-light text-warn' :
+                                                    'bg-brand-light text-brand'
                                                 }`}>
                                                 {email.assignment.assigned_to}
                                             </span>
@@ -724,7 +724,7 @@ export function InboxView() {
                                             </button>
                                             <button
                                                 onClick={() => setEmailType('promotional')}
-                                                className={`flex-1 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${emailType === 'promotional' ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                                                className={`flex-1 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${emailType === 'promotional' ? 'bg-gradient-to-r from-accent to-accent/80 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                                             >
                                                 <Megaphone className="w-4 h-4" />
                                                 Werbe-Mail
@@ -739,9 +739,9 @@ export function InboxView() {
                                     </div>
 
                                     {/* AI Generator Section */}
-                                    <div className={`rounded-xl p-5 border ${emailType === 'promotional' ? 'bg-gradient-to-br from-orange-500/10 to-pink-500/10 border-orange-500/20' : 'bg-gradient-to-br from-purple-500/10 to-indigo-500/10 border-purple-500/20'}`}>
+                                    <div className={`rounded-xl p-5 border ${emailType === 'promotional' ? 'bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20' : 'bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20'}`}>
                                         <div className="flex items-center gap-2 mb-4">
-                                            <Sparkles className={`w-5 h-5 ${emailType === 'promotional' ? 'text-orange-500' : 'text-purple-500'}`} />
+                                            <Sparkles className={`w-5 h-5 ${emailType === 'promotional' ? 'text-warn' : 'text-stat-4'}`} />
                                             <span className="font-semibold">KI E-Mail Generator</span>
                                         </div>
                                         <p className="text-sm text-muted-foreground mb-4">
@@ -763,7 +763,7 @@ export function InboxView() {
                                         <button
                                             onClick={generateComposeAI}
                                             disabled={composeAiLoading || !composeAiPrompt.trim()}
-                                            className={`w-full px-4 py-3 text-white rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2 ${emailType === 'promotional' ? 'bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-500 hover:to-pink-500' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500'}`}
+                                            className={`w-full px-4 py-3 text-white rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2 ${emailType === 'promotional' ? 'bg-gradient-to-r from-accent to-accent/80 hover:brightness-110' : 'bg-gradient-to-r from-primary to-primary/80 hover:brightness-110'}`}
                                         >
                                             {composeAiLoading ? (
                                                 <>
@@ -900,8 +900,8 @@ export function InboxView() {
                                         {showPreview && composeData.htmlContent ? (
                                             /* Full HTML Preview */
                                             <div className="flex-1 border border-border rounded-xl overflow-hidden">
-                                                <div className="px-4 py-3 bg-gradient-to-r from-orange-500/10 to-pink-500/10 text-sm font-medium border-b border-border flex items-center gap-2">
-                                                    <Megaphone className="w-4 h-4 text-orange-500" />
+                                                <div className="px-4 py-3 bg-gradient-to-r from-accent/10 to-accent/5 text-sm font-medium border-b border-border flex items-center gap-2">
+                                                    <Megaphone className="w-4 h-4 text-warn" />
                                                     Werbe-Mail Vorschau
                                                 </div>
                                                 <div
@@ -933,7 +933,7 @@ export function InboxView() {
                                             <div className="border border-border rounded-xl overflow-hidden">
                                                 <div className="px-3 py-2 bg-muted text-xs font-medium border-b border-border flex items-center justify-between">
                                                     <span className="flex items-center gap-1">
-                                                        <Megaphone className="w-3 h-3 text-orange-500" />
+                                                        <Megaphone className="w-3 h-3 text-warn" />
                                                         HTML generiert
                                                     </span>
                                                     <button

@@ -78,14 +78,14 @@ export function AccuracyDashboardView() {
                     value={stats.totalResolutions}
                     icon={<BarChart2 className="w-5 h-5 text-white" />}
                     trend={`${stats.withOem} erfolgreich`}
-                    color="from-blue-500 to-indigo-500"
+                    color="from-primary to-primary/70"
                 />
                 <StatsCard
                     title="Resolution Rate"
                     value={`${(stats.resolutionRate * 100).toFixed(1)}%`}
                     icon={<Target className="w-5 h-5 text-white" />}
                     trend="OEM gefunden vs Leer"
-                    color="from-purple-500 to-fuchsia-500"
+                    color="from-accent to-accent/70"
                 />
                 <StatsCard
                     title="Real Accuracy"
@@ -99,7 +99,7 @@ export function AccuracyDashboardView() {
                     value={`${stats.avgDurationMs}ms`}
                     icon={<Clock className="w-5 h-5 text-white" />}
                     trend={stats.avgDurationMs < 3000 ? 'Sehr schnell' : 'Langsam'}
-                    color="from-amber-500 to-orange-500"
+                    color="from-accent to-accent/70"
                 />
             </div>
 
@@ -137,7 +137,7 @@ export function AccuracyDashboardView() {
                                     </div>
                                     <div className="w-full bg-muted/50 rounded-full h-2">
                                         <div
-                                            className={`h-2 rounded-full ${parseFloat(brand.accuracy as string) > 85 ? 'bg-green-500' : parseFloat(brand.accuracy as string) > 70 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                            className={`h-2 rounded-full ${parseFloat(brand.accuracy as string) > 85 ? 'bg-success' : parseFloat(brand.accuracy as string) > 70 ? 'bg-warn' : 'bg-danger'}`}
                                             style={{ width: `${Math.max(5, parseFloat(brand.accuracy as string))}%` }}
                                         />
                                     </div>

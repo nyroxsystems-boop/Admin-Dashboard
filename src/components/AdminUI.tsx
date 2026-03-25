@@ -7,12 +7,13 @@ import { motion } from 'motion/react';
 import { X, ChevronRight, Smartphone, LogOut, Loader2 } from 'lucide-react';
 
 // ── Sidebar Item ──
-export const SidebarItem = ({ icon, label, active, onClick, badge }: any) => (
-    <button onClick={onClick} className={`sidebar-item w-full ${active ? 'active' : ''}`}>
-        <span className={`transition-colors ${active ? 'text-brand' : ''}`}>{icon}</span>
-        <span className="flex-1 text-left">{label}</span>
-        {badge && <span className="badge badge-info text-[9px] px-1.5 py-0.5">{badge}</span>}
-        {active && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-40" />}
+export const SidebarItem = ({ icon, label, active, onClick, badge, collapsed }: any) => (
+    <button onClick={onClick} title={collapsed ? label : undefined}
+        className={`sidebar-item w-full ${active ? 'active' : ''} ${collapsed ? '!px-0 !justify-center !gap-0' : ''}`}>
+        <span className={`transition-colors flex-shrink-0 ${active ? 'text-brand' : ''}`}>{icon}</span>
+        {!collapsed && <span className="flex-1 text-left">{label}</span>}
+        {!collapsed && badge && <span className="badge badge-info text-[9px] px-1.5 py-0.5">{badge}</span>}
+        {!collapsed && active && <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-40" />}
     </button>
 );
 

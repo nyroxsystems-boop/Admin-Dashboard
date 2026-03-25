@@ -246,7 +246,7 @@ export function BotTestingView() {
                 {/* Header - Compact on mobile */}
                 <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-border bg-muted/50">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg md:rounded-xl flex items-center justify-center">
+                        <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-primary to-primary/70 rounded-lg md:rounded-xl flex items-center justify-center">
                             <Bot className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
                         <div>
@@ -269,7 +269,7 @@ export function BotTestingView() {
                         </div>
                         <button
                             onClick={resetConversation}
-                            className="flex items-center gap-1.5 px-3 py-2 text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 rounded-lg transition-all text-sm font-medium"
+                            className="flex items-center gap-1.5 px-3 py-2 text-danger hover:text-danger bg-danger-light hover:bg-danger-light border border-destructive/15 hover:border-destructive/30 rounded-lg transition-all text-sm font-medium"
                             title="Konversation löschen & zurücksetzen"
                         >
                             <Trash2 className="w-4 h-4" />
@@ -315,8 +315,8 @@ export function BotTestingView() {
                             >
                                 <div className={`flex items-start gap-2 max-w-[85%] md:max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                                     <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex-shrink-0 flex items-center justify-center ${msg.role === 'user'
-                                        ? 'bg-blue-600'
-                                        : 'bg-gradient-to-br from-green-500 to-emerald-600'
+                                        ? 'bg-brand'
+                                        : 'bg-gradient-to-br from-primary to-primary/70'
                                         }`}>
                                         {msg.role === 'user' ? (
                                             <User className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
@@ -325,7 +325,7 @@ export function BotTestingView() {
                                         )}
                                     </div>
                                     <div className={`px-3 py-2 md:px-4 md:py-3 rounded-2xl ${msg.role === 'user'
-                                        ? 'bg-blue-600 text-white'
+                                        ? 'bg-brand text-primary-foreground'
                                         : 'bg-muted text-foreground border border-border'
                                         }`}>
                                         {/* Image preview if present */}
@@ -350,7 +350,7 @@ export function BotTestingView() {
                             className="flex justify-start"
                         >
                             <div className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 bg-muted rounded-2xl border border-border">
-                                <Loader2 className="w-4 h-4 text-green-500 animate-spin" />
+                                <Loader2 className="w-4 h-4 text-success animate-spin" />
                                 <span className="text-muted-foreground text-sm">Bot denkt nach...</span>
                             </div>
                         </motion.div>
@@ -371,7 +371,7 @@ export function BotTestingView() {
                             />
                             <button
                                 onClick={removeImage}
-                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-danger hover:bg-danger text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
                             >
                                 <X className="w-3 h-3" />
                             </button>
@@ -413,7 +413,7 @@ export function BotTestingView() {
                             disabled={isLoading || (!inputText.trim() && !imageData)}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-primary to-primary/70 hover:brightness-110 text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Send className="w-4 h-4 md:w-5 md:h-5" />
                         </motion.button>
@@ -426,7 +426,7 @@ export function BotTestingView() {
                 {/* OEM Stats Card */}
                 <div className="bg-card border border-border rounded-2xl p-5">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
                             <Sparkles className="w-5 h-5 text-white" />
                         </div>
                         <div>
@@ -439,13 +439,13 @@ export function BotTestingView() {
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground text-sm">Erfolgsquote</span>
-                                <span className={`font-bold ${oemStats.resolution_rate >= 70 ? 'text-green-500' : 'text-yellow-500'}`}>
+                                <span className={`font-bold ${oemStats.resolution_rate >= 70 ? 'text-success' : 'text-warn'}`}>
                                     {oemStats.resolution_rate}%
                                 </span>
                             </div>
                             <div className="w-full bg-muted rounded-full h-2">
                                 <div
-                                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all"
+                                    className="bg-gradient-to-r from-primary to-primary/70 h-2 rounded-full transition-all"
                                     style={{ width: `${oemStats.resolution_rate}%` }}
                                 />
                             </div>
@@ -467,7 +467,7 @@ export function BotTestingView() {
                         className="bg-card border border-border rounded-2xl p-5"
                     >
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center">
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center">
                                 <Package className="w-5 h-5 text-white" />
                             </div>
                             <div>
@@ -487,9 +487,9 @@ export function BotTestingView() {
                             {orderDetails.oem_number && (
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <Hash className="w-4 h-4 text-green-500" />
-                                        <span className="text-green-500 font-mono font-bold">{orderDetails.oem_number}</span>
-                                        <CheckCircle className="w-4 h-4 text-green-500" />
+                                        <Hash className="w-4 h-4 text-success" />
+                                        <span className="text-success font-mono font-bold">{orderDetails.oem_number}</span>
+                                        <CheckCircle className="w-4 h-4 text-success" />
                                         <button
                                             onClick={async () => {
                                                 setReverseLookup({ loading: true, result: null });
@@ -506,7 +506,7 @@ export function BotTestingView() {
                                                 }
                                             }}
                                             disabled={reverseLookup.loading}
-                                            className="ml-1 px-2 py-1 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg flex items-center gap-1 transition-colors"
+                                            className="ml-1 px-2 py-1 text-xs bg-brand-light hover:bg-brand-light text-brand rounded-lg flex items-center gap-1 transition-colors"
                                             title="KI-Rücksuche: Welches Teil gehört zu dieser OEM-Nummer?"
                                         >
                                             {reverseLookup.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
@@ -514,8 +514,8 @@ export function BotTestingView() {
                                         </button>
                                     </div>
                                     {reverseLookup.result && !reverseLookup.result.error && (
-                                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-xs space-y-1">
-                                            <div className="text-blue-400 font-semibold">
+                                        <div className="bg-brand-light border border-brand/15 rounded-lg p-3 text-xs space-y-1">
+                                            <div className="text-brand font-semibold">
                                                 🔍 {reverseLookup.result.partName || 'Unbekannt'}
                                             </div>
                                             {reverseLookup.result.partCategory && (
@@ -528,14 +528,14 @@ export function BotTestingView() {
                                                 <div className="text-muted-foreground">Hersteller: {reverseLookup.result.manufacturer}</div>
                                             )}
                                             {reverseLookup.result.confidence !== undefined && (
-                                                <div className={`font-mono ${reverseLookup.result.confidence >= 0.7 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                <div className={`font-mono ${reverseLookup.result.confidence >= 0.7 ? 'text-success' : 'text-warn'}`}>
                                                     Confidence: {Math.round(reverseLookup.result.confidence * 100)}%
                                                 </div>
                                             )}
                                         </div>
                                     )}
                                     {reverseLookup.result?.error && (
-                                        <div className="text-red-400 text-xs">{reverseLookup.result.error}</div>
+                                        <div className="text-danger text-xs">{reverseLookup.result.error}</div>
                                     )}
                                 </div>
                             )}

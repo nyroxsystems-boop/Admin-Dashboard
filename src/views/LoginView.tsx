@@ -66,9 +66,9 @@ export function LoginView({ onForgotPassword }: Props) {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
             {/* Animated Background */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-light rounded-full blur-3xl animate-pulse" />
                 <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-light rounded-full blur-3xl" />
             </div>
 
             {/* Noise Overlay */}
@@ -94,7 +94,7 @@ export function LoginView({ onForgotPassword }: Props) {
                             transition={{ delay: 0.2, duration: 0.5 }}
                             className="flex justify-center mb-6"
                         >
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/30">
+                            <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/70 rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20">
                                 <Lock className="w-8 h-8 text-white" />
                             </div>
                         </motion.div>
@@ -115,7 +115,7 @@ export function LoginView({ onForgotPassword }: Props) {
                             <motion.div
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm"
+                                className="flex items-center gap-2 p-3 bg-danger-light border border-destructive/20 rounded-xl text-danger text-sm"
                             >
                                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                                 {error}
@@ -128,7 +128,7 @@ export function LoginView({ onForgotPassword }: Props) {
                                 Benutzername
                             </label>
                             <div className="relative group">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-blue-400 transition-colors" />
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                                 <input
                                     type="text"
                                     value={username}
@@ -146,7 +146,7 @@ export function LoginView({ onForgotPassword }: Props) {
                                 Passwort
                             </label>
                             <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-blue-400 transition-colors" />
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
@@ -173,7 +173,7 @@ export function LoginView({ onForgotPassword }: Props) {
                             disabled={isLoading}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full py-4 bg-gradient-to-r from-primary to-primary/80 hover:brightness-110 text-white font-semibold rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -190,7 +190,7 @@ export function LoginView({ onForgotPassword }: Props) {
                     <div className="px-8 py-5 bg-white/5 border-t border-white/10 text-center">
                         <div className="flex items-center justify-center gap-2 text-white/40 text-xs">
                             <span>Powered by</span>
-                            <span className="text-blue-400 font-semibold">Partsunion</span>
+                            <span className="text-brand font-semibold">Partsunion</span>
                         </div>
                     </div>
                 </div>

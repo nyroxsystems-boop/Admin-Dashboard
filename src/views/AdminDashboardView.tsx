@@ -49,6 +49,7 @@ export function AdminDashboardView() {
     const [newTenantPassword, setNewTenantPassword] = useState('');
     const [newTenantWhatsapp, setNewTenantWhatsapp] = useState('');
     const [newTenantLogo, setNewTenantLogo] = useState('');
+    const [wizardStep, setWizardStep] = useState(1);
 
     // Settings Modal State (for tenant limits & settings)
     const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -338,123 +339,85 @@ export function AdminDashboardView() {
             <motion.aside
                 initial={false}
                 animate={{
-                    width: sidebarOpen ? 280 : 0,
-                    opacity: sidebarOpen ? 1 : 0,
+                    width: sidebarOpen ? 280 : 64,
                 }}
-                transition={{ type: 'tween', duration: 0.2 }}
-                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 shadow-2xl will-change-[width] overflow-hidden"
-                style={{ minWidth: 0 }}>
-                <div className="w-[280px] flex flex-col h-full">
-                    <div className="p-5 flex items-center gap-3 border-b border-border/50">
-                        <img
-                            src="/partsunion-logo.png"
-                            alt="Partsunion"
-                            className="h-10 w-auto object-contain"
-                        />
-                        <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Admin</span>
+                transition={{ type: 'tween', duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 will-change-[width] overflow-hidden">
+                <div className={`${sidebarOpen ? 'w-[280px]' : 'w-[64px]'} flex flex-col h-full transition-all duration-200`}>
+                    <div className={`p-5 flex items-center border-b border-border/50 ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>
+                        {sidebarOpen ? (
+                            <>
+                                <img src="/partsunion-logo.png" alt="Partsunion" className="h-10 w-auto object-contain" />
+                                <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Admin</span>
+                            </>
+                        ) : (
+                            <div className="icon-box w-9 h-9 text-sm font-extrabold" title="Partsunion Admin">P</div>
+                        )}
                     </div>
 
-                    {/* Mobile Close Button */}
-                    <button
-                        onClick={() => setSidebarOpen(false)}
-                        className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors md:hidden"
-                    >
-                        <X className="w-5 h-5 text-muted-foreground" />
-                    </button>
+                    {/* Mobile Close */}
+                    {sidebarOpen && (
+                        <button onClick={() => setSidebarOpen(false)}
+                            className="absolute top-4 right-4 p-2 hover:bg-muted rounded-lg transition-colors md:hidden">
+                            <X className="w-5 h-5 text-muted-foreground" />
+                        </button>
+                    )}
 
-                    <nav className="flex-1 p-4 space-y-1">
-                        <SidebarItem
-                            icon={<LayoutDashboard />}
-                            label="Übersicht"
-                            active={activeTab === 'overview'}
-                            onClick={() => { setActiveTab('overview'); setSidebarOpen(false); }}
-                        />
-                        <SidebarItem
-                            icon={<Users />}
-                            label="Händler & Mandanten"
-                            active={activeTab === 'tenants'}
-                            onClick={() => { setActiveTab('tenants'); setSidebarOpen(false); }}
-                        />
-                        <SidebarItem
-                            icon={<Database />}
-                            label="OEM Registry"
-                            active={activeTab === 'oem-registry'}
-                            onClick={() => { setActiveTab('oem-registry'); setSidebarOpen(false); }}
-                        />
-                        <SidebarItem
-                            icon={<Search />}
-                            label="OEM Lookup"
-                            active={activeTab === 'oem-lookup'}
-                            onClick={() => { setActiveTab('oem-lookup'); setSidebarOpen(false); }}
-                        />
-                        <SidebarItem
-                            icon={<Bot />}
-                            label="Bot Testing"
-                            active={activeTab === 'bot-testing'}
-                            onClick={() => { setActiveTab('bot-testing'); setSidebarOpen(false); }}
-                        />
-                        <SidebarItem
-                            icon={<BarChart2 />}
-                            label="AI Accuracy"
-                            active={activeTab === 'accuracy'}
-                            onClick={() => { setActiveTab('accuracy'); setSidebarOpen(false); }}
-                        />
-                        <SidebarItem
-                            icon={<Mail />}
-                            label="Postfach"
-                            active={activeTab === 'inbox'}
-                            onClick={() => { setActiveTab('inbox'); setSidebarOpen(false); }}
-                        />
-                        <SidebarItem
-                            icon={<Shield />}
-                            label="Audit Log"
-                            active={activeTab === 'audit'}
-                            onClick={() => { setActiveTab('audit'); setSidebarOpen(false); }}
-                        />
+                    <nav className={`flex-1 ${sidebarOpen ? 'p-4' : 'p-2'} space-y-1`}>
+                        <SidebarItem icon={<LayoutDashboard />} label="Übersicht" active={activeTab === 'overview'}
+                            onClick={() => { setActiveTab('overview'); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<Users />} label="Händler & Mandanten" active={activeTab === 'tenants'}
+                            onClick={() => { setActiveTab('tenants'); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<Database />} label="OEM Registry" active={activeTab === 'oem-registry'}
+                            onClick={() => { setActiveTab('oem-registry'); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<Search />} label="OEM Lookup" active={activeTab === 'oem-lookup'}
+                            onClick={() => { setActiveTab('oem-lookup'); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<Bot />} label="Bot Testing" active={activeTab === 'bot-testing'}
+                            onClick={() => { setActiveTab('bot-testing'); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<BarChart2 />} label="AI Accuracy" active={activeTab === 'accuracy'}
+                            onClick={() => { setActiveTab('accuracy'); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<Mail />} label="Postfach" active={activeTab === 'inbox'}
+                            onClick={() => { setActiveTab('inbox'); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<Shield />} label="Audit Log" active={activeTab === 'audit'}
+                            onClick={() => { setActiveTab('audit'); }} collapsed={!sidebarOpen} />
                     </nav>
 
-                    {/* Profile Section with Dropdown */}
                     <div className="p-4 border-t border-border/50 relative">
-                        <button
-                            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                            className="w-full bg-muted/50 hover:bg-muted rounded-xl p-3 flex items-center gap-3 transition-colors"
-                        >
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-white text-sm shadow-lg">
-                                {(user?.username || 'A').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 text-left">
-                                <p className="text-sm font-semibold text-foreground">{user?.username || 'Admin'}</p>
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                    Online
-                                </p>
-                            </div>
-                            <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${profileMenuOpen ? 'rotate-90' : ''}`} />
-                        </button>
+                        {sidebarOpen ? (
+                            <button onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                                className="w-full bg-muted/50 hover:bg-muted rounded-xl p-3 flex items-center gap-3 transition-colors">
+                                <div className="icon-box w-10 h-10 text-sm font-bold flex-shrink-0">
+                                    {(user?.username || 'A').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 text-left">
+                                    <p className="text-sm font-semibold text-foreground">{user?.username || 'Admin'}</p>
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-success" /> Online
+                                    </p>
+                                </div>
+                                <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${profileMenuOpen ? 'rotate-90' : ''}`} />
+                            </button>
+                        ) : (
+                            <button onClick={() => setProfileMenuOpen(!profileMenuOpen)} title={user?.username || 'Admin'}
+                                className="w-full flex justify-center">
+                                <div className="icon-box w-10 h-10 text-sm font-bold">
+                                    {(user?.username || 'A').charAt(0).toUpperCase()}
+                                </div>
+                            </button>
+                        )}
 
-                        {/* Profile Dropdown Menu */}
                         <AnimatePresence>
                             {profileMenuOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 8 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 8 }}
-                                    className="absolute bottom-full left-4 right-4 mb-2 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50"
-                                >
-                                    <button
-                                        onClick={() => { setActiveTab('settings'); setProfileMenuOpen(false); setSidebarOpen(false); }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors"
-                                    >
-                                        <Settings className="w-4 h-4 text-muted-foreground" />
-                                        Einstellungen
+                                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+                                    className="absolute bottom-full left-2 right-2 mb-2 modal-card rounded-xl overflow-hidden z-50">
+                                    <button onClick={() => { setActiveTab('settings'); setProfileMenuOpen(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors">
+                                        <Settings className="w-4 h-4 text-muted-foreground" /> Einstellungen
                                     </button>
                                     <div className="border-t border-border" />
-                                    <button
-                                        onClick={logout}
-                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-                                    >
-                                        <LogOut className="w-4 h-4" />
-                                        Abmelden
+                                    <button onClick={logout}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-danger hover:bg-danger-light transition-colors">
+                                        <LogOut className="w-4 h-4" /> Abmelden
                                     </button>
                                 </motion.div>
                             )}
@@ -486,9 +449,11 @@ export function AdminDashboardView() {
                     <div className="flex items-center gap-3">
                         <button className="p-2 hover:bg-muted rounded-full relative">
                             <Bell className="w-5 h-5 text-muted-foreground" />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-background" />
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-background" />
                         </button>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 border-2 border-background shadow-lg" />
+                        <div className="icon-box w-8 h-8 text-xs font-bold rounded-full">
+                            {(user?.username || 'A').charAt(0).toUpperCase()}
+                        </div>
                     </div>
                 </header>
 
@@ -519,27 +484,15 @@ export function AdminDashboardView() {
 
                                 {/* Stats Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <StatsCard
-                                        title="Gesamt Händler"
-                                        value={stats?.total_tenants || 0}
-                                        icon={<Globe className="w-5 h-5 text-white" />}
-                                        trend="+12% diesen Monat"
-                                        color="from-blue-500 to-cyan-400"
-                                    />
-                                    <StatsCard
-                                        title="Aktive Benutzer"
-                                        value={stats?.total_users || 0}
-                                        icon={<Users className="w-5 h-5 text-white" />}
-                                        trend="+5 Neuanmeldungen"
-                                        color="from-purple-500 to-pink-500"
-                                    />
-                                    <StatsCard
-                                        title="Aktive Geräte"
-                                        value={stats?.total_devices || 0}
-                                        icon={<Smartphone className="w-5 h-5 text-white" />}
-                                        trend="Online"
-                                        color="from-green-500 to-emerald-400"
-                                    />
+                                    <StatsCard title="Gesamt Händler" value={stats?.total_tenants || 0}
+                                        icon={<Globe className="w-5 h-5 text-primary-foreground" />}
+                                        trend="+12% diesen Monat" color="from-primary to-primary/70" />
+                                    <StatsCard title="Aktive Benutzer" value={stats?.total_users || 0}
+                                        icon={<Users className="w-5 h-5 text-primary-foreground" />}
+                                        trend="+5 Neuanmeldungen" color="from-accent to-accent/70" />
+                                    <StatsCard title="Aktive Geräte" value={stats?.total_devices || 0}
+                                        icon={<Smartphone className="w-5 h-5 text-primary-foreground" />}
+                                        trend="Online" color="from-primary to-primary/60" />
                                 </div>
 
                                 {/* Business KPIs */}
@@ -548,7 +501,7 @@ export function AdminDashboardView() {
                                         <div className="glass-card rounded-2xl p-5 border border-border/50">
                                             <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Bestellungen Gesamt</div>
                                             <div className="text-3xl font-bold text-foreground">{stats.kpis.sales.totalOrders}</div>
-                                            <div className="text-sm text-green-500 mt-1">+{stats.kpis.sales.ordersToday} heute</div>
+                                            <div className="text-sm text-success mt-1">+{stats.kpis.sales.ordersToday} heute</div>
                                         </div>
                                         <div className="glass-card rounded-2xl p-5 border border-border/50">
                                             <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Umsatz</div>
@@ -558,12 +511,12 @@ export function AdminDashboardView() {
                                         <div className="glass-card rounded-2xl p-5 border border-border/50">
                                             <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">OEM Aufgelöst</div>
                                             <div className="text-3xl font-bold text-foreground">{stats.kpis.oem.resolvedCount}</div>
-                                            <div className="text-sm text-blue-500 mt-1">{stats.kpis.oem.successRate}% Erfolgsquote</div>
+                                            <div className="text-sm text-brand mt-1">{stats.kpis.oem.successRate}% Erfolgsquote</div>
                                         </div>
                                         <div className="glass-card rounded-2xl p-5 border border-border/50">
                                             <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Nachrichten</div>
                                             <div className="text-3xl font-bold text-foreground">{stats.kpis.team.messagesSent}</div>
-                                            <div className="text-sm text-purple-500 mt-1">{stats.kpis.team.activeUsers} aktive User</div>
+                                            <div className="text-sm text-stat-4 mt-1">{stats.kpis.team.activeUsers} aktive User</div>
                                         </div>
                                     </div>
                                 )}
@@ -650,7 +603,7 @@ export function AdminDashboardView() {
                                                                 {tenant.logo_url ? (
                                                                     <img src={tenant.logo_url} alt={tenant.name} className="w-10 h-10 rounded-xl object-cover shadow-md bg-white" />
                                                                 ) : (
-                                                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${['from-pink-500 to-rose-500', 'from-blue-500 to-indigo-500', 'from-amber-500 to-orange-500'][idx % 3]} flex items-center justify-center font-bold text-lg text-white shadow-md`}>
+                                                                    <div className={`icon-box w-10 h-10 font-bold text-lg`}>
                                                                         {tenant.name.charAt(0)}
                                                                     </div>
                                                                 )}
@@ -668,7 +621,7 @@ export function AdminDashboardView() {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`w-2 h-2 rounded-full ${tenant.is_active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                                                <span className={`w-2 h-2 rounded-full ${tenant.is_active ? 'bg-success animate-pulse' : 'bg-danger'}`} />
                                                                 <span className="text-sm font-medium">{tenant.is_active ? 'Aktiv' : 'Gesperrt'}</span>
                                                             </div>
                                                         </td>
@@ -843,10 +796,10 @@ export function AdminDashboardView() {
                                                     <td className="px-6 py-3 text-sm font-medium">{log.admin_user}</td>
                                                     <td className="px-6 py-3">
                                                         <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                                            log.action.includes('deactivat') ? 'bg-red-500/10 text-red-500' :
-                                                            log.action.includes('activat') ? 'bg-green-500/10 text-green-500' :
-                                                            log.action.includes('creat') ? 'bg-blue-500/10 text-blue-500' :
-                                                            'bg-muted text-muted-foreground'
+                                                            log.action.includes('deactivat') ? 'badge-danger' :
+                                                            log.action.includes('activat') ? 'badge-success' :
+                                                            log.action.includes('creat') ? 'badge-info' :
+                                                            'badge-muted'
                                                         }`}>
                                                             {log.action.replace(/_/g, ' ')}
                                                         </span>
@@ -880,7 +833,7 @@ export function AdminDashboardView() {
                                     {/* Password Change */}
                                     <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
                                         <div className="flex items-center gap-3 mb-2">
-                                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500"><Shield className="w-5 h-5" /></div>
+                                            <div className="p-2 rounded-lg bg-brand-light text-brand"><Shield className="w-5 h-5" /></div>
                                             <h3 className="font-bold">Passwort ändern</h3>
                                         </div>
                                         <form onSubmit={async (e) => {
@@ -907,7 +860,7 @@ export function AdminDashboardView() {
                                     {/* Email Signature */}
                                     <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
                                         <div className="flex items-center gap-3 mb-2">
-                                            <div className="p-2 rounded-lg bg-green-500/10 text-green-500"><Edit className="w-5 h-5" /></div>
+                                            <div className="p-2 rounded-lg bg-success-light text-success"><Edit className="w-5 h-5" /></div>
                                             <h3 className="font-bold">E-Mail Signatur</h3>
                                         </div>
                                         <p className="text-sm text-muted-foreground">Wird automatisch an deine E-Mails angehängt.</p>
@@ -921,7 +874,7 @@ export function AdminDashboardView() {
                                             } catch (err: any) { toast.error(err.message || 'Fehler beim Speichern'); }
                                         }} className="space-y-3">
                                             <textarea name="signature" rows={4} placeholder="Mit freundlichen Grüßen,&#10;Dein Name" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none" />
-                                            <button type="submit" className="w-full py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl font-medium transition-colors">Signatur speichern</button>
+                                            <button type="submit" className="btn-success w-full">Signatur speichern</button>
                                         </form>
                                     </div>
                                 </div>
@@ -935,7 +888,7 @@ export function AdminDashboardView() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
                                         <div className="flex items-center gap-3 mb-2">
-                                            <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500"><Shield className="w-5 h-5" /></div>
+                                            <div className="p-2 rounded-lg bg-warn-light text-warn"><Shield className="w-5 h-5" /></div>
                                             <h3 className="font-bold">Wartungsmodus</h3>
                                         </div>
                                         <p className="text-sm text-muted-foreground">Wenn aktiviert, können sich keine neuen Händler registrieren und das System ist für Nutzer gesperrt.</p>
@@ -954,7 +907,7 @@ export function AdminDashboardView() {
                                                         toast.success(newState ? 'Wartungsmodus aktiviert' : 'Wartungsmodus deaktiviert');
                                                     } catch (err) { toast.error('Fehler beim Ändern des Wartungsmodus'); }
                                                 }}
-                                                className={`w-12 h-6 rounded-full relative transition-colors ${maintenanceEnabled ? 'bg-orange-500' : 'bg-muted hover:bg-muted/80'}`}
+                                                className={`w-12 h-6 rounded-full relative transition-colors ${maintenanceEnabled ? 'bg-warn' : 'bg-muted hover:bg-muted/80'}`}
                                             >
                                                 <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${maintenanceEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
@@ -963,7 +916,7 @@ export function AdminDashboardView() {
 
                                     <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
                                         <div className="flex items-center gap-3 mb-2">
-                                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500"><Globe className="w-5 h-5" /></div>
+                                            <div className="p-2 rounded-lg bg-brand-light text-brand"><Globe className="w-5 h-5" /></div>
                                             <h3 className="font-bold">Systemsprache</h3>
                                         </div>
                                         <p className="text-sm text-muted-foreground">Standard-Sprache für neue Mandanten und Emails.</p>
@@ -1001,7 +954,7 @@ export function AdminDashboardView() {
                                         {/* Stats Display */}
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
-                                                <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg">
+                                                <div className="icon-box p-3 shadow-lg">
                                                     <HardDrive className="w-6 h-6" />
                                                 </div>
                                                 <div>
@@ -1039,7 +992,7 @@ export function AdminDashboardView() {
                                             <button
                                                 onClick={() => handleTriggerSeeder('massive')}
                                                 disabled={seeding}
-                                                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-xl font-medium shadow-lg shadow-primary/25 hover:shadow-xl transition-all disabled:opacity-50"
+                                                className="btn-brand flex items-center gap-2 disabled:opacity-50"
                                             >
                                                 {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />}
                                                 Massive Seeder (1M+)
@@ -1100,7 +1053,7 @@ export function AdminDashboardView() {
                                                     {adminUsers.map((admin) => (
                                                         <div key={admin.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                                                             <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white font-bold">
+                                                                <div className="icon-box w-10 h-10 rounded-full font-bold">
                                                                     {admin.username?.charAt(0).toUpperCase() || '?'}
                                                                 </div>
                                                                 <div>
@@ -1174,27 +1127,94 @@ export function AdminDashboardView() {
                 }
                 {
                     showTenantModal && (
-                        <Modal onClose={() => setShowTenantModal(false)} title="Neuen Händler anlegen">
+                        <Modal onClose={() => { setShowTenantModal(false); setWizardStep(1); }} title="Neuen Händler anlegen">
+                            {/* Wizard Progress */}
+                            <div className="mb-6">
+                                <div className="flex items-center justify-between mb-3">
+                                    {[{ n: 1, l: 'Firmendaten' }, { n: 2, l: 'Konfiguration' }, { n: 3, l: 'Zugang' }].map((s, i) => (
+                                        <div key={s.n} className="flex items-center gap-2 flex-1">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                                                wizardStep === s.n ? 'bg-brand text-primary-foreground shadow-lg' :
+                                                wizardStep > s.n ? 'bg-success text-white' : 'bg-muted text-muted-foreground'
+                                            }`}>{wizardStep > s.n ? '✓' : s.n}</div>
+                                            <span className={`text-xs font-semibold hidden sm:inline ${
+                                                wizardStep === s.n ? 'text-brand' : 'text-muted-foreground'
+                                            }`}>{s.l}</span>
+                                            {i < 2 && <div className={`flex-1 h-px mx-2 ${wizardStep > s.n ? 'bg-success' : 'bg-border'}`} />}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="space-y-4">
-                                <Input label="Firmenname" value={newTenantName} onChange={setNewTenantName} />
-                                <Input label="E-Mail" value={newTenantEmail} onChange={setNewTenantEmail} />
-                                <Input label="Telefon" value={newTenantPhone} onChange={setNewTenantPhone} />
-                                <Input label="Website" value={newTenantWebsite} onChange={setNewTenantWebsite} />
-                                <Input label="WhatsApp Bot Nummer (Twilio)" value={newTenantWhatsapp} onChange={setNewTenantWhatsapp} placeholder="+49 151 ..." />
-                                <Input label="Logo URL" value={newTenantLogo} onChange={setNewTenantLogo} placeholder="https://..." />
-                                <Input label="Initial Passwort" value={newTenantPassword} onChange={setNewTenantPassword} />
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <Button variant="ghost" onClick={() => setShowTenantModal(false)} disabled={creatingTenant}>Abbrechen</Button>
-                                    <Button onClick={handleCreateTenant} disabled={creatingTenant}>
-                                        {creatingTenant ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Wird angelegt...
-                                            </>
-                                        ) : (
-                                            'Anlegen'
-                                        )}
-                                    </Button>
+                                {/* Step 1: Company Info */}
+                                {wizardStep === 1 && (
+                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground mb-4">Grundlegende Informationen des Händlers.</p>
+                                        </div>
+                                        <Input label="Firmenname *" value={newTenantName} onChange={setNewTenantName} placeholder="Autohaus Müller GmbH" />
+                                        <Input label="E-Mail *" value={newTenantEmail} onChange={setNewTenantEmail} placeholder="info@autohaus-mueller.de" />
+                                        <Input label="Telefon" value={newTenantPhone} onChange={setNewTenantPhone} placeholder="+49 30 123456" />
+                                    </motion.div>
+                                )}
+
+                                {/* Step 2: Configuration */}
+                                {wizardStep === 2 && (
+                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground mb-4">Optionale Konfiguration für den Händler.</p>
+                                        </div>
+                                        <Input label="Website" value={newTenantWebsite} onChange={setNewTenantWebsite} placeholder="https://autohaus-mueller.de" />
+                                        <Input label="WhatsApp Bot Nummer (Twilio)" value={newTenantWhatsapp} onChange={setNewTenantWhatsapp} placeholder="+49 151 ..." />
+                                        <Input label="Logo URL" value={newTenantLogo} onChange={setNewTenantLogo} placeholder="https://..." />
+                                    </motion.div>
+                                )}
+
+                                {/* Step 3: Access & Summary */}
+                                {wizardStep === 3 && (
+                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground mb-4">Zugangsdaten und Übersicht vor dem Anlegen.</p>
+                                        </div>
+                                        <Input label="Initial Passwort" value={newTenantPassword} onChange={setNewTenantPassword} />
+
+                                        {/* Summary Card */}
+                                        <div className="glass-card rounded-xl p-4 space-y-2 !border-brand">
+                                            <h4 className="text-[10px] font-semibold text-brand uppercase tracking-[0.1em] font-mono">Übersicht</h4>
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                                                <div><span className="text-muted-foreground">Firma:</span> <span className="font-semibold">{newTenantName || '—'}</span></div>
+                                                <div><span className="text-muted-foreground">E-Mail:</span> <span className="font-semibold">{newTenantEmail || '—'}</span></div>
+                                                <div><span className="text-muted-foreground">Telefon:</span> <span className="font-semibold">{newTenantPhone || '—'}</span></div>
+                                                <div><span className="text-muted-foreground">Website:</span> <span className="font-semibold">{newTenantWebsite || '—'}</span></div>
+                                                {newTenantWhatsapp && <div><span className="text-muted-foreground">WhatsApp:</span> <span className="font-semibold">{newTenantWhatsapp}</span></div>}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* Navigation */}
+                                <div className="flex justify-between gap-3 pt-2 border-t border-border/30">
+                                    {wizardStep > 1 ? (
+                                        <Button variant="ghost" onClick={() => setWizardStep(s => s - 1)}>Zurück</Button>
+                                    ) : (
+                                        <Button variant="ghost" onClick={() => { setShowTenantModal(false); setWizardStep(1); }} disabled={creatingTenant}>Abbrechen</Button>
+                                    )}
+                                    {wizardStep < 3 ? (
+                                        <Button onClick={() => {
+                                            if (wizardStep === 1 && (!newTenantName.trim() || !newTenantEmail.trim())) {
+                                                toast.error('Firmenname und E-Mail sind Pflichtfelder');
+                                                return;
+                                            }
+                                            setWizardStep(s => s + 1);
+                                        }}>Weiter</Button>
+                                    ) : (
+                                        <Button onClick={handleCreateTenant} disabled={creatingTenant}>
+                                            {creatingTenant ? (
+                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Wird angelegt...</>
+                                            ) : 'Händler anlegen'}
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         </Modal>
@@ -1221,7 +1241,7 @@ export function AdminDashboardView() {
                             <div className="space-y-6">
                                 {/* Tenant Info Header */}
                                 <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-xl">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                                    <div className="icon-box w-12 h-12 font-bold text-lg">
                                         {editingTenant.name.charAt(0)}
                                     </div>
                                     <div>
@@ -1267,13 +1287,13 @@ export function AdminDashboardView() {
                                         <CreditCard className="w-4 h-4" /> Zahlungsstatus
                                     </h5>
                                     <div className="flex gap-2">
-                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'paid' ? 'bg-green-500 text-white' : 'bg-muted/50 text-muted-foreground'}`}>
+                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'paid' ? 'bg-success text-white' : 'bg-muted/50 text-muted-foreground'}`}>
                                             Bezahlt
                                         </span>
-                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'trial' ? 'bg-amber-500 text-white' : 'bg-muted/50 text-muted-foreground'}`}>
+                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'trial' ? 'bg-warn text-white' : 'bg-muted/50 text-muted-foreground'}`}>
                                             Testphase
                                         </span>
-                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'overdue' ? 'bg-red-500 text-white' : 'bg-muted/50 text-muted-foreground'}`}>
+                                        <span className={`px-4 py-2 rounded-xl text-sm font-medium cursor-default ${editingTenant.payment_status === 'overdue' ? 'bg-danger text-white' : 'bg-muted/50 text-muted-foreground'}`}>
                                             Überfällig
                                         </span>
                                     </div>
