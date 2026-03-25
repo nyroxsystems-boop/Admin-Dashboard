@@ -127,8 +127,8 @@ export function OemLookupView() {
         <div className="space-y-6">
         <div>
                 <h2 className="text-2xl font-extrabold tracking-tight flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(178,70%,42%)] to-[hsl(178,55%,30%)] flex items-center justify-center glow-primary">
-                        <Search className="w-5 h-5 text-white" />
+                    <div className="icon-box w-10 h-10 glow-primary">
+                        <Search className="w-5 h-5" />
                     </div>
                     OEM Lookup Tester
                 </h2>
@@ -157,7 +157,7 @@ export function OemLookupView() {
                         disabled={loading || searchInput.trim().length < 3}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className="px-6 py-3.5 bg-gradient-to-r from-[hsl(178,70%,42%)] to-[hsl(178,60%,48%)] text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[hsla(178,70%,48%,0.2)] transition-all"
+                        className="btn-brand px-6 py-3.5 !rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                         Suchen
@@ -171,8 +171,7 @@ export function OemLookupView() {
                         <button
                             key={q.oem}
                             onClick={() => { setSearchInput(q.oem); }}
-                            className="px-3 py-1.5 text-xs rounded-lg border transition-all font-mono hover:border-[hsla(178,70%,48%,0.3)] hover:bg-[hsla(178,70%,48%,0.05)]"
-                            style={{ background: 'hsla(225, 14%, 14%, 0.5)', borderColor: 'hsla(225, 12%, 20%, 0.3)' }}
+                            className="px-3 py-1.5 text-xs rounded-lg border border-border/50 bg-muted/50 transition-all font-mono hover:border-brand hover:bg-brand-light"
                         >
                             {q.oem} <span className="text-muted-foreground ml-1 opacity-60">({q.label})</span>
                         </button>
@@ -189,8 +188,8 @@ export function OemLookupView() {
                         exit={{ opacity: 0 }}
                         className="stat-card p-8 flex flex-col items-center gap-3"
                     >
-                        <div className="w-12 h-12 bg-gradient-to-br from-[hsl(178,70%,42%)] to-[hsl(178,55%,30%)] rounded-xl flex items-center justify-center glow-primary">
-                            <Sparkles className="w-6 h-6 text-white animate-pulse" />
+                        <div className="icon-box w-12 h-12 glow-primary">
+                            <Sparkles className="w-6 h-6 animate-pulse" />
                         </div>
                         <p className="text-foreground font-semibold">KI analysiert OEM-Nummer...</p>
                         <p className="text-muted-foreground text-sm">Identifizierung läuft über Gemini AI</p>
@@ -225,7 +224,7 @@ export function OemLookupView() {
                             {/* Result Header */}
                             <div className="px-6 py-4 border-b border-border/50 bg-muted/20 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-[hsl(178,70%,42%)] to-[hsl(178,55%,30%)] rounded-xl flex items-center justify-center glow-primary">
+                                    <div className="icon-box w-10 h-10 glow-primary">
                                         <Sparkles className="w-5 h-5 text-white" />
                                     </div>
                                     <div>
@@ -338,7 +337,7 @@ export function OemLookupView() {
                                             disabled={approving || !editBrand.trim()}
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-[hsl(160,84%,35%)] to-[hsl(160,70%,42%)] hover:from-[hsl(160,84%,40%)] hover:to-[hsl(160,70%,47%)] text-white font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-[hsla(160,84%,39%,0.2)] transition-all"
+                                            className="btn-success px-6 py-2.5 !rounded-xl disabled:opacity-50"
                                         >
                                             {approving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                             Ins Registry aufnehmen

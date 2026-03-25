@@ -1,15 +1,14 @@
 /**
- * TenantDetailView — Premium Full Tenant Profile
- * Aesthetic: Luxury automotive-industrial dark theme
- * Features: 5 sub-tabs, animated stat cards, premium tables
+ * TenantDetailView — Full Tenant Profile
+ * ALL colors via CSS variables — zero hardcoded HSL
  */
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     ArrowLeft, Users, Package, Smartphone, Settings, Loader2,
-    Mail, Shield, CheckCircle, XCircle, Clock,
-    BarChart2, Euro, RefreshCcw, Plus, Trash2, Eye
+    Shield, CheckCircle, XCircle, Clock,
+    BarChart2, RefreshCcw, Plus, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -26,7 +25,7 @@ interface TenantDetailViewProps {
 
 type DetailTab = 'overview' | 'users' | 'orders' | 'devices' | 'settings';
 
-const StatMini = ({ label, value, color, delay = 0 }: { label: string; value: string | number; color: string; delay?: number }) => (
+const StatMini = ({ label, value, colorClass, delay = 0 }: { label: string; value: string | number; colorClass: string; delay?: number }) => (
     <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -34,7 +33,7 @@ const StatMini = ({ label, value, color, delay = 0 }: { label: string; value: st
         className="stat-card group"
     >
         <div className="text-[10px] text-muted-foreground font-mono font-semibold uppercase tracking-[0.1em]">{label}</div>
-        <div className={`text-2xl font-extrabold mt-1.5 tracking-tight ${color}`}>{value}</div>
+        <div className={`text-2xl font-extrabold mt-1.5 tracking-tight ${colorClass}`}>{value}</div>
     </motion.div>
 );
 
@@ -62,7 +61,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
             setDetail(res.tenant);
             setEditMaxUsers(res.tenant.settings?.max_users || 10);
             setEditMaxDevices(res.tenant.settings?.max_devices || 5);
-        } catch (err: any) { toast.error('Fehler beim Laden'); }
+        } catch { toast.error('Fehler beim Laden'); }
         finally { setLoading(false); }
     };
 
@@ -118,7 +117,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 animate-spin text-[hsl(178,70%,48%)]" />
+                <Loader2 className="w-8 h-8 animate-spin text-brand" />
             </div>
         );
     }
@@ -140,7 +139,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                         {tenant.logo_url ? (
                             <img src={tenant.logo_url} alt={tenant.name} className="w-14 h-14 rounded-2xl object-cover shadow-lg border border-border/30" />
                         ) : (
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[hsl(178,70%,42%)] to-[hsl(178,55%,30%)] flex items-center justify-center text-white font-extrabold text-xl shadow-lg glow-primary">
+                            <div className="icon-box w-14 h-14 font-extrabold text-xl glow-primary">
                                 {tenant.name.charAt(0)}
                             </div>
                         )}
@@ -149,7 +148,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                             <div className="flex items-center gap-2.5 mt-1">
                                 <code className="text-[11px] bg-muted/50 px-2.5 py-0.5 rounded-md font-mono text-muted-foreground">{tenant.slug}</code>
                                 <span className={`badge ${tenant.is_active ? 'badge-success' : 'badge-danger'}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${tenant.is_active ? 'bg-[hsl(160,84%,45%)]' : 'bg-[hsl(0,72%,51%)]'}`} />
+                                    <span className={`w-1.5 h-1.5 rounded-full ${tenant.is_active ? 'bg-success' : 'bg-danger'}`} />
                                     {tenant.is_active ? 'Aktiv' : 'Gesperrt'}
                                 </span>
                             </div>
@@ -161,9 +160,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                         <RefreshCcw className="w-4 h-4" />
                     </button>
                     <button onClick={handleToggleActive}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${tenant.is_active
-                            ? 'bg-red-500/8 text-red-400 border-red-500/15 hover:bg-red-500/15'
-                            : 'bg-green-500/8 text-green-400 border-green-500/15 hover:bg-green-500/15'}`}>
+                        className={tenant.is_active ? 'btn-danger-outline text-sm' : 'btn-success-outline text-sm'}>
                         {tenant.is_active ? 'Deaktivieren' : 'Aktivieren'}
                     </button>
                 </div>
@@ -171,32 +168,22 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
 
             {/* ═══ QUICK STATS ═══ */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <StatMini label="Bestellungen" value={detail?.stats.total_orders || 0} color="text-[hsl(178,70%,48%)]" delay={0} />
-                <StatMini label="OEM Aufgelöst" value={`${detail?.stats.oem_rate || 0}%`} color="text-[hsl(160,84%,45%)]" delay={1} />
-                <StatMini label="Umsatz" value={`€${(detail?.stats.revenue || 0).toLocaleString('de-DE', { minimumFractionDigits: 0 })}`} color="text-[hsl(36,92%,55%)]" delay={2} />
-                <StatMini label="Nachrichten" value={detail?.stats.total_messages || 0} color="text-[hsl(280,80%,65%)]" delay={3} />
-                <StatMini label="Benutzer" value={`${detail?.stats.user_count || 0} / ${tenant.max_users}`} color="text-foreground" delay={4} />
+                <StatMini label="Bestellungen" value={detail?.stats.total_orders || 0} colorClass="text-stat-1" delay={0} />
+                <StatMini label="OEM Aufgelöst" value={`${detail?.stats.oem_rate || 0}%`} colorClass="text-stat-2" delay={1} />
+                <StatMini label="Umsatz" value={`€${(detail?.stats.revenue || 0).toLocaleString('de-DE', { minimumFractionDigits: 0 })}`} colorClass="text-stat-3" delay={2} />
+                <StatMini label="Nachrichten" value={detail?.stats.total_messages || 0} colorClass="text-stat-4" delay={3} />
+                <StatMini label="Benutzer" value={`${detail?.stats.user_count || 0} / ${tenant.max_users}`} colorClass="text-stat-5" delay={4} />
             </div>
 
             {/* ═══ TAB BAR ═══ */}
-            <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: 'hsla(225, 14%, 12%, 0.5)', border: '1px solid hsla(225, 12%, 18%, 0.4)' }}>
+            <div className="tab-bar">
                 {tabs.map(t => (
                     <button key={t.key} onClick={() => setActiveTab(t.key)}
-                        className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                            activeTab === t.key
-                                ? 'text-[hsl(178,70%,48%)] font-semibold'
-                                : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                        style={activeTab === t.key ? {
-                            background: 'hsla(178, 70%, 48%, 0.08)',
-                            boxShadow: 'inset 0 1px 0 hsla(178, 70%, 48%, 0.1), 0 1px 2px rgba(0,0,0,0.2)',
-                        } : {}}>
+                        className={`tab-item ${activeTab === t.key ? 'active' : ''}`}>
                         <t.icon className="w-4 h-4" />
                         <span>{t.label}</span>
                         {t.count !== undefined && (
-                            <span className="text-[10px] font-mono font-semibold bg-muted/50 px-1.5 py-0.5 rounded-md">
-                                {t.count}
-                            </span>
+                            <span className="text-[10px] font-mono font-semibold bg-muted/50 px-1.5 py-0.5 rounded-md">{t.count}</span>
                         )}
                     </button>
                 ))}
@@ -204,7 +191,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
 
             {/* ═══ TAB CONTENT ═══ */}
             <AnimatePresence mode='wait'>
-                {/* ── OVERVIEW ── */}
+                {/* OVERVIEW */}
                 {activeTab === 'overview' && (
                     <motion.div key="ov" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                         <div className="glass-card rounded-2xl p-6">
@@ -214,13 +201,10 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                             ) : (
                                 <div className="space-y-2">
                                     {(detail?.orders || []).slice(0, 6).map((o, i) => (
-                                        <motion.div
-                                            key={o.id}
-                                            initial={{ opacity: 0, x: -8 }}
-                                            animate={{ opacity: 1, x: 0 }}
+                                        <motion.div key={o.id}
+                                            initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: i * 0.05 }}
-                                            className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/20 transition-colors group"
-                                        >
+                                            className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/30 transition-colors group">
                                             <span className={`badge ${statusBadge(o.status)}`}>{o.status}</span>
                                             <span className="text-sm font-medium flex-1 truncate">{o.part_name}</span>
                                             {o.oem_number && <code className="badge badge-info">{o.oem_number}</code>}
@@ -254,13 +238,12 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                     </motion.div>
                 )}
 
-                {/* ── USERS ── */}
+                {/* USERS */}
                 {activeTab === 'users' && (
                     <motion.div key="us" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                         <div className="flex justify-between items-center">
                             <h3 className="font-bold tracking-tight">Benutzer <span className="text-muted-foreground font-normal">({detail?.users.length || 0}/{tenant.max_users})</span></h3>
-                            <button onClick={() => setShowAddUser(true)}
-                                className="bg-gradient-to-r from-[hsl(178,70%,42%)] to-[hsl(178,60%,48%)] text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-[hsla(178,70%,48%,0.2)] flex items-center gap-2 active:scale-95 transition-transform">
+                            <button onClick={() => setShowAddUser(true)} className="btn-brand text-sm">
                                 <Plus className="w-4 h-4" /> Hinzufügen
                             </button>
                         </div>
@@ -268,7 +251,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                         <AnimatePresence>
                             {showAddUser && (
                                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                                    className="glass-card rounded-xl p-5 space-y-3" style={{ borderColor: 'hsla(178,70%,48%,0.15)' }}>
+                                    className="glass-card rounded-xl p-5 space-y-3 border-brand">
                                     <h4 className="font-semibold text-sm">Neuen Benutzer erstellen</h4>
                                     <div className="grid grid-cols-3 gap-3">
                                         <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="E-Mail *" className="premium-input" />
@@ -276,9 +259,8 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                                         <input value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Passwort *" type="password" className="premium-input" />
                                     </div>
                                     <div className="flex gap-2 justify-end pt-1">
-                                        <button onClick={() => setShowAddUser(false)} className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">Abbrechen</button>
-                                        <button onClick={handleAddUser} disabled={addingUser}
-                                            className="px-4 py-1.5 bg-gradient-to-r from-[hsl(178,70%,42%)] to-[hsl(178,60%,48%)] text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center gap-2">
+                                        <button onClick={() => setShowAddUser(false)} className="btn-ghost text-sm">Abbrechen</button>
+                                        <button onClick={handleAddUser} disabled={addingUser} className="btn-brand text-sm">
                                             {addingUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Erstellen'}
                                         </button>
                                     </div>
@@ -288,18 +270,13 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
 
                         <div className="glass-card rounded-2xl overflow-hidden">
                             <table className="premium-table">
-                                <thead><tr>
-                                    <th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Erstellt</th>
-                                </tr></thead>
+                                <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Erstellt</th></tr></thead>
                                 <tbody>
                                     {(detail?.users || []).map((u, i) => (
-                                        <motion.tr key={u.id}
-                                            initial={{ opacity: 0, y: 4 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: i * 0.04 }}>
+                                        <motion.tr key={u.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
                                             <td>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(178,70%,42%)] to-[hsl(178,55%,30%)] flex items-center justify-center text-white text-xs font-bold">
+                                                    <div className="icon-box w-8 h-8 text-xs font-bold">
                                                         {(u.name || u.username || 'U').charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
@@ -331,21 +308,16 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                     </motion.div>
                 )}
 
-                {/* ── ORDERS ── */}
+                {/* ORDERS */}
                 {activeTab === 'orders' && (
                     <motion.div key="or" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                         <h3 className="font-bold tracking-tight">Bestellungen <span className="text-muted-foreground font-normal">({detail?.orders.length || 0})</span></h3>
                         <div className="glass-card rounded-2xl overflow-hidden">
                             <table className="premium-table">
-                                <thead><tr>
-                                    <th>Status</th><th>Teil</th><th>OEM</th><th>Fahrzeug</th><th>Kunde</th><th>Betrag</th><th>Datum</th>
-                                </tr></thead>
+                                <thead><tr><th>Status</th><th>Teil</th><th>OEM</th><th>Fahrzeug</th><th>Kunde</th><th>Betrag</th><th>Datum</th></tr></thead>
                                 <tbody>
                                     {(detail?.orders || []).map((o, i) => (
-                                        <motion.tr key={o.id}
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            transition={{ delay: i * 0.03 }}>
+                                        <motion.tr key={o.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}>
                                             <td><span className={`badge ${statusBadge(o.status)}`}>{o.status}</span></td>
                                             <td className="text-sm font-medium max-w-[180px] truncate">{o.part_name}</td>
                                             <td>
@@ -369,7 +341,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                     </motion.div>
                 )}
 
-                {/* ── DEVICES ── */}
+                {/* DEVICES */}
                 {activeTab === 'devices' && (
                     <motion.div key="dv" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                         <h3 className="font-bold tracking-tight">Aktive Geräte <span className="text-muted-foreground font-normal">({detail?.devices.length || 0}/{tenant.max_devices})</span></h3>
@@ -383,13 +355,12 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                                 <div className="divide-y divide-border/20">
                                     {(detail?.devices || []).map((d, i) => (
                                         <motion.div key={d.device_id || i}
-                                            initial={{ opacity: 0, x: -8 }}
-                                            animate={{ opacity: 1, x: 0 }}
+                                            initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: i * 0.05 }}
-                                            className="flex items-center justify-between px-6 py-4 hover:bg-[hsla(178,70%,48%,0.02)] transition-colors group">
+                                            className="flex items-center justify-between px-6 py-4 hover:bg-muted/20 transition-colors group">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(225,14%,16%)] to-[hsl(225,14%,12%)] border border-border/30 flex items-center justify-center">
-                                                    <Smartphone className="w-4 h-4 text-muted-foreground" />
+                                                <div className="icon-box-muted w-10 h-10">
+                                                    <Smartphone className="w-4 h-4" />
                                                 </div>
                                                 <div>
                                                     <div className="text-sm font-semibold font-mono">{d.device_id?.substring(0, 16) || 'Unbekannt'}...</div>
@@ -406,7 +377,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                                                 <button onClick={async () => {
                                                     try { await removeActiveDevice(tenant.id, d.device_id); toast.success('Gerät entfernt'); loadDetail(); }
                                                     catch (err: any) { toast.error(err.message); }
-                                                }} className="action-btn opacity-0 group-hover:opacity-100 hover:!bg-red-500/10 hover:!text-red-400">
+                                                }} className="action-btn opacity-0 group-hover:opacity-100 hover:!bg-danger-light hover:!text-danger">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -418,12 +389,11 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                     </motion.div>
                 )}
 
-                {/* ── SETTINGS ── */}
+                {/* SETTINGS */}
                 {activeTab === 'settings' && (
                     <motion.div key="st" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6 max-w-2xl">
                         <h3 className="font-bold tracking-tight">Händler-Einstellungen</h3>
 
-                        {/* Limits */}
                         <div className="glass-card rounded-2xl p-6 space-y-4">
                             <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.1em] font-mono">Limits</h4>
                             <div className="grid grid-cols-2 gap-4">
@@ -436,13 +406,11 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                                     <input type="number" value={editMaxDevices} onChange={e => setEditMaxDevices(Number(e.target.value))} className="premium-input" />
                                 </div>
                             </div>
-                            <button onClick={handleSaveSettings} disabled={savingSettings}
-                                className="px-5 py-2 bg-gradient-to-r from-[hsl(178,70%,42%)] to-[hsl(178,60%,48%)] text-white rounded-xl text-sm font-semibold shadow-lg shadow-[hsla(178,70%,48%,0.2)] disabled:opacity-50 flex items-center gap-2">
+                            <button onClick={handleSaveSettings} disabled={savingSettings} className="btn-brand text-sm">
                                 {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Speichern'}
                             </button>
                         </div>
 
-                        {/* Account Info */}
                         <div className="glass-card rounded-2xl p-6 space-y-4">
                             <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.1em] font-mono">Kontoinformationen</h4>
                             <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
@@ -460,16 +428,13 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                             </div>
                         </div>
 
-                        {/* Danger Zone */}
-                        <div className="rounded-2xl p-6 space-y-3" style={{ background: 'hsla(0, 72%, 51%, 0.04)', border: '1px solid hsla(0, 72%, 51%, 0.12)' }}>
-                            <h4 className="text-[10px] font-semibold text-red-400 uppercase tracking-[0.1em] font-mono">Gefahrenzone</h4>
+                        <div className="glass-card rounded-2xl p-6 space-y-3 !border-destructive/15 bg-danger-light">
+                            <h4 className="text-[10px] font-semibold text-danger uppercase tracking-[0.1em] font-mono">Gefahrenzone</h4>
                             <p className="text-sm text-muted-foreground leading-relaxed">
                                 Deaktivierte Händler können sich nicht mehr einloggen und haben keinen Zugriff auf das System.
                             </p>
                             <button onClick={handleToggleActive}
-                                className={`px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${tenant.is_active
-                                    ? 'bg-red-500/8 text-red-400 border border-red-500/15 hover:bg-red-500/15'
-                                    : 'bg-green-500/8 text-green-400 border border-green-500/15 hover:bg-green-500/15'}`}>
+                                className={tenant.is_active ? 'btn-danger-outline text-sm' : 'btn-success-outline text-sm'}>
                                 <Shield className="w-4 h-4" />
                                 {tenant.is_active ? 'Händler deaktivieren' : 'Händler aktivieren'}
                             </button>
