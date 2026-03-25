@@ -57,10 +57,10 @@
     --input: 220 13% 91%;
     --radius: 0.75rem;
 
-    /* ─ Brand (Primary) — customizable ─ */
-    --primary: 178 55% 38%;
+    /* ─ Brand (Primary) — Partsunion Logo Blue ─ */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
-    --ring: 178 55% 38%;
+    --ring: 221 83% 53%;
 
     /* ─ Accent — customizable ─ */
     --accent: 36 80% 50%;
@@ -70,12 +70,12 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    /* ─ Brand extended tokens ─ */
-    --brand: 178 55% 38%;
-    --brand-hover: 178 55% 34%;
-    --brand-light: 178 55% 95%;
-    --brand-muted: 178 40% 90%;
-    --brand-glow: 178 55% 38%;
+    /* ─ Brand extended tokens — Partsunion Blue ─ */
+    --brand: 221 83% 53%;
+    --brand-hover: 221 83% 46%;
+    --brand-light: 221 83% 96%;
+    --brand-muted: 221 50% 92%;
+    --brand-glow: 221 83% 53%;
 
     --success: 160 60% 40%;
     --success-light: 160 50% 94%;
@@ -93,7 +93,7 @@
     --surface-overlay: 220 15% 12%;
 
     /* ─ Stat colors ─ */
-    --stat-1: 178 55% 38%;
+    --stat-1: 221 83% 53%;
     --stat-2: 160 60% 40%;
     --stat-3: 36 80% 50%;
     --stat-4: 280 60% 55%;
@@ -114,9 +114,9 @@
     --border: 225 10% 17%;
     --input: 225 10% 17%;
 
-    --primary: 178 60% 45%;
-    --primary-foreground: 225 15% 7%;
-    --ring: 178 60% 45%;
+    --primary: 221 83% 63%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 221 83% 63%;
 
     --accent: 36 85% 55%;
     --accent-foreground: 225 15% 7%;
@@ -124,11 +124,11 @@
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 98%;
 
-    --brand: 178 60% 45%;
-    --brand-hover: 178 60% 50%;
-    --brand-light: 178 50% 15%;
-    --brand-muted: 178 40% 12%;
-    --brand-glow: 178 60% 45%;
+    --brand: 221 83% 63%;
+    --brand-hover: 221 83% 68%;
+    --brand-light: 221 50% 15%;
+    --brand-muted: 221 40% 12%;
+    --brand-glow: 221 83% 63%;
 
     --success: 160 60% 42%;
     --success-light: 160 50% 12%;
@@ -681,3 +681,24 @@ input:focus, textarea:focus, button:focus-visible {
 }
 
 @media (min-width: 769px) { .mobile-menu-btn { display: none !important; } }
+
+/* ═══════ AUTOFILL FIX ═══════ */
+/* Prevent browsers from overriding dark input backgrounds with yellow */
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px hsl(225 15% 10%) inset !important;
+  -webkit-text-fill-color: hsl(210 20% 95%) !important;
+  caret-color: hsl(210 20% 95%) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Light mode autofill */
+:root input:-webkit-autofill,
+:root input:-webkit-autofill:hover,
+:root input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px hsl(0 0% 98%) inset !important;
+  -webkit-text-fill-color: hsl(220 15% 12%) !important;
+}
