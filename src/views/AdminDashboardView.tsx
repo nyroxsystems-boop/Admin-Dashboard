@@ -471,14 +471,9 @@ export function AdminDashboardView() {
 
                 {/* Content Scroll Area */}
                 <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
-                    <AnimatePresence mode='wait'>
+                    <>
                         {activeTab === 'overview' && (
-                            <motion.div
-                                key="overview"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
+                            <div
                                 className="space-y-8"
                             >
                                 <div className="flex justify-between items-end">
@@ -563,16 +558,11 @@ export function AdminDashboardView() {
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
 
                         {activeTab === 'tenants' && (
-                            <motion.div
-                                key="tenants"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
+                            <div
                                 className="space-y-6"
                             >
                                 {viewingTenant ? (
@@ -678,40 +668,23 @@ export function AdminDashboardView() {
                                     </div>
                                 </div>
                                 </>)}
-                            </motion.div>
+                            </div>
                         )}
 
                         {activeTab === 'oem-registry' && (
-                            <motion.div
-                                key="oem-registry"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
-                            >
+                            <div>
                                 <OemRegistryView />
-                            </motion.div>
+                            </div>
                         )}
 
                         {activeTab === 'oem-lookup' && (
-                            <motion.div
-                                key="oem-lookup"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
-                            >
+                            <div>
                                 <OemLookupView />
-                            </motion.div>
+                            </div>
                         )}
 
                         {activeTab === 'bot-testing' && (
-                            <motion.div
-                                key="bot-testing"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
+                            <div
                                 className="flex-1 flex flex-col min-h-0 h-[calc(100vh-140px)] md:h-[calc(100vh-180px)]"
                             >
                                 <div className="mb-4 md:mb-6 hidden md:block">
@@ -721,47 +694,28 @@ export function AdminDashboardView() {
                                 <div className="flex-1 min-h-0">
                                     <BotTestingView />
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
 
                         {activeTab === 'accuracy' && (
-                            <motion.div
-                                key="accuracy"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
-                                className="flex-1"
-                            >
+                            <div className="flex-1">
                                 <AccuracyDashboardView />
-                            </motion.div>
+                            </div>
                         )}
 
                         {activeTab === 'inbox' && (
-                            <motion.div
-                                key="inbox"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
-                                className="h-[calc(100vh-180px)]"
-                            >
+                            <div className="h-[calc(100vh-180px)]">
                                 <div className="mb-6">
                                     <h2 className="text-2xl font-bold">E-Mail Postfach</h2>
                                     <p className="text-muted-foreground">Lese und beantworte E-Mails mit KI-Unterstützung.</p>
                                 </div>
                                 <InboxView />
-                            </motion.div>
+                            </div>
                         )}
 
 
                         {activeTab === 'audit' && (
-                            <motion.div
-                                key="audit"
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
+                            <div
                                 className="space-y-6"
                             >
                                 <div className="flex justify-between items-center">
@@ -825,14 +779,11 @@ export function AdminDashboardView() {
                                         </tbody>
                                     </table>
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
 
                         {activeTab === 'settings' && (
-                            <motion.div
-                                key="settings"
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
+                            <div
                                 className="max-w-4xl space-y-8"
                             >
                                 {/* Profile Section */}
@@ -1119,9 +1070,9 @@ export function AdminDashboardView() {
                                         </div>
                                     </div>
                                 )}
-                            </motion.div>
+                            </div>
                         )}
-                    </AnimatePresence>
+                    </>
                 </div>
             </main >
 
