@@ -1,17 +1,18 @@
 /**
- * OEM Lookup Tester — Standalone OEM Number Resolution + Registry Approval
+ * OEM Intelligence — Bidirectional OEM Lookup
  * 
- * Enter an OEM number → AI identifies the part → Approve with ✓ → Added to registry
+ * Forward: Vehicle + Part → OEM (Hydra v2: DB → CrossRef → AI → Validation → Learning)
+ * Reverse: OEM → Part + Vehicles (Gemini AI / Registry)
  */
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-    Search, Loader2, CheckCircle, XCircle, Database, Hash,
-    Car, Package, Sparkles, ArrowRight, Plus, AlertTriangle, RefreshCcw
+    Search, Loader2, CheckCircle, XCircle, Hash,
+    Car, Sparkles, ArrowRight, AlertTriangle, Wrench, ArrowLeftRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { lookupOem, approveOemResult, OemLookupResult } from '../api/wws';
+import { lookupOem, approveOemResult, resolveOemForward, OemLookupResult } from '../api/wws';
 
 interface LookupHistoryItem {
     oem: string;
@@ -21,34 +22,49 @@ interface LookupHistoryItem {
 }
 
 export function OemLookupView() {
+    const [mode, setMode] = useState<'forward' | 'reverse'>('forward');
+
+    // ── Reverse mode state ──
     const [searchInput, setSearchInput] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [reverseLoading, setReverseLoading] = useState(false);
     const [currentResult, setCurrentResult] = useState<OemLookupResult | null>(null);
     const [approving, setApproving] = useState(false);
     const [history, setHistory] = useState<LookupHistoryItem[]>([]);
 
-    // Editable fields (pre-filled from AI result, user can adjust before approving)
+    // Editable fields
     const [editBrand, setEditBrand] = useState('');
     const [editCategory, setEditCategory] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [editModel, setEditModel] = useState('');
     const [editConfidence, setEditConfidence] = useState(0.9);
 
-    const handleLookup = async () => {
+    // ── Forward mode state ──
+    const [fwdMake, setFwdMake] = useState('');
+    const [fwdModel, setFwdModel] = useState('');
+    const [fwdVin, setFwdVin] = useState('');
+    const [fwdPart, setFwdPart] = useState('');
+    const [fwdLoading, setFwdLoading] = useState(false);
+    const [fwdResult, setFwdResult] = useState<{
+        success: boolean; oem: string | null;
+        candidates: Array<{ oem: string; brand: string; confidence: number; source: string; note?: string }>;
+        notes: string | null; confidence: number;
+    } | null>(null);
+
+    // ── Reverse Lookup ──
+    const handleReverseLookup = async () => {
         const oem = searchInput.trim();
         if (!oem || oem.length < 3) {
             toast.error('Bitte mindestens 3 Zeichen eingeben');
             return;
         }
 
-        setLoading(true);
+        setReverseLoading(true);
         setCurrentResult(null);
 
         try {
             const result = await lookupOem(oem);
             setCurrentResult(result);
 
-            // Pre-fill editable fields from AI result
             setEditBrand(result.aiResult.brand || '');
             setEditCategory(result.aiResult.part_category || '');
             setEditDescription(result.aiResult.part_description || '');
@@ -61,10 +77,40 @@ export function OemLookupView() {
         } catch (err: any) {
             toast.error(`Lookup fehlgeschlagen: ${err.message}`);
         } finally {
-            setLoading(false);
+            setReverseLoading(false);
         }
     };
 
+    // ── Forward Lookup ──
+    const handleForwardSearch = async () => {
+        if (!fwdPart) {
+            toast.error('Bitte ein Ersatzteil eingeben');
+            return;
+        }
+
+        setFwdLoading(true);
+        setFwdResult(null);
+        try {
+            const result = await resolveOemForward({
+                vehicle: {
+                    make: fwdMake || undefined,
+                    model: fwdModel || undefined,
+                    vin: fwdVin || undefined,
+                },
+                part: fwdPart,
+            });
+            setFwdResult(result);
+            if (result.success && result.oem) {
+                toast.success(`OEM gefunden: ${result.oem}`);
+            }
+        } catch (err: any) {
+            toast.error(err?.message || 'Suche fehlgeschlagen');
+        } finally {
+            setFwdLoading(false);
+        }
+    };
+
+    // ── Approve ──
     const handleApprove = async () => {
         if (!currentResult) return;
 
@@ -90,7 +136,6 @@ export function OemLookupView() {
                     : `✅ OEM ${currentResult.oem} ins Registry aufgenommen!`
             );
 
-            // Add to history
             setHistory(prev => [{
                 oem: currentResult.oem,
                 result: currentResult,
@@ -98,7 +143,6 @@ export function OemLookupView() {
                 timestamp: new Date(),
             }, ...prev]);
 
-            // Reset for next lookup
             setCurrentResult(null);
             setSearchInput('');
         } catch (err: any) {
@@ -114,7 +158,6 @@ export function OemLookupView() {
     const confidenceBg = (c: number) =>
         c >= 0.8 ? 'bg-success-light border-brand/15' : c >= 0.5 ? 'bg-warn-light border-amber-500/20' : 'bg-danger-light border-destructive/15';
 
-    // Quick test OEM numbers
     const quickOems = [
         { oem: '5Q0615301F', label: 'VW Bremsscheibe' },
         { oem: '34116864906', label: 'BMW Bremssattel' },
@@ -125,284 +168,494 @@ export function OemLookupView() {
 
     return (
         <div className="space-y-6">
-        <div>
-                <h2 className="text-2xl font-extrabold tracking-tight flex items-center gap-3">
-                    <div className="icon-box w-10 h-10 glow-primary">
-                        <Search className="w-5 h-5" />
-                    </div>
-                    OEM Lookup Tester
-                </h2>
-                <p className="text-muted-foreground text-sm mt-1.5 ml-[52px]">
-                    OEM-Nummer eingeben → KI identifiziert das Teil → Bestätigen → Ins Registry aufnehmen
-                </p>
-            </div>
-
-            {/* Search Bar */}
-            <div className="glass-card rounded-2xl p-6 space-y-4">
-                <div className="flex gap-3">
-                    <div className="relative flex-1">
-                        <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                        <input
-                            type="text"
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
-                            onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                            placeholder="OEM-Nummer eingeben (z.B. 5Q0615301F)"
-                            className="w-full pl-12 pr-4 py-3.5 rounded-xl text-lg font-mono outline-none transition-all premium-input !text-lg"
-                            disabled={loading}
-                        />
-                    </div>
-                    <motion.button
-                        onClick={handleLookup}
-                        disabled={loading || searchInput.trim().length < 3}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="btn-brand px-6 py-3.5 !rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-                        Suchen
-                    </motion.button>
-                </div>
-
-                {/* Quick OEM chips */}
-                <div className="flex flex-wrap gap-2">
-                    <span className="text-[10px] text-muted-foreground self-center font-mono uppercase tracking-wider font-semibold">Schnelltest:</span>
-                    {quickOems.map((q) => (
-                        <button
-                            key={q.oem}
-                            onClick={() => { setSearchInput(q.oem); }}
-                            className="px-3 py-1.5 text-xs rounded-lg border border-border/50 bg-muted/50 transition-all font-mono hover:border-brand hover:bg-brand-light"
-                        >
-                            {q.oem} <span className="text-muted-foreground ml-1 opacity-60">({q.label})</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Loading State */}
-            <AnimatePresence>
-                {loading && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="stat-card p-8 flex flex-col items-center gap-3"
-                    >
-                        <div className="icon-box w-12 h-12 glow-primary">
-                            <Sparkles className="w-6 h-6 animate-pulse" />
+            {/* Header + Mode Toggle */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-extrabold tracking-tight flex items-center gap-3">
+                        <div className="icon-box w-10 h-10 glow-primary">
+                            <Search className="w-5 h-5" />
                         </div>
-                        <p className="text-foreground font-semibold">KI analysiert OEM-Nummer...</p>
-                        <p className="text-muted-foreground text-sm">Identifizierung läuft über Gemini AI</p>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Result Card */}
-            <AnimatePresence>
-                {currentResult && !loading && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="space-y-4"
-                    >
-                        {/* Registry Status */}
-                        {currentResult.existsInRegistry && (
-                            <div className="flex items-center gap-3 p-4 bg-success-light border border-brand/15 rounded-xl">
-                                <CheckCircle className="w-5 h-5 text-success" />
-                                <div>
-                                    <span className="text-success font-semibold">Bereits im Registry</span>
-                                    <span className="text-muted-foreground text-sm ml-2">
-                                        — {currentResult.registryRecord?.brand} | {currentResult.registryRecord?.part_category} | {Math.round((currentResult.registryRecord?.confidence || 0) * 100)}% Konfidenz
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* AI Result + Editable Fields */}
-                        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
-                            {/* Result Header */}
-                            <div className="px-6 py-4 border-b border-border/50 bg-muted/20 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="icon-box w-10 h-10 glow-primary">
-                                        <Sparkles className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-lg">{currentResult.aiResult.partName}</h3>
-                                        <p className="text-muted-foreground text-xs">KI-Ergebnis für <code className="bg-muted px-1.5 rounded">{currentResult.oem}</code></p>
-                                    </div>
-                                </div>
-                                <div className={`px-3 py-1.5 rounded-lg border font-bold text-sm ${confidenceBg(currentResult.aiResult.confidence)}`}>
-                                    <span className={confidenceColor(currentResult.aiResult.confidence)}>
-                                        {Math.round(currentResult.aiResult.confidence * 100)}% Konfidenz
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* AI Info Row */}
-                            {(currentResult.aiResult.vehicles || currentResult.aiResult.manufacturer || currentResult.aiResult.notes) && (
-                                <div className="px-6 py-3 border-b border-border/30 bg-muted/10 flex flex-wrap gap-4 text-sm">
-                                    {currentResult.aiResult.vehicles && (
-                                        <div className="flex items-center gap-1.5">
-                                            <Car className="w-4 h-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">Fahrzeuge:</span>
-                                            <span className="text-foreground">{currentResult.aiResult.vehicles}</span>
-                                        </div>
-                                    )}
-                                    {currentResult.aiResult.manufacturer && (
-                                        <div className="flex items-center gap-1.5">
-                                            <Package className="w-4 h-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">Hersteller:</span>
-                                            <span className="text-foreground">{currentResult.aiResult.manufacturer}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Editable Fields */}
-                            <div className="p-6 space-y-4">
-                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-                                    Felder anpassen & bestätigen
-                                </p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Marke *</label>
-                                        <input
-                                            value={editBrand}
-                                            onChange={(e) => setEditBrand(e.target.value.toUpperCase())}
-                                            className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/20"
-                                            placeholder="VOLKSWAGEN"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Kategorie</label>
-                                        <input
-                                            value={editCategory}
-                                            onChange={(e) => setEditCategory(e.target.value)}
-                                            className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                            placeholder="brake"
-                                        />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Beschreibung</label>
-                                        <input
-                                            value={editDescription}
-                                            onChange={(e) => setEditDescription(e.target.value)}
-                                            className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                            placeholder="Bremsscheibe vorne 312x25mm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Modell</label>
-                                        <input
-                                            value={editModel}
-                                            onChange={(e) => setEditModel(e.target.value)}
-                                            className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                            placeholder="Golf 7"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">
-                                            Konfidenz: {Math.round(editConfidence * 100)}%
-                                        </label>
-                                        <input
-                                            type="range" min="0" max="1" step="0.05"
-                                            value={editConfidence}
-                                            onChange={(e) => setEditConfidence(parseFloat(e.target.value))}
-                                            className="w-full accent-primary"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex items-center justify-between pt-4 border-t border-border/30">
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        {currentResult.aiResult.confidence < 0.5 && (
-                                            <>
-                                                <AlertTriangle className="w-4 h-4 text-warn" />
-                                                <span>Niedrige Konfidenz — bitte Daten prüfen</span>
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={() => { setCurrentResult(null); setSearchInput(''); }}
-                                            className="px-5 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl font-medium transition-colors"
-                                        >
-                                            <XCircle className="w-4 h-4 inline mr-1.5" />
-                                            Verwerfen
-                                        </button>
-                                        <motion.button
-                                            onClick={handleApprove}
-                                            disabled={approving || !editBrand.trim()}
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            className="btn-success px-6 py-2.5 !rounded-xl disabled:opacity-50"
-                                        >
-                                            {approving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                            Ins Registry aufnehmen
-                                        </motion.button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* AI Notes */}
-                        {currentResult.aiResult.notes && (
-                            <div className="p-4 bg-brand-light border border-brand/15 rounded-xl text-sm text-muted-foreground">
-                                <span className="font-semibold text-brand mr-2">📝 KI-Notizen:</span>
-                                {currentResult.aiResult.notes}
-                            </div>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Lookup History */}
-            {history.length > 0 && (
-                <div className="space-y-3">
-                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                        <Database className="w-4 h-4" />
-                        Verlauf ({history.length})
-                    </h3>
-                    <div className="space-y-2">
-                        {history.map((item, i) => (
-                            <motion.div
-                                key={`${item.oem}-${i}`}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="flex items-center gap-4 p-3 bg-card border border-border/30 rounded-xl hover:bg-muted/20 transition-colors"
-                            >
-                                <div className="w-8 h-8 rounded-lg bg-success-light flex items-center justify-center">
-                                    <CheckCircle className="w-4 h-4 text-success" />
-                                </div>
-                                <code className="font-mono font-bold text-sm">{item.oem}</code>
-                                <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm">{item.result.aiResult.partName}</span>
-                                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded font-bold">
-                                    {item.result.aiResult.brand}
-                                </span>
-                                <span className="text-xs text-muted-foreground ml-auto">
-                                    {item.timestamp.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Empty state when no result and no history */}
-            {!currentResult && !loading && history.length === 0 && (
-                <div className="bg-card border border-border/50 rounded-2xl p-12 text-center">
-                    <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Search className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-foreground font-semibold mb-2">OEM-Nummer eingeben</h3>
-                    <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                        Gib eine OEM-Teilenummer ein um sie durch die KI identifizieren zu lassen.
-                        Bestätigte Ergebnisse werden automatisch ins OEM Registry aufgenommen.
+                        OEM Intelligence
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1.5 ml-[52px]">
+                        {mode === 'reverse'
+                            ? 'OEM-Nummer → KI identifiziert das Teil → Bestätigen → Ins Registry aufnehmen'
+                            : 'Fahrzeug + Teil → OEM-Nummer (Hydra v2: DB → CrossRef → AI → Validation)'}
                     </p>
                 </div>
+
+                <div className="flex bg-muted/50 rounded-xl p-1 gap-1 border border-border/50">
+                    <button
+                        onClick={() => setMode('forward')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                            mode === 'forward'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <Car className="w-4 h-4" />
+                        Fahrzeug → OEM
+                    </button>
+                    <button
+                        onClick={() => setMode('reverse')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                            mode === 'reverse'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <Hash className="w-4 h-4" />
+                        OEM → Teil
+                    </button>
+                </div>
+            </div>
+
+            {/* ═══════════════════════════════════════════
+               FORWARD MODE: Vehicle + Part → OEM
+            ═══════════════════════════════════════════ */}
+            {mode === 'forward' && (
+                <>
+                    <div className="glass-card rounded-2xl p-6 space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* VIN */}
+                            <div>
+                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5 tracking-wider">
+                                    VIN/FIN (optional)
+                                </label>
+                                <input
+                                    value={fwdVin}
+                                    onChange={(e) => setFwdVin(e.target.value.toUpperCase())}
+                                    placeholder="WVWZZZAUZJP023456"
+                                    className="w-full px-4 py-3 rounded-xl text-sm font-mono outline-none premium-input"
+                                />
+                            </div>
+
+                            {/* Make */}
+                            <div>
+                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5 tracking-wider">
+                                    Marke
+                                </label>
+                                <div className="relative">
+                                    <Car className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <input
+                                        value={fwdMake}
+                                        onChange={(e) => setFwdMake(e.target.value)}
+                                        placeholder="z.B. Volkswagen"
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none premium-input"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Model */}
+                            <div>
+                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5 tracking-wider">
+                                    Modell
+                                </label>
+                                <input
+                                    value={fwdModel}
+                                    onChange={(e) => setFwdModel(e.target.value)}
+                                    placeholder="z.B. Golf 7 GTI"
+                                    className="w-full px-4 py-3 rounded-xl text-sm outline-none premium-input"
+                                />
+                            </div>
+
+                            {/* Part */}
+                            <div>
+                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5 tracking-wider">
+                                    Ersatzteil *
+                                </label>
+                                <div className="relative">
+                                    <Wrench className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <input
+                                        value={fwdPart}
+                                        onChange={(e) => setFwdPart(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleForwardSearch()}
+                                        placeholder="z.B. Bremsscheibe vorne"
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none premium-input"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <motion.button
+                            onClick={handleForwardSearch}
+                            disabled={fwdLoading || !fwdPart.trim()}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="btn-brand px-6 py-3.5 !rounded-xl disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
+                        >
+                            {fwdLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                            OEM-Nummer suchen (Hydra v2)
+                        </motion.button>
+                    </div>
+
+                    {/* Forward Loading */}
+                    <AnimatePresence>
+                        {fwdLoading && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                className="stat-card p-8 flex flex-col items-center gap-3"
+                            >
+                                <div className="icon-box w-12 h-12 glow-primary">
+                                    <Sparkles className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <p className="text-foreground font-semibold">Hydra v2 Pipeline läuft...</p>
+                                <p className="text-muted-foreground text-xs font-mono">DB → CrossRef → AI Search (Gemini) → Validation → Self-Learning</p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Forward Result */}
+                    <AnimatePresence>
+                        {fwdResult && !fwdLoading && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                            >
+                                {fwdResult.success && fwdResult.oem ? (
+                                    <div className="space-y-4">
+                                        {/* Primary result */}
+                                        <div className="bg-success-light border border-brand/15 rounded-2xl p-6">
+                                            <div className="flex items-start gap-4">
+                                                <div className="icon-box w-12 h-12 glow-primary">
+                                                    <CheckCircle className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <Hash className="w-4 h-4 text-muted-foreground" />
+                                                        <span className="text-3xl font-mono font-bold text-foreground">{fwdResult.oem}</span>
+                                                    </div>
+                                                    <div className="flex gap-4 text-sm text-muted-foreground flex-wrap">
+                                                        <span>Confidence: <strong className={fwdResult.confidence >= 80 ? 'text-success' : 'text-warn'}>
+                                                            {fwdResult.confidence}%
+                                                        </strong></span>
+                                                        {fwdResult.notes && <span>· {fwdResult.notes}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Candidates */}
+                                        {fwdResult.candidates && fwdResult.candidates.length > 0 && (
+                                            <div className="bg-card border border-border/50 rounded-2xl p-6">
+                                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                                                    Alle Kandidaten ({fwdResult.candidates.length})
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {fwdResult.candidates.map((c, i) => (
+                                                        <div key={i} className="flex items-center justify-between p-3 bg-muted/20 rounded-xl border border-border/30 hover:bg-muted/40 transition-colors">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                                                                    {i + 1}
+                                                                </span>
+                                                                <code className="font-mono font-bold text-sm">{c.oem}</code>
+                                                                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{c.brand}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-4 text-xs">
+                                                                <span className="text-muted-foreground font-mono">{c.source}</span>
+                                                                <span className={`font-bold ${c.confidence >= 80 ? 'text-success' : c.confidence >= 50 ? 'text-warn' : 'text-danger'}`}>
+                                                                    {c.confidence}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="bg-danger-light border border-destructive/15 rounded-2xl p-6 flex items-start gap-4">
+                                        <XCircle className="w-8 h-8 text-danger flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <div className="font-bold text-danger mb-1">Keine OEM-Nummer gefunden</div>
+                                            <div className="text-sm text-muted-foreground">
+                                                {fwdResult.notes || 'Hydra v2 konnte keine passende Nummer finden.'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </>
+            )}
+
+            {/* ═══════════════════════════════════════════
+               REVERSE MODE: OEM → Part (existing + approve)
+            ═══════════════════════════════════════════ */}
+            {mode === 'reverse' && (
+                <>
+                    {/* Search Bar */}
+                    <div className="glass-card rounded-2xl p-6 space-y-4">
+                        <div className="flex gap-3">
+                            <div className="relative flex-1">
+                                <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleReverseLookup()}
+                                    placeholder="OEM-Nummer eingeben (z.B. 5Q0615301F)"
+                                    className="w-full pl-12 pr-4 py-3.5 rounded-xl text-lg font-mono outline-none transition-all premium-input !text-lg"
+                                    disabled={reverseLoading}
+                                />
+                            </div>
+                            <motion.button
+                                onClick={handleReverseLookup}
+                                disabled={reverseLoading || searchInput.trim().length < 3}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="btn-brand px-6 py-3.5 !rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {reverseLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                                Suchen
+                            </motion.button>
+                        </div>
+
+                        {/* Quick OEM chips */}
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-[10px] text-muted-foreground self-center font-mono uppercase tracking-wider font-semibold">Schnelltest:</span>
+                            {quickOems.map((q) => (
+                                <button
+                                    key={q.oem}
+                                    onClick={() => { setSearchInput(q.oem); }}
+                                    className="px-3 py-1.5 text-xs rounded-lg border border-border/50 bg-muted/50 transition-all font-mono hover:border-brand hover:bg-brand-light"
+                                >
+                                    {q.oem} <span className="text-muted-foreground ml-1 opacity-60">({q.label})</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Loading State */}
+                    <AnimatePresence>
+                        {reverseLoading && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                className="stat-card p-8 flex flex-col items-center gap-3"
+                            >
+                                <div className="icon-box w-12 h-12 glow-primary">
+                                    <Sparkles className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <p className="text-foreground font-semibold">KI analysiert OEM-Nummer...</p>
+                                <p className="text-muted-foreground text-sm">Identifizierung läuft über Gemini AI</p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Result Card */}
+                    <AnimatePresence>
+                        {currentResult && !reverseLoading && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="space-y-4"
+                            >
+                                {/* Registry Status */}
+                                {currentResult.existsInRegistry && (
+                                    <div className="flex items-center gap-3 p-4 bg-success-light border border-brand/15 rounded-xl">
+                                        <CheckCircle className="w-5 h-5 text-success" />
+                                        <div>
+                                            <span className="text-success font-semibold">Bereits im Registry</span>
+                                            <span className="text-muted-foreground text-sm ml-2">
+                                                — {currentResult.registryRecord?.brand} | {currentResult.registryRecord?.part_category} | {Math.round((currentResult.registryRecord?.confidence || 0) * 100)}% Konfidenz
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* AI Result + Editable Fields */}
+                                <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+                                    {/* Result Header */}
+                                    <div className="px-6 py-4 border-b border-border/50 bg-muted/20 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="icon-box w-10 h-10 glow-primary">
+                                                <Sparkles className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-lg">{currentResult.aiResult.partName}</h3>
+                                                <p className="text-muted-foreground text-xs">KI-Ergebnis für <code className="bg-muted px-1.5 rounded">{currentResult.oem}</code></p>
+                                            </div>
+                                        </div>
+                                        <div className={`px-3 py-1.5 rounded-lg border font-bold text-sm ${confidenceBg(currentResult.aiResult.confidence)}`}>
+                                            <span className={confidenceColor(currentResult.aiResult.confidence)}>
+                                                {Math.round(currentResult.aiResult.confidence * 100)}% Konfidenz
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* AI Info Row */}
+                                    {(currentResult.aiResult.vehicles || currentResult.aiResult.manufacturer || currentResult.aiResult.notes) && (
+                                        <div className="px-6 py-3 border-b border-border/30 bg-muted/10 flex flex-wrap gap-4 text-sm">
+                                            {currentResult.aiResult.vehicles && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Car className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="text-muted-foreground">Fahrzeuge:</span>
+                                                    <span className="text-foreground">{currentResult.aiResult.vehicles}</span>
+                                                </div>
+                                            )}
+                                            {currentResult.aiResult.manufacturer && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Wrench className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="text-muted-foreground">Hersteller:</span>
+                                                    <span className="text-foreground">{currentResult.aiResult.manufacturer}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Editable Fields */}
+                                    <div className="p-6 space-y-4">
+                                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                                            Felder anpassen & bestätigen
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Marke *</label>
+                                                <input
+                                                    value={editBrand}
+                                                    onChange={(e) => setEditBrand(e.target.value.toUpperCase())}
+                                                    className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                                                    placeholder="VOLKSWAGEN"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Kategorie</label>
+                                                <input
+                                                    value={editCategory}
+                                                    onChange={(e) => setEditCategory(e.target.value)}
+                                                    className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                                    placeholder="brake"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Beschreibung</label>
+                                                <input
+                                                    value={editDescription}
+                                                    onChange={(e) => setEditDescription(e.target.value)}
+                                                    className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                                    placeholder="Bremsscheibe vorne 312x25mm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">Modell</label>
+                                                <input
+                                                    value={editModel}
+                                                    onChange={(e) => setEditModel(e.target.value)}
+                                                    className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 focus:border-primary/50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                                    placeholder="Golf 7"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5">
+                                                    Konfidenz: {Math.round(editConfidence * 100)}%
+                                                </label>
+                                                <input
+                                                    type="range" min="0" max="1" step="0.05"
+                                                    value={editConfidence}
+                                                    onChange={(e) => setEditConfidence(parseFloat(e.target.value))}
+                                                    className="w-full accent-primary"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center justify-between pt-4 border-t border-border/30">
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                {currentResult.aiResult.confidence < 0.5 && (
+                                                    <>
+                                                        <AlertTriangle className="w-4 h-4 text-warn" />
+                                                        <span>Niedrige Konfidenz — bitte Daten prüfen</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => { setCurrentResult(null); setSearchInput(''); }}
+                                                    className="px-5 py-2.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl font-medium transition-colors"
+                                                >
+                                                    <XCircle className="w-4 h-4 inline mr-1.5" />
+                                                    Verwerfen
+                                                </button>
+                                                <motion.button
+                                                    onClick={handleApprove}
+                                                    disabled={approving || !editBrand.trim()}
+                                                    whileHover={{ scale: 1.02 }}
+                                                    whileTap={{ scale: 0.98 }}
+                                                    className="btn-success px-6 py-2.5 !rounded-xl disabled:opacity-50"
+                                                >
+                                                    {approving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                                    Ins Registry aufnehmen
+                                                </motion.button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* AI Notes */}
+                                {currentResult.aiResult.notes && (
+                                    <div className="p-4 bg-brand-light border border-brand/15 rounded-xl text-sm text-muted-foreground">
+                                        <span className="font-semibold text-brand mr-2">📝 KI-Notizen:</span>
+                                        {currentResult.aiResult.notes}
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Lookup History */}
+                    {history.length > 0 && (
+                        <div className="space-y-3">
+                            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                                <ArrowLeftRight className="w-4 h-4" />
+                                Verlauf ({history.length})
+                            </h3>
+                            <div className="space-y-2">
+                                {history.map((item, i) => (
+                                    <motion.div
+                                        key={`${item.oem}-${i}`}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className="flex items-center gap-4 p-3 bg-card border border-border/30 rounded-xl hover:bg-muted/20 transition-colors"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-success-light flex items-center justify-center">
+                                            <CheckCircle className="w-4 h-4 text-success" />
+                                        </div>
+                                        <code className="font-mono font-bold text-sm">{item.oem}</code>
+                                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                                        <span className="text-sm">{item.result.aiResult.partName}</span>
+                                        <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded font-bold">
+                                            {item.result.aiResult.brand}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground ml-auto">
+                                            {item.timestamp.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Empty state when no result and no history */}
+                    {!currentResult && !reverseLoading && history.length === 0 && (
+                        <div className="bg-card border border-border/50 rounded-2xl p-12 text-center">
+                            <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <Search className="w-8 h-8 text-muted-foreground" />
+                            </div>
+                            <h3 className="text-foreground font-semibold mb-2">OEM-Nummer eingeben</h3>
+                            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                                Gib eine OEM-Teilenummer ein um sie durch die KI identifizieren zu lassen.
+                                Bestätigte Ergebnisse werden automatisch ins OEM Registry aufgenommen.
+                            </p>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

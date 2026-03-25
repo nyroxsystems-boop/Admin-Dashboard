@@ -597,3 +597,37 @@ export async function approveOemResult(data: {
         body: JSON.stringify(data)
     });
 }
+
+/** Forward OEM Resolution: Vehicle + Part → OEM via Hydra v2 engine */
+export async function resolveOemForward(params: {
+    vehicle: { vin?: string; hsn?: string; tsn?: string; make?: string; model?: string; year?: string; engine?: string };
+    part: string;
+}): Promise<{
+    success: boolean;
+    oem: string | null;
+    candidates: Array<{ oem: string; brand: string; confidence: number; source: string; note?: string }>;
+    notes: string | null;
+    confidence: number;
+}> {
+    return apiFetch('/api/demo/oem-resolve', {
+        method: 'POST',
+        body: JSON.stringify(params),
+    });
+}
+
+/** Reverse OEM Lookup via bot-testing endpoint */
+export async function reverseOemLookup(oem: string): Promise<{
+    success: boolean;
+    oem: string;
+    partName?: string;
+    partCategory?: string;
+    vehicles?: string;
+    manufacturer?: string;
+    confidence?: number;
+    notes?: string;
+}> {
+    return apiFetch('/api/bot-testing/oem-reverse-lookup', {
+        method: 'POST',
+        body: JSON.stringify({ oem }),
+    });
+}

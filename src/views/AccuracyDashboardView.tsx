@@ -92,7 +92,7 @@ export function AccuracyDashboardView() {
                     value={`${(stats.accuracyRate * 100).toFixed(1)}%`}
                     icon={<CheckCircle className="w-5 h-5 text-white" />}
                     trend={`${stats.confirmed} OK / ${stats.rejected} Falsch`}
-                    color="from-emerald-500 to-teal-500"
+                    color="from-blue-500 to-indigo-600"
                 />
                 <StatsCard
                     title="Avg. Latenz"
