@@ -51,6 +51,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
 
         initAuth();
+
+        // Listen for session expiry events from the API client
+        const handleAuthExpired = () => {
+            console.log('[Auth] Session expired — forcing logout');
+            setUser(null);
+            clearAuth();
+        };
+        window.addEventListener('auth:expired', handleAuthExpired);
+        return () => window.removeEventListener('auth:expired', handleAuthExpired);
     }, []);
 
     const login = async (username: string, password: string) => {

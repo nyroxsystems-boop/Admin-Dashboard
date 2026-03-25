@@ -58,6 +58,7 @@ const AI_PROMPTS = [
 export function InboxView() {
     const { user } = useAuth();
     const [mailbox, setMailbox] = useState<'shared' | 'personal'>('shared');
+    const [folder, setFolder] = useState<'inbox' | 'assigned' | 'done'>('inbox');
     const [emails, setEmails] = useState<EmailMessage[]>([]);
     const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -225,7 +226,7 @@ export function InboxView() {
                 headers: getHeaders(),
                 body: JSON.stringify({
                     to: selectedEmail.from.address,
-                    subject: `Re: ${selectedEmail.subject}`,
+                    subject: selectedEmail.subject.toLowerCase().startsWith('re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`,
                     body: replyText,
                     useSharedMailbox: mailbox === 'shared',
                     replyToMessageId: selectedEmail.messageId
@@ -233,9 +234,9 @@ export function InboxView() {
             });
             const data = await res.json();
             if (res.ok) {
-                toast.success('E-Mail gesendet');
-                setShowReply(false);
+                toast.success('Antwort gesendet');
                 setReplyText('');
+                // Optionally auto-resolve after reply
             } else {
                 throw new Error(data.error);
             }
@@ -243,6 +244,43 @@ export function InboxView() {
             toast.error(error.message);
         } finally {
             setSendingReply(false);
+        }
+    };
+
+    // --- Action Functions (Assign, Resolve) ---
+    const updateAssignment = async (email: EmailMessage, status: string, notes: string = '') => {
+        if (!profile) return;
+        try {
+            const res = await fetch(`${API_BASE}/api/inbox/email/${email.uid}/assign`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                    messageId: email.messageId,
+                    mailbox,
+                    assignedTo: profile.username,
+                    status,
+                    notes
+                })
+            });
+            if (res.ok) {
+                toast.success(status === 'done' ? 'Als Erledigt markiert' : 'Dir zugewiesen');
+                // Optimistic update
+                setEmails(emails.map(e => e.uid === email.uid ? {
+                    ...e,
+                    assignment: { assigned_to: profile.username, status, notes }
+                } : e));
+                if (selectedEmail?.uid === email.uid) {
+                    setSelectedEmail({
+                        ...selectedEmail,
+                        assignment: { assigned_to: profile.username, status, notes }
+                    });
+                }
+            } else {
+                const data = await res.json();
+                throw new Error(data.error);
+            }
+        } catch (error: any) {
+            toast.error(error.message || 'Aktion fehlgeschlagen');
         }
     };
 
@@ -367,11 +405,22 @@ export function InboxView() {
         }
     };
 
-    const filteredEmails = emails.filter(e =>
-        e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.from.address.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredEmails = emails.filter(e => {
+        const matchesSearch = e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            e.from.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            e.from.address.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        if (!matchesSearch) return false;
+
+        const isDone = e.assignment?.status === 'done';
+        const isAssignedToMe = e.assignment?.assigned_to === profile?.username;
+        const isAssigned = e.assignment && e.assignment.status === 'in_progress';
+
+        if (folder === 'inbox') return !isDone && !isAssignedToMe; // Unassigned or assigned to others, but not done
+        if (folder === 'assigned') return isAssignedToMe && !isDone;
+        if (folder === 'done') return isDone;
+        return true;
+    });
 
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -442,33 +491,89 @@ export function InboxView() {
     }
 
     return (
-        <div className="h-full flex flex-col gap-4">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="flex bg-muted rounded-xl p-1">
-                        <button
-                            onClick={() => setMailbox('shared')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all ${mailbox === 'shared' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <span className="flex items-center gap-2">
-                                <Inbox className="w-4 h-4" />
-                                info@partsunion.de
-                            </span>
-                        </button>
-                        <button
-                            onClick={() => setMailbox('personal')}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all ${mailbox === 'personal' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                            <span className="flex items-center gap-2">
-                                <User className="w-4 h-4" />
-                                Mein Postfach
-                            </span>
-                        </button>
+        <div className="h-full flex gap-4">
+            {/* 1. Left Sidebar - Folders & Mailboxes */}
+            <div className="w-64 shrink-0 flex flex-col gap-4">
+                <button
+                    onClick={() => setShowCompose(true)}
+                    className="w-full px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-2xl font-semibold transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                >
+                    <PenSquare className="w-5 h-5" />
+                    Neue E-Mail
+                </button>
+
+                <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col shadow-sm flex-1">
+                    <div className="px-5 py-4 border-b border-border bg-muted/20">
+                        <h3 className="text-sm font-bold text-foreground tracking-wide">POSTFÄCHER</h3>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto py-2">
+                        {/* Shared Mailbox */}
+                        <div className="px-2 mb-4">
+                            <button
+                                onClick={() => setMailbox('shared')}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium transition-all ${mailbox === 'shared' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted text-foreground'}`}
+                            >
+                                <span className="flex items-center gap-2.5 text-sm">
+                                    <Inbox className="w-4 h-4" />
+                                    info@partsunion.de
+                                </span>
+                            </button>
+                            
+                            {mailbox === 'shared' && (
+                                <div className="mt-1.5 ml-3 pl-3 border-l-2 border-primary/10 flex flex-col gap-1">
+                                    <button onClick={() => setFolder('inbox')} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all ${folder === 'inbox' ? 'bg-primary text-white font-medium shadow-md shadow-primary/20' : 'text-muted-foreground hover:bg-muted'}`}>
+                                        <Mail className="w-4 h-4" /> Offen
+                                    </button>
+                                    <button onClick={() => setFolder('assigned')} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all ${folder === 'assigned' ? 'bg-primary text-white font-medium shadow-md shadow-primary/20' : 'text-muted-foreground hover:bg-muted'}`}>
+                                        <User className="w-4 h-4" /> Mir zugewiesen
+                                    </button>
+                                    <button onClick={() => setFolder('done')} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all ${folder === 'done' ? 'bg-primary text-white font-medium shadow-md shadow-primary/20' : 'text-muted-foreground hover:bg-muted'}`}>
+                                        <CheckCircle className="w-4 h-4" /> Erledigt
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Personal Mailbox */}
+                        <div className="px-2">
+                            <button
+                                onClick={() => setMailbox('personal')}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium transition-all ${mailbox === 'personal' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted text-foreground'}`}
+                            >
+                                <span className="flex items-center gap-2.5 text-sm">
+                                    <User className="w-4 h-4" />
+                                    Mein Postfach
+                                </span>
+                            </button>
+                            
+                            {mailbox === 'personal' && (
+                                <div className="mt-1.5 ml-3 pl-3 border-l-2 border-primary/10 flex flex-col gap-1">
+                                    <button onClick={() => setFolder('inbox')} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all ${folder === 'inbox' ? 'bg-primary text-white font-medium shadow-md shadow-primary/20' : 'text-muted-foreground hover:bg-muted'}`}>
+                                        <Mail className="w-4 h-4" /> Offen
+                                    </button>
+                                    <button onClick={() => setFolder('done')} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all ${folder === 'done' ? 'bg-primary text-white font-medium shadow-md shadow-primary/20' : 'text-muted-foreground hover:bg-muted'}`}>
+                                        <CheckCircle className="w-4 h-4" /> Erledigt
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div className="flex items-center gap-3">
+            {/* 2. Middle Column - Email List */}
+            <div className="w-80 shrink-0 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-sm">
+                <div className="px-5 py-4 border-b border-border bg-muted/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-foreground">
+                            {folder === 'inbox' ? 'Offene E-Mails' : folder === 'assigned' ? 'Mir zugewiesen' : 'Erledigte E-Mails'}
+                            <span className="text-muted-foreground font-normal text-sm ml-2">({filteredEmails.length})</span>
+                        </h3>
+                        <button onClick={loadEmails} disabled={isLoading} className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground">
+                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
@@ -476,34 +581,11 @@ export function InboxView() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Suchen..."
-                            className="pl-10 pr-4 py-2 bg-muted border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 w-64"
+                            className="w-full pl-9 pr-4 py-2 bg-muted border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
                         />
                     </div>
-                    <button
-                        onClick={() => setShowCompose(true)}
-                        className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
-                    >
-                        <PenSquare className="w-4 h-4" />
-                        Neue E-Mail
-                    </button>
-                    <button
-                        onClick={loadEmails}
-                        disabled={isLoading}
-                        className="p-2 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
-                    >
-                        <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                    </button>
                 </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 flex gap-4 min-h-0">
-                {/* Email List */}
-                <div className="w-96 bg-card border border-border rounded-2xl flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-border">
-                        <h3 className="font-semibold">{filteredEmails.length} E-Mails</h3>
-                    </div>
-                    <div ref={scrollRef} className="flex-1 overflow-y-auto">
+                <div ref={scrollRef} className="flex-1 overflow-y-auto">
                         {isLoading ? (
                             <div className="flex items-center justify-center py-12">
                                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -542,118 +624,129 @@ export function InboxView() {
                     </div>
                 </div>
 
-                {/* Email Detail */}
-                <div className="flex-1 bg-card border border-border rounded-2xl flex flex-col overflow-hidden">
-                    {selectedEmail ? (
-                        <>
-                            <div className="p-6 border-b border-border">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div>
-                                        <h2 className="text-xl font-bold mb-2">{selectedEmail.subject}</h2>
-                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                            <span className="flex items-center gap-1">
-                                                <User className="w-4 h-4" />
-                                                {selectedEmail.from.name} &lt;{selectedEmail.from.address}&gt;
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Clock className="w-4 h-4" />
-                                                {new Date(selectedEmail.date).toLocaleString('de-DE')}
-                                            </span>
-                                            {selectedEmail.hasAttachments && (
-                                                <span className="flex items-center gap-1">
-                                                    <Paperclip className="w-4 h-4" />
-                                                    {selectedEmail.attachments.length} Anhang
-                                                </span>
-                                            )}
+            {/* 3. Right Column - Email Detail & Inline Reply */}
+            <div className="flex-1 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-sm relative">
+                {selectedEmail ? (
+                    <>
+                        {/* Detail Header & Action Bar */}
+                        <div className="bg-muted/10 border-b border-border">
+                            <div className="p-6 pb-4 flex items-start justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-3">{selectedEmail.subject}</h2>
+                                    <div className="flex items-center gap-5 text-sm text-foreground">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                                                {selectedEmail.from.name.charAt(0)}
+                                            </div>
+                                            <span className="font-medium">{selectedEmail.from.name} <span className="text-muted-foreground font-normal ml-1">&lt;{selectedEmail.from.address}&gt;</span></span>
                                         </div>
+                                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                                            <Clock className="w-4 h-4" />
+                                            {new Date(selectedEmail.date).toLocaleString('de-DE')}
+                                        </span>
+                                        {selectedEmail.hasAttachments && (
+                                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                                                <Paperclip className="w-4 h-4" />
+                                                {selectedEmail.attachments.length} Anhang
+                                            </span>
+                                        )}
                                     </div>
+                                </div>
+                            </div>
+                            
+                            {/* Actions Bar */}
+                            <div className="px-6 py-3 bg-muted/30 border-t border-border flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    {selectedEmail.assignment?.status !== 'done' && selectedEmail.assignment?.assigned_to !== profile?.username && (
+                                        <button onClick={() => updateAssignment(selectedEmail, 'in_progress')} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border hover:border-primary/50 text-foreground rounded-lg text-sm font-medium transition-colors shadow-sm">
+                                            <User className="w-4 h-4 text-primary" />
+                                            Mir zuweisen
+                                        </button>
+                                    )}
+                                    {selectedEmail.assignment?.assigned_to && (
+                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-light text-brand rounded-lg text-sm font-medium">
+                                            <User className="w-4 h-4" />
+                                            Zugewiesen an {selectedEmail.assignment.assigned_to}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {selectedEmail.assignment?.status === 'done' ? (
+                                        <button onClick={() => updateAssignment(selectedEmail, 'in_progress')} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border hover:border-warn text-foreground rounded-lg text-sm font-medium transition-colors shadow-sm">
+                                            <RefreshCw className="w-4 h-4 text-warn" />
+                                            Wieder öffnen
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => updateAssignment(selectedEmail, 'done')} className="flex items-center gap-2 px-3 py-1.5 bg-success text-white hover:bg-success/90 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                                            <CheckCircle className="w-4 h-4" />
+                                            Als erledigt markieren
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Email Body Scroll Area */}
+                        <div className="flex-1 overflow-y-auto p-8 pb-32">
+                            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground/90 leading-relaxed font-medium">
+                                {selectedEmail.body}
+                            </div>
+                        </div>
+
+                        {/* Anchored Inline Reply Box */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)] p-4 pt-3">
+                            {/* AI Quick Templates */}
+                            <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 hide-scrollbar">
+                                <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-light text-brand rounded-full text-xs font-semibold shrink-0">
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    KI Antwort:
+                                </div>
+                                {AI_PROMPTS.map((p) => (
                                     <button
-                                        onClick={() => setShowReply(!showReply)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+                                        key={p.label}
+                                        onClick={() => generateAiReply(p.prompt)}
+                                        disabled={aiLoading}
+                                        className="px-3 py-1.5 shrink-0 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-full text-xs font-medium transition-colors"
                                     >
-                                        <Reply className="w-4 h-4" />
-                                        Antworten
+                                        {p.label}
+                                    </button>
+                                ))}
+                                {aiLoading && <Loader2 className="w-4 h-4 animate-spin shrink-0 text-primary" />}
+                            </div>
+
+                            {/* Reply Textarea */}
+                            <div className="relative">
+                                <textarea
+                                    value={replyText}
+                                    onChange={(e) => setReplyText(e.target.value)}
+                                    placeholder={`Antworten an ${selectedEmail.from.name}...`}
+                                    rows={replyText.trim() ? 5 : 2}
+                                    className="w-full pl-4 pr-32 py-3 bg-muted/40 border border-border focus:border-primary focus:bg-background rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/10 resize-none transition-all text-sm"
+                                />
+                                <div className="absolute right-2 bottom-2">
+                                     <button
+                                        onClick={sendReply}
+                                        disabled={!replyText.trim() || sendingReply}
+                                        className="px-5 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
+                                    >
+                                        {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                        Senden
                                     </button>
                                 </div>
                             </div>
-
-                            <div className="flex-1 overflow-y-auto p-6">
-                                <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                                    {selectedEmail.body}
-                                </div>
-                            </div>
-
-                            {/* Reply Panel */}
-                            <AnimatePresence>
-                                {showReply && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: 'auto', opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="border-t border-border"
-                                    >
-                                        <div className="p-4">
-                                            <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                                    <Sparkles className="w-4 h-4" />
-                                                    KI-Vorlagen:
-                                                </span>
-                                                {AI_PROMPTS.map((p) => (
-                                                    <button
-                                                        key={p.label}
-                                                        onClick={() => generateAiReply(p.prompt)}
-                                                        disabled={aiLoading}
-                                                        className="px-3 py-1 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors"
-                                                    >
-                                                        {p.label}
-                                                    </button>
-                                                ))}
-                                                {aiLoading && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
-                                            </div>
-                                            <textarea
-                                                value={replyText}
-                                                onChange={(e) => setReplyText(e.target.value)}
-                                                placeholder="Antwort schreiben..."
-                                                rows={6}
-                                                className="w-full p-4 bg-background border border-border rounded-xl focus:outline-none focus:border-primary resize-none"
-                                            />
-                                            <div className="flex items-center justify-between mt-3">
-                                                <span className="text-sm text-muted-foreground">
-                                                    Senden als: {mailbox === 'shared' ? 'info@partsunion.de' : profile?.email}
-                                                </span>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => setShowReply(false)}
-                                                        className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-colors"
-                                                    >
-                                                        Abbrechen
-                                                    </button>
-                                                    <button
-                                                        onClick={sendReply}
-                                                        disabled={!replyText.trim() || sendingReply}
-                                                        className="px-4 py-2 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-                                                    >
-                                                        {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                                        Senden
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-                            <Mail className="w-16 h-16 mb-4 opacity-30" />
-                            <p className="text-lg font-medium">Wähle eine E-Mail aus</p>
-                            <p className="text-sm">um die Details anzuzeigen</p>
                         </div>
-                    )}
-                </div>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-muted/5">
+                        <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
+                            <Mail className="w-8 h-8 opacity-50" />
+                        </div>
+                        <p className="text-xl font-semibold text-foreground mb-2">Keine E-Mail ausgewählt</p>
+                        <p className="text-sm">Wähle eine E-Mail aus der Liste aus, um die Details anzuzeigen und zu antworten.</p>
+                    </div>
+                )}
             </div>
-
-            {/* Compose Modal - Two Column Layout */}
+            {/* Compose Modal (Marketing/Promotions now in separate view, keeping simple email here) */}
             <AnimatePresence>
                 {showCompose && (
                     <motion.div
@@ -670,73 +763,110 @@ export function InboxView() {
                             onClick={(e) => e.stopPropagation()}
                             className="bg-card border border-border rounded-2xl w-full max-w-6xl h-[85vh] overflow-hidden flex flex-col shadow-2xl"
                         >
-                            {/* Header */}
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                        <PenSquare className="w-5 h-5 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-semibold">Neue E-Mail erstellen</h2>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-sm text-muted-foreground">Von:</span>
-                                            <select
-                                                value={sendFromMailbox}
-                                                onChange={(e) => setSendFromMailbox(e.target.value as 'shared' | 'personal')}
-                                                className="text-sm bg-muted border-0 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                                            >
-                                                <option value="shared">info@partsunion.de (Shared)</option>
-                                                {profile?.email && profile.email.toLowerCase() !== 'info@partsunion.de' && (
-                                                    <option value="personal">{profile.email} (Persönlich)</option>
+                            {/* Header & Tabs */}
+                            <div className="flex flex-col border-b border-border shrink-0 bg-muted/5">
+                                <div className="flex items-center justify-between px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                                            {emailType === 'normal' ? <PenSquare className="w-5 h-5 text-primary" /> : <Megaphone className="w-5 h-5 text-warn" />}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-bold">{emailType === 'normal' ? 'Neue E-Mail' : 'Werbekampagne'}</h2>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-sm text-muted-foreground">Absender:</span>
+                                                <select
+                                                    value={sendFromMailbox}
+                                                    onChange={(e) => setSendFromMailbox(e.target.value as 'shared' | 'personal')}
+                                                    className="text-sm bg-muted border-0 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
+                                                >
+                                                    <option value="shared">info@partsunion.de (Shared)</option>
+                                                    {profile?.email && profile.email.toLowerCase() !== 'info@partsunion.de' && (
+                                                        <option value="personal">{profile.email} (Persönlich)</option>
+                                                    )}
+                                                </select>
+                                                {profile?.email && profile.email.toLowerCase() === 'info@partsunion.de' && (
+                                                    <span className="text-xs text-muted-foreground">({profile.username})</span>
                                                 )}
-                                            </select>
-                                            {profile?.email && profile.email.toLowerCase() === 'info@partsunion.de' && (
-                                                <span className="text-xs text-muted-foreground">({profile.username})</span>
-                                            )}
+                                            </div>
                                         </div>
                                     </div>
+                                    <button
+                                        onClick={() => setShowCompose(false)}
+                                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => setShowCompose(false)}
-                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
+
+                                <div className="flex px-6 gap-6 pt-2">
+                                    <button 
+                                        onClick={() => setEmailType('normal')} 
+                                        className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${emailType === 'normal' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        <FileText className="w-4 h-4" /> Direktnachricht
+                                    </button>
+                                    <button 
+                                        onClick={() => setEmailType('promotional')} 
+                                        className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${emailType === 'promotional' ? 'border-warn text-warn' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        <Megaphone className="w-4 h-4" /> Werbekampagne
+                                    </button>
+                                </div>
                             </div>
 
-                            {/* Two Column Layout */}
+                            {/* Main Content Area depends on emailType */}
                             <div className="flex-1 flex overflow-hidden">
-                                {/* Left Column - AI Generator & Recipients */}
-                                <div className="w-1/2 border-r border-border flex flex-col overflow-y-auto p-6 space-y-6">
-                                    {/* Email Type Toggle */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2">
-                                            <Mail className="w-5 h-5 text-primary" />
-                                            <span className="font-semibold">E-Mail Typ</span>
+                                {emailType === 'normal' ? (
+                                    /* SIMPLE COMPOSE LOGIC FOR 1-ON-1 EMAILS */
+                                    <div className="flex-1 flex flex-col p-8 bg-card max-w-4xl mx-auto w-full">
+                                        <div className="space-y-5 flex-1 flex flex-col">
+                                            <div className="flex items-center gap-4">
+                                                <label className="w-20 text-sm font-medium text-muted-foreground text-right shrink-0">An:</label>
+                                                <input
+                                                    type="text"
+                                                    value={composeData.to}
+                                                    onChange={(e) => setComposeData(prev => ({ ...prev, to: e.target.value }))}
+                                                    placeholder="empfaenger@beispiel.de"
+                                                    className="flex-1 px-4 py-2.5 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <label className="w-20 text-sm font-medium text-muted-foreground text-right shrink-0">Betreff:</label>
+                                                <input
+                                                    type="text"
+                                                    value={composeData.subject}
+                                                    onChange={(e) => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
+                                                    placeholder="Betreff der E-Mail"
+                                                    className="flex-1 px-4 py-2.5 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                                                />
+                                            </div>
+                                            
+                                            <div className="flex flex-col flex-1 pl-24 pt-2 relative">
+                                                <textarea
+                                                    value={composeData.body}
+                                                    onChange={(e) => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+                                                    placeholder="Schreibe deine Nachricht..."
+                                                    className="flex-1 w-full px-5 py-4 bg-muted/30 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                                                />
+                                                <div className="absolute bottom-4 right-4 flex items-center gap-3">
+                                                    <button onClick={() => setShowCompose(false)} className="px-5 py-2.5 bg-background border border-border hover:bg-muted rounded-xl font-medium transition-colors text-sm shadow-sm">Abbrechen</button>
+                                                    <button 
+                                                        onClick={sendCompose} 
+                                                        disabled={composeSending || !composeData.to || !composeData.subject || !composeData.body}
+                                                        className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2 text-sm shadow-md"
+                                                    >
+                                                        {composeSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Senden
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex bg-muted rounded-xl p-1">
-                                            <button
-                                                onClick={() => setEmailType('normal')}
-                                                className={`flex-1 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${emailType === 'normal' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                                            >
-                                                <FileText className="w-4 h-4" />
-                                                Normal
-                                            </button>
-                                            <button
-                                                onClick={() => setEmailType('promotional')}
-                                                className={`flex-1 py-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${emailType === 'promotional' ? 'bg-gradient-to-r from-accent to-accent/80 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                                            >
-                                                <Megaphone className="w-4 h-4" />
-                                                Werbe-Mail
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            {emailType === 'normal'
-                                                ? 'Einfache Text-E-Mail für direkte Kommunikation'
-                                                : 'Gestylte HTML-E-Mail mit Partsunion Branding für Marketing'
-                                            }
-                                        </p>
                                     </div>
+                                ) : (
+                                    /* 2-COLUMN MARKETING CAMPAIGN LOGIC */
+                                    <>
+                                        {/* Left Column - AI Generator & Recipients */}
+                                        <div className="w-[45%] border-r border-border flex flex-col overflow-y-auto bg-muted/5">
+                                            <div className="p-6 space-y-8">
 
                                     {/* AI Generator Section */}
                                     <div className={`rounded-xl p-5 border ${emailType === 'promotional' ? 'bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20' : 'bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20'}`}>
@@ -863,6 +993,8 @@ export function InboxView() {
                                             </div>
                                         )}
                                     </div>
+                                    {/* Close p-6 space-y-8 wrapper */}
+                                    </div>
                                 </div>
 
                                 {/* Right Column - Email Preview */}
@@ -952,32 +1084,36 @@ export function InboxView() {
                                         )}
                                     </div>
                                 </div>
+                                </>
+                            )}
                             </div>
 
-                            {/* Footer */}
-                            <div className="flex items-center justify-between px-6 py-4 border-t border-border shrink-0">
-                                <div className="text-sm text-muted-foreground">
-                                    {recipientType === 'group' && recipientList.length > 0
-                                        ? `${recipientList.length} Empfänger ausgewählt`
-                                        : composeData.to ? `Empfänger: ${composeData.to}` : 'Kein Empfänger'}
+                            {/* Footer only for Promotional (Normal has it inside the single pane) */}
+                            {emailType === 'promotional' && (
+                                <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/5 shrink-0">
+                                    <div className="text-sm font-medium text-muted-foreground">
+                                        {recipientType === 'group' && recipientList.length > 0
+                                            ? `${recipientList.length} Empfänger ausgewählt`
+                                            : composeData.to ? `Empfänger: ${composeData.to}` : 'Kein Empfänger ausgewählt'}
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setShowCompose(false)}
+                                            className="px-5 py-2.5 bg-background border border-border hover:bg-muted rounded-xl font-medium transition-colors text-sm shadow-sm"
+                                        >
+                                            Abbrechen
+                                        </button>
+                                        <button
+                                            onClick={sendCompose}
+                                            disabled={composeSending || (!composeData.to && recipientList.length === 0) || !composeData.subject || !composeData.body}
+                                            className="px-8 py-2.5 bg-warn hover:bg-warn/90 text-white rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2 text-sm shadow-md hover:shadow-lg"
+                                        >
+                                            {composeSending ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Megaphone className="w-4 h-4 shrink-0" />}
+                                            Kampagne Senden
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => setShowCompose(false)}
-                                        className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-colors"
-                                    >
-                                        Abbrechen
-                                    </button>
-                                    <button
-                                        onClick={sendCompose}
-                                        disabled={composeSending || (!composeData.to && recipientList.length === 0) || !composeData.subject || !composeData.body}
-                                        className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-                                    >
-                                        {composeSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                        E-Mail senden
-                                    </button>
-                                </div>
-                            </div>
+                            )}
                         </motion.div>
                     </motion.div>
                 )}

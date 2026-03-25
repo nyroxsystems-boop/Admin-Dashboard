@@ -38,6 +38,7 @@ export function AdminDashboardView() {
     const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'audit' | 'settings'>('overview');
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
 
     // Modal State
     const [showTenantModal, setShowTenantModal] = useState(false);
@@ -84,6 +85,17 @@ export function AdminDashboardView() {
     // --- Effects ---
     useEffect(() => {
         loadStats();
+        
+        const checkMobile = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            if (mobile && sidebarOpen) {
+                setSidebarOpen(false); // auto-close on mobile initially
+            }
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
     // Auto-load audit logs when switching to audit tab
@@ -339,11 +351,11 @@ export function AdminDashboardView() {
             <motion.aside
                 initial={false}
                 animate={{
-                    width: sidebarOpen ? 280 : 64,
+                    width: sidebarOpen ? (isMobile ? 280 : 280) : (isMobile ? 0 : 72),
                 }}
                 transition={{ type: 'tween', duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 will-change-[width] overflow-hidden">
-                <div className={`${sidebarOpen ? 'w-[280px]' : 'w-[64px]'} flex flex-col h-full transition-all duration-200`}>
+                className="h-screen bg-card border-r border-border flex flex-col fixed md:relative z-20 will-change-[width] overflow-hidden shadow-[2px_0_12px_rgba(0,0,0,0.02)]">
+                <div className={`${sidebarOpen ? 'w-[280px]' : (isMobile ? 'w-0' : 'w-[72px]')} flex flex-col h-full transition-all duration-200 overflow-hidden`}>
                     <div className={`p-5 flex items-center border-b border-border/50 ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>
                         {sidebarOpen ? (
                             <>
@@ -584,7 +596,7 @@ export function AdminDashboardView() {
 
                                 <div className="glass-card rounded-2xl overflow-hidden border border-border/50">
                                     <div className="overflow-x-auto">
-                                        <table className="w-full">
+                                        <table className="premium-table w-full">
                                             <thead>
                                                 <tr className="bg-muted/40 border-b border-border/50">
                                                     <th className="text-left px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Händler / Slug</th>
@@ -771,7 +783,7 @@ export function AdminDashboardView() {
                                 </div>
 
                                 <div className="glass-card rounded-2xl overflow-hidden border border-border/50">
-                                    <table className="w-full">
+                                    <table className="premium-table w-full">
                                         <thead>
                                             <tr className="bg-muted/40 border-b border-border/50">
                                                 <th className="text-left px-6 py-3 text-[11px] font-bold text-muted-foreground uppercase">Zeit</th>
@@ -831,7 +843,7 @@ export function AdminDashboardView() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Password Change */}
-                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
+                                    <div className="glass-card p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all border border-border/50">
                                         <div className="flex items-center gap-3 mb-2">
                                             <div className="p-2 rounded-lg bg-brand-light text-brand"><Shield className="w-5 h-5" /></div>
                                             <h3 className="font-bold">Passwort ändern</h3>
@@ -850,15 +862,15 @@ export function AdminDashboardView() {
                                                 form.reset();
                                             } catch (err: any) { toast.error(err.message || 'Fehler beim Ändern'); }
                                         }} className="space-y-3">
-                                            <input name="currentPw" type="password" placeholder="Aktuelles Passwort" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
-                                            <input name="newPw" type="password" placeholder="Neues Passwort" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
-                                            <input name="confirmPw" type="password" placeholder="Passwort bestätigen" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" required />
+                                            <input name="currentPw" type="password" placeholder="Aktuelles Passwort" className="premium-input w-full" required />
+                                            <input name="newPw" type="password" placeholder="Neues Passwort" className="premium-input w-full" required />
+                                            <input name="confirmPw" type="password" placeholder="Passwort bestätigen" className="premium-input w-full" required />
                                             <button type="submit" className="w-full py-2 bg-primary hover:bg-primary/90 text-white rounded-xl font-medium transition-colors">Passwort ändern</button>
                                         </form>
                                     </div>
 
                                     {/* Email Signature */}
-                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
+                                    <div className="glass-card p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all border border-border/50">
                                         <div className="flex items-center gap-3 mb-2">
                                             <div className="p-2 rounded-lg bg-success-light text-success"><Edit className="w-5 h-5" /></div>
                                             <h3 className="font-bold">E-Mail Signatur</h3>
@@ -873,7 +885,7 @@ export function AdminDashboardView() {
                                                 toast.success('Signatur gespeichert');
                                             } catch (err: any) { toast.error(err.message || 'Fehler beim Speichern'); }
                                         }} className="space-y-3">
-                                            <textarea name="signature" rows={4} placeholder="Mit freundlichen Grüßen,&#10;Dein Name" className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none" />
+                                            <textarea name="signature" rows={4} placeholder="Mit freundlichen Grüßen,&#10;Dein Name" className="premium-input w-full resize-none" />
                                             <button type="submit" className="btn-success w-full">Signatur speichern</button>
                                         </form>
                                     </div>
@@ -886,7 +898,7 @@ export function AdminDashboardView() {
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
+                                    <div className="glass-card p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all border border-border/50">
                                         <div className="flex items-center gap-3 mb-2">
                                             <div className="p-2 rounded-lg bg-warn-light text-warn"><Shield className="w-5 h-5" /></div>
                                             <h3 className="font-bold">Wartungsmodus</h3>
@@ -914,7 +926,7 @@ export function AdminDashboardView() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all">
+                                    <div className="glass-card p-6 rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all border border-border/50">
                                         <div className="flex items-center gap-3 mb-2">
                                             <div className="p-2 rounded-lg bg-brand-light text-brand"><Globe className="w-5 h-5" /></div>
                                             <h3 className="font-bold">Systemsprache</h3>
@@ -934,7 +946,7 @@ export function AdminDashboardView() {
                                                     toast.success(`Sprache geändert: ${lang === 'de' ? 'Deutsch' : lang === 'en' ? 'English' : 'Türkçe'}`);
                                                 } catch (err) { toast.error('Fehler beim Speichern der Sprache'); }
                                             }}
-                                            className="w-full bg-muted/50 border border-border/50 rounded-xl p-2 text-sm mt-2 focus:ring-2 focus:ring-primary/20 outline-none"
+                                            className="premium-input w-full mt-2 cursor-pointer"
                                         >
                                             <option value="de">Deutsch (Standard)</option>
                                             <option value="en">English</option>
@@ -950,7 +962,7 @@ export function AdminDashboardView() {
                                         OEM Datenbank Management
                                     </h3>
 
-                                    <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm">
+                                    <div className="glass-card p-6 rounded-2xl space-y-4 shadow-sm border border-border/50">
                                         {/* Stats Display */}
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">

@@ -6,8 +6,74 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X, ChevronRight, Smartphone, LogOut, Loader2 } from 'lucide-react';
 
+// ── Prop Interfaces ──
+interface SidebarItemProps {
+    icon: React.ReactNode;
+    label: string;
+    active?: boolean;
+    onClick?: () => void;
+    badge?: string | number;
+    collapsed?: boolean;
+}
+
+interface StatsCardProps {
+    title: string;
+    value: string | number;
+    icon: React.ReactNode;
+    trend?: string;
+    color: string;
+    delay?: number;
+}
+
+interface LimitBarProps {
+    current: number;
+    max: number;
+    label: string;
+}
+
+interface StatusBadgeProps {
+    status: string;
+}
+
+interface ActionButtonProps {
+    icon: React.ReactNode;
+    onClick?: () => void;
+    tooltip?: string;
+    variant?: 'default' | 'danger';
+}
+
+interface ModalProps {
+    children: React.ReactNode;
+    onClose: () => void;
+    title: string;
+}
+
+interface DeviceInfo {
+    id: string;
+    device_id: string;
+    user: string;
+}
+
+interface DeviceDrawerProps {
+    tenant: { name: string };
+    devices: DeviceInfo[];
+    onClose: () => void;
+    onRemove: (deviceId: string) => void;
+}
+
+interface InputProps {
+    label: string;
+    onChange?: (value: string) => void;
+    [key: string]: unknown;
+}
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    children: React.ReactNode;
+    variant?: 'primary' | 'ghost';
+}
+
 // ── Sidebar Item ──
-export const SidebarItem = ({ icon, label, active, onClick, badge, collapsed }: any) => (
+export const SidebarItem = ({ icon, label, active, onClick, badge, collapsed }: SidebarItemProps) => (
     <button onClick={onClick} title={collapsed ? label : undefined}
         className={`sidebar-item w-full ${active ? 'active' : ''} ${collapsed ? '!px-0 !justify-center !gap-0' : ''}`}>
         <span className={`transition-colors flex-shrink-0 ${active ? 'text-brand' : ''}`}>{icon}</span>
@@ -18,7 +84,7 @@ export const SidebarItem = ({ icon, label, active, onClick, badge, collapsed }: 
 );
 
 // ── Stats Card ──
-export const StatsCard = ({ title, value, icon, trend, color, delay = 0 }: any) => (
+export const StatsCard = ({ title, value, icon, trend, color, delay = 0 }: StatsCardProps) => (
     <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -42,7 +108,7 @@ export const StatsCard = ({ title, value, icon, trend, color, delay = 0 }: any) 
 );
 
 // ── Limit Bar ──
-export const LimitBar = ({ current, max, label }: any) => {
+export const LimitBar = ({ current, max, label }: LimitBarProps) => {
     const percentage = max > 0 ? Math.min((current / max) * 100, 100) : 0;
     const isCritical = percentage > 80;
     return (
@@ -64,7 +130,7 @@ export const LimitBar = ({ current, max, label }: any) => {
 };
 
 // ── Status Badge ──
-export const StatusBadge = ({ status }: any) => {
+export const StatusBadge = ({ status }: StatusBadgeProps) => {
     const isGood = status === 'completed' || status === 'paid';
     const isWarn = status === 'trial' || status === 'pending';
     const badgeClass = isGood ? 'badge-success' : isWarn ? 'badge-warn' : 'badge-danger';
@@ -80,7 +146,7 @@ export const StatusBadge = ({ status }: any) => {
 };
 
 // ── Action Button ──
-export const ActionButton = ({ icon, onClick, tooltip, variant }: any) => (
+export const ActionButton = ({ icon, onClick, tooltip, variant }: ActionButtonProps) => (
     <button onClick={onClick} title={tooltip}
         className={`action-btn ${variant === 'danger' ? 'hover:!bg-danger-light hover:!text-danger hover:!border-transparent' : ''}`}>
         {icon}
@@ -88,7 +154,7 @@ export const ActionButton = ({ icon, onClick, tooltip, variant }: any) => (
 );
 
 // ── Modal ──
-export const Modal = ({ children, onClose, title }: any) => (
+export const Modal = ({ children, onClose, title }: ModalProps) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 modal-overlay" />
@@ -110,7 +176,7 @@ export const Modal = ({ children, onClose, title }: any) => (
 );
 
 // ── Device Drawer ──
-export const DeviceDrawer = ({ tenant, devices, onClose, onRemove }: any) => (
+export const DeviceDrawer = ({ tenant, devices, onClose, onRemove }: DeviceDrawerProps) => (
     <div className="fixed inset-0 z-50 flex justify-end">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 modal-overlay" onClick={onClose} />
@@ -133,7 +199,7 @@ export const DeviceDrawer = ({ tenant, devices, onClose, onRemove }: any) => (
                         <p className="text-sm">Keine aktiven Geräte</p>
                     </div>
                 ) : (
-                    devices.map((device: any) => (
+                    devices.map((device: DeviceInfo) => (
                         <motion.div key={device.id}
                             initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
                             className="p-4 rounded-xl border border-border/30 bg-card flex justify-between items-center group hover:border-brand transition-colors"
@@ -160,7 +226,7 @@ export const DeviceDrawer = ({ tenant, devices, onClose, onRemove }: any) => (
 );
 
 // ── Input ──
-export const Input = ({ label, onChange, ...props }: any) => (
+export const Input = ({ label, onChange, ...props }: InputProps) => (
     <div>
         <label className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.1em] mb-1.5 ml-0.5 font-mono">{label}</label>
         <input className="premium-input" onChange={(e) => onChange?.(e.target.value)} {...props} />
@@ -168,7 +234,7 @@ export const Input = ({ label, onChange, ...props }: any) => (
 );
 
 // ── Button ──
-export const Button = ({ children, variant = 'primary', disabled, ...props }: any) => (
+export const Button = ({ children, variant = 'primary', disabled, ...props }: ButtonProps) => (
     <button disabled={disabled}
         className={variant === 'primary' ? 'btn-brand' : 'btn-ghost'}
         {...props}>

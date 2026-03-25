@@ -42,8 +42,13 @@ export function clearAuth() {
 async function apiFetch(endpoint: string, options: RequestInit = {}) {
     const token = getAuthToken();
 
+    // Read CSRF token from cookie for Double-Submit pattern
+    const csrfToken = document.cookie.split('; ')
+        .find(c => c.startsWith('csrf_token='))?.split('=')[1] || '';
+
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
         ...options.headers as Record<string, string>,
     };
 
@@ -51,24 +56,39 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
         headers['Authorization'] = `Token ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-    });
+    const MAX_RETRIES = 3;
+    let lastError: Error | null = null;
 
-    if (response.status === 401) {
-        // Token expired or invalid
-        clearAuth();
-        window.location.href = '/login';
-        throw new Error('Session abgelaufen');
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            headers,
+        });
+
+        if (response.status === 401) {
+            clearAuth();
+            // Dispatch event so React auth context can handle the redirect
+            window.dispatchEvent(new CustomEvent('auth:expired'));
+            throw new Error('Session abgelaufen');
+        }
+
+        // Retry on 5xx with exponential backoff
+        if (response.status >= 500 && response.status < 600) {
+            lastError = new Error(`Server error ${response.status} on ${endpoint}`);
+            const waitMs = Math.pow(2, attempt) * 1000;
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+            continue;
+        }
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(error.error || 'API Error');
+        }
+
+        return response.json();
     }
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: response.statusText }));
-        throw new Error(error.error || 'API Error');
-    }
-
-    return response.json();
+    throw lastError || new Error(`Server error after ${MAX_RETRIES} retries: ${endpoint}`);
 }
 
 // ============================================================================
