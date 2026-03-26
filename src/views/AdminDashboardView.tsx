@@ -40,8 +40,8 @@ export function AdminDashboardView() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
 
-    // Modal State
-    const [showTenantModal, setShowTenantModal] = useState(false);
+    // Tenant Creation State (inline form, not modal)
+    const [showTenantForm, setShowTenantForm] = useState(false);
     const [creatingTenant, setCreatingTenant] = useState(false);
     const [newTenantName, setNewTenantName] = useState('');
     const [newTenantEmail, setNewTenantEmail] = useState('');
@@ -51,6 +51,11 @@ export function AdminDashboardView() {
     const [newTenantWhatsapp, setNewTenantWhatsapp] = useState('');
     const [newTenantLogo, setNewTenantLogo] = useState('');
     const [wizardStep, setWizardStep] = useState(1);
+
+    // Tenant Search & Filter
+    const [tenantSearch, setTenantSearch] = useState('');
+    const [tenantStatusFilter, setTenantStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+    const [tenantPaymentFilter, setTenantPaymentFilter] = useState<'all' | 'paid' | 'trial' | 'overdue'>('all');
 
     // Settings Modal State (for tenant limits & settings)
     const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -215,11 +220,11 @@ export function AdminDashboardView() {
                 toast.success('Händler erfolgreich angelegt!', { duration: 5000 });
             }
 
-            setShowTenantModal(false);
+            setShowTenantForm(false);
             resetTenantForm();
             await loadStats();
         } catch (err: any) {
-            toast.error(err.message || 'Fehler beim Anlegen des Händlers');
+            toast.error('Fehler beim Anlegen des Händlers. Bitte überprüfen Sie die Eingaben.');
         } finally {
             setCreatingTenant(false);
         }
@@ -305,9 +310,19 @@ export function AdminDashboardView() {
     // --- Helpers ---
     const resetTenantForm = () => {
         setNewTenantName(''); setNewTenantEmail(''); setNewTenantPhone(''); setNewTenantWebsite('');
-        // A5 FIX: Generate random password instead of using 'Start123!'
-        const randomPw = Array.from(crypto.getRandomValues(new Uint8Array(9)), b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%'[b % 65]).join('');
-        setNewTenantWhatsapp(''); setNewTenantLogo(''); setNewTenantPassword(randomPw);
+        // Generate 12-char password guaranteed to pass backend complexity (upper+lower+digit+special)
+        const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        const lower = 'abcdefghjkmnpqrstuvwxyz';
+        const digits = '23456789';
+        const special = '!@#$%&*';
+        const all = upper + lower + digits + special;
+        const bytes = crypto.getRandomValues(new Uint8Array(12));
+        const pw = [upper[bytes[0] % upper.length], lower[bytes[1] % lower.length], digits[bytes[2] % digits.length], special[bytes[3] % special.length]];
+        for (let i = 4; i < 12; i++) pw.push(all[bytes[i] % all.length]);
+        // Shuffle
+        for (let i = pw.length - 1; i > 0; i--) { const j = bytes[i] % (i + 1); [pw[i], pw[j]] = [pw[j], pw[i]]; }
+        setNewTenantWhatsapp(''); setNewTenantLogo(''); setNewTenantPassword(pw.join(''));
+        setWizardStep(1);
     };
     const resetUserForm = () => {
         setNewUserEmail(''); setNewUsername(''); setNewUserPassword('');
@@ -561,27 +576,163 @@ export function AdminDashboardView() {
                             </div>
                         )}
 
-                        {activeTab === 'tenants' && (
-                            <div
-                                className="space-y-6"
-                            >
+                        {activeTab === 'tenants' && (() => {
+                            // Filter tenants
+                            const filteredTenants = (stats?.tenants || []).filter(t => {
+                                if (tenantSearch) {
+                                    const q = tenantSearch.toLowerCase();
+                                    if (!t.name.toLowerCase().includes(q) && !t.slug.toLowerCase().includes(q)) return false;
+                                }
+                                if (tenantStatusFilter === 'active' && !t.is_active) return false;
+                                if (tenantStatusFilter === 'inactive' && t.is_active) return false;
+                                if (tenantPaymentFilter !== 'all' && (t.payment_status || 'trial') !== tenantPaymentFilter) return false;
+                                return true;
+                            });
+
+                            return (
+                            <div className="space-y-6">
                                 {viewingTenant ? (
                                     <TenantDetailView
                                         tenant={viewingTenant}
                                         onBack={() => setViewingTenant(null)}
                                         onRefresh={() => { loadStats(); setViewingTenant(null); }}
                                     />
+                                ) : showTenantForm ? (
+                                    /* ── Inline Tenant Creation Form ── */
+                                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                                        <div className="flex items-center gap-4">
+                                            <button onClick={() => { setShowTenantForm(false); setWizardStep(1); }} className="p-2 hover:bg-muted rounded-xl transition-colors">
+                                                <ChevronRight className="w-5 h-5 text-muted-foreground rotate-180" />
+                                            </button>
+                                            <div>
+                                                <h2 className="text-2xl font-bold">Neuen Händler anlegen</h2>
+                                                <p className="text-muted-foreground text-sm mt-0.5">Füllen Sie die Formulardaten aus und speichern Sie den neuen Mandanten.</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="glass-card rounded-2xl border border-border/50 p-6 md:p-8 max-w-3xl">
+                                            {/* Wizard Progress */}
+                                            <div className="mb-8">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    {[{ n: 1, l: 'Firmendaten' }, { n: 2, l: 'Konfiguration' }, { n: 3, l: 'Zugang' }].map((s, i) => (
+                                                        <div key={s.n} className="flex items-center gap-2 flex-1">
+                                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                                                                wizardStep === s.n ? 'bg-brand text-primary-foreground shadow-lg' :
+                                                                wizardStep > s.n ? 'bg-success text-white' : 'bg-muted text-muted-foreground'
+                                                            }`}>{wizardStep > s.n ? '✓' : s.n}</div>
+                                                            <span className={`text-sm font-semibold hidden sm:inline ${
+                                                                wizardStep === s.n ? 'text-brand' : 'text-muted-foreground'
+                                                            }`}>{s.l}</span>
+                                                            {i < 2 && <div className={`flex-1 h-px mx-2 ${wizardStep > s.n ? 'bg-success' : 'bg-border'}`} />}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-5">
+                                                {wizardStep === 1 && (
+                                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
+                                                        <p className="text-sm text-muted-foreground">Grundlegende Informationen des Händlers.</p>
+                                                        <Input label="Firmenname *" value={newTenantName} onChange={setNewTenantName} placeholder="Autohaus Müller GmbH" />
+                                                        <Input label="E-Mail *" value={newTenantEmail} onChange={setNewTenantEmail} placeholder="info@autohaus-mueller.de" />
+                                                        <Input label="Telefon" value={newTenantPhone} onChange={setNewTenantPhone} placeholder="+49 30 123456" />
+                                                    </motion.div>
+                                                )}
+                                                {wizardStep === 2 && (
+                                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
+                                                        <p className="text-sm text-muted-foreground">Optionale Konfiguration für den Händler.</p>
+                                                        <Input label="Website" value={newTenantWebsite} onChange={setNewTenantWebsite} placeholder="https://autohaus-mueller.de" />
+                                                        <Input label="WhatsApp Bot Nummer (Twilio)" value={newTenantWhatsapp} onChange={setNewTenantWhatsapp} placeholder="+49 151 ..." />
+                                                        <Input label="Logo URL" value={newTenantLogo} onChange={setNewTenantLogo} placeholder="https://..." />
+                                                    </motion.div>
+                                                )}
+                                                {wizardStep === 3 && (
+                                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
+                                                        <p className="text-sm text-muted-foreground">Zugangsdaten und Übersicht vor dem Anlegen.</p>
+                                                        <Input label="Initial Passwort" value={newTenantPassword} onChange={setNewTenantPassword} />
+                                                        <div className="glass-card rounded-xl p-5 space-y-3 !border-brand">
+                                                            <h4 className="text-[10px] font-semibold text-brand uppercase tracking-[0.1em] font-mono">Übersicht</h4>
+                                                            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                                                                <div><span className="text-muted-foreground">Firma:</span> <span className="font-semibold">{newTenantName || '—'}</span></div>
+                                                                <div><span className="text-muted-foreground">E-Mail:</span> <span className="font-semibold">{newTenantEmail || '—'}</span></div>
+                                                                <div><span className="text-muted-foreground">Telefon:</span> <span className="font-semibold">{newTenantPhone || '—'}</span></div>
+                                                                <div><span className="text-muted-foreground">Website:</span> <span className="font-semibold">{newTenantWebsite || '—'}</span></div>
+                                                                {newTenantWhatsapp && <div><span className="text-muted-foreground">WhatsApp:</span> <span className="font-semibold">{newTenantWhatsapp}</span></div>}
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+
+                                                {/* Navigation */}
+                                                <div className="flex justify-between gap-3 pt-4 border-t border-border/30">
+                                                    {wizardStep > 1 ? (
+                                                        <Button variant="ghost" onClick={() => setWizardStep(s => s - 1)}>Zurück</Button>
+                                                    ) : (
+                                                        <Button variant="ghost" onClick={() => { setShowTenantForm(false); setWizardStep(1); }} disabled={creatingTenant}>Abbrechen</Button>
+                                                    )}
+                                                    {wizardStep < 3 ? (
+                                                        <Button onClick={() => {
+                                                            if (wizardStep === 1 && (!newTenantName.trim() || !newTenantEmail.trim())) {
+                                                                toast.error('Firmenname und E-Mail sind Pflichtfelder');
+                                                                return;
+                                                            }
+                                                            setWizardStep(s => s + 1);
+                                                        }}>Weiter</Button>
+                                                    ) : (
+                                                        <Button onClick={handleCreateTenant} disabled={creatingTenant}>
+                                                            {creatingTenant ? (
+                                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Wird angelegt...</>
+                                                            ) : 'Händler anlegen'}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
                                 ) : (
                                 <>
-                                <div className="flex justify-between items-center">
+                                {/* Header */}
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <h2 className="text-2xl font-bold">Mandantenverwaltung</h2>
                                     <button
-                                        onClick={() => setShowTenantModal(true)}
+                                        onClick={() => { resetTenantForm(); setShowTenantForm(true); }}
                                         className="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary/25 flex items-center gap-2 transition-all active:scale-95"
                                     >
                                         <Plus className="w-5 h-5" />
                                         Neuer Händler
                                     </button>
+                                </div>
+
+                                {/* Search & Filter Bar */}
+                                <div className="flex flex-col md:flex-row gap-3">
+                                    <div className="relative flex-1 group">
+                                        <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 group-focus-within:text-primary transition-colors" />
+                                        <input
+                                            value={tenantSearch}
+                                            onChange={(e) => setTenantSearch(e.target.value)}
+                                            placeholder="Händler nach Name oder Slug suchen..."
+                                            className="premium-input pl-10"
+                                        />
+                                    </div>
+                                    <select
+                                        value={tenantStatusFilter}
+                                        onChange={(e) => setTenantStatusFilter(e.target.value as any)}
+                                        className="px-4 py-2.5 bg-muted/50 border border-border/50 rounded-xl text-sm min-w-[140px]"
+                                    >
+                                        <option value="all">Alle Status</option>
+                                        <option value="active">Aktiv</option>
+                                        <option value="inactive">Gesperrt</option>
+                                    </select>
+                                    <select
+                                        value={tenantPaymentFilter}
+                                        onChange={(e) => setTenantPaymentFilter(e.target.value as any)}
+                                        className="px-4 py-2.5 bg-muted/50 border border-border/50 rounded-xl text-sm min-w-[140px]"
+                                    >
+                                        <option value="all">Alle Zahlungen</option>
+                                        <option value="paid">Bezahlt</option>
+                                        <option value="trial">Testphase</option>
+                                        <option value="overdue">Überfällig</option>
+                                    </select>
                                 </div>
 
                                 <div className="glass-card rounded-2xl overflow-hidden border border-border/50">
@@ -598,7 +749,15 @@ export function AdminDashboardView() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-border/30">
-                                                {stats?.tenants.map((tenant, idx) => (
+                                                {filteredTenants.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                                                            {tenantSearch || tenantStatusFilter !== 'all' || tenantPaymentFilter !== 'all'
+                                                                ? 'Keine Händler für diese Filterkriterien gefunden.'
+                                                                : 'Noch keine Händler angelegt. Klicken Sie auf „Neuer Händler" um loszulegen.'}
+                                                        </td>
+                                                    </tr>
+                                                ) : filteredTenants.map((tenant) => (
                                                     <tr key={tenant.id} className="hover:bg-muted/30 transition-colors group">
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-3">
@@ -640,7 +799,7 @@ export function AdminDashboardView() {
                                                                 <ActionButton icon={<Users className="w-4 h-4" />} onClick={() => { setSelectedTenant(tenant); setShowUserModal(true); }} tooltip="Benutzer hinzufügen" />
                                                                 <ActionButton icon={<Settings className="w-4 h-4" />} onClick={() => openSettingsModal(tenant)} tooltip="Limits anpassen" />
                                                                 <ActionButton
-                                                                    icon={tenant.is_active ? <Shield className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                                                                    icon={<Shield className="w-4 h-4" />}
                                                                     onClick={async () => {
                                                                         if (tenant.is_active) {
                                                                             if (!confirm(`Händler "${tenant.name}" wirklich deaktivieren?`)) return;
@@ -648,13 +807,13 @@ export function AdminDashboardView() {
                                                                                 await deactivateTenant(tenant.id);
                                                                                 toast.success(`${tenant.name} deaktiviert`);
                                                                                 loadStats();
-                                                                            } catch (err: any) { toast.error(err.message); }
+                                                                            } catch (err: any) { toast.error('Fehler beim Deaktivieren'); }
                                                                         } else {
                                                                             try {
                                                                                 await activateTenant(tenant.id);
                                                                                 toast.success(`${tenant.name} aktiviert`);
                                                                                 loadStats();
-                                                                            } catch (err: any) { toast.error(err.message); }
+                                                                            } catch (err: any) { toast.error('Fehler beim Aktivieren'); }
                                                                         }
                                                                     }}
                                                                     tooltip={tenant.is_active ? 'Deaktivieren' : 'Aktivieren'}
@@ -669,7 +828,7 @@ export function AdminDashboardView() {
                                 </div>
                                 </>)}
                             </div>
-                        )}
+                        ); })()}
 
                         {activeTab === 'oem-registry' && (
                             <div>
@@ -1088,101 +1247,7 @@ export function AdminDashboardView() {
                         />
                     )
                 }
-                {
-                    showTenantModal && (
-                        <Modal onClose={() => { setShowTenantModal(false); setWizardStep(1); }} title="Neuen Händler anlegen">
-                            {/* Wizard Progress */}
-                            <div className="mb-6">
-                                <div className="flex items-center justify-between mb-3">
-                                    {[{ n: 1, l: 'Firmendaten' }, { n: 2, l: 'Konfiguration' }, { n: 3, l: 'Zugang' }].map((s, i) => (
-                                        <div key={s.n} className="flex items-center gap-2 flex-1">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                                                wizardStep === s.n ? 'bg-brand text-primary-foreground shadow-lg' :
-                                                wizardStep > s.n ? 'bg-success text-white' : 'bg-muted text-muted-foreground'
-                                            }`}>{wizardStep > s.n ? '✓' : s.n}</div>
-                                            <span className={`text-xs font-semibold hidden sm:inline ${
-                                                wizardStep === s.n ? 'text-brand' : 'text-muted-foreground'
-                                            }`}>{s.l}</span>
-                                            {i < 2 && <div className={`flex-1 h-px mx-2 ${wizardStep > s.n ? 'bg-success' : 'bg-border'}`} />}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                {/* Step 1: Company Info */}
-                                {wizardStep === 1 && (
-                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                                        <div>
-                                            <p className="text-sm text-muted-foreground mb-4">Grundlegende Informationen des Händlers.</p>
-                                        </div>
-                                        <Input label="Firmenname *" value={newTenantName} onChange={setNewTenantName} placeholder="Autohaus Müller GmbH" />
-                                        <Input label="E-Mail *" value={newTenantEmail} onChange={setNewTenantEmail} placeholder="info@autohaus-mueller.de" />
-                                        <Input label="Telefon" value={newTenantPhone} onChange={setNewTenantPhone} placeholder="+49 30 123456" />
-                                    </motion.div>
-                                )}
-
-                                {/* Step 2: Configuration */}
-                                {wizardStep === 2 && (
-                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                                        <div>
-                                            <p className="text-sm text-muted-foreground mb-4">Optionale Konfiguration für den Händler.</p>
-                                        </div>
-                                        <Input label="Website" value={newTenantWebsite} onChange={setNewTenantWebsite} placeholder="https://autohaus-mueller.de" />
-                                        <Input label="WhatsApp Bot Nummer (Twilio)" value={newTenantWhatsapp} onChange={setNewTenantWhatsapp} placeholder="+49 151 ..." />
-                                        <Input label="Logo URL" value={newTenantLogo} onChange={setNewTenantLogo} placeholder="https://..." />
-                                    </motion.div>
-                                )}
-
-                                {/* Step 3: Access & Summary */}
-                                {wizardStep === 3 && (
-                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-                                        <div>
-                                            <p className="text-sm text-muted-foreground mb-4">Zugangsdaten und Übersicht vor dem Anlegen.</p>
-                                        </div>
-                                        <Input label="Initial Passwort" value={newTenantPassword} onChange={setNewTenantPassword} />
-
-                                        {/* Summary Card */}
-                                        <div className="glass-card rounded-xl p-4 space-y-2 !border-brand">
-                                            <h4 className="text-[10px] font-semibold text-brand uppercase tracking-[0.1em] font-mono">Übersicht</h4>
-                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                                                <div><span className="text-muted-foreground">Firma:</span> <span className="font-semibold">{newTenantName || '—'}</span></div>
-                                                <div><span className="text-muted-foreground">E-Mail:</span> <span className="font-semibold">{newTenantEmail || '—'}</span></div>
-                                                <div><span className="text-muted-foreground">Telefon:</span> <span className="font-semibold">{newTenantPhone || '—'}</span></div>
-                                                <div><span className="text-muted-foreground">Website:</span> <span className="font-semibold">{newTenantWebsite || '—'}</span></div>
-                                                {newTenantWhatsapp && <div><span className="text-muted-foreground">WhatsApp:</span> <span className="font-semibold">{newTenantWhatsapp}</span></div>}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {/* Navigation */}
-                                <div className="flex justify-between gap-3 pt-2 border-t border-border/30">
-                                    {wizardStep > 1 ? (
-                                        <Button variant="ghost" onClick={() => setWizardStep(s => s - 1)}>Zurück</Button>
-                                    ) : (
-                                        <Button variant="ghost" onClick={() => { setShowTenantModal(false); setWizardStep(1); }} disabled={creatingTenant}>Abbrechen</Button>
-                                    )}
-                                    {wizardStep < 3 ? (
-                                        <Button onClick={() => {
-                                            if (wizardStep === 1 && (!newTenantName.trim() || !newTenantEmail.trim())) {
-                                                toast.error('Firmenname und E-Mail sind Pflichtfelder');
-                                                return;
-                                            }
-                                            setWizardStep(s => s + 1);
-                                        }}>Weiter</Button>
-                                    ) : (
-                                        <Button onClick={handleCreateTenant} disabled={creatingTenant}>
-                                            {creatingTenant ? (
-                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Wird angelegt...</>
-                                            ) : 'Händler anlegen'}
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        </Modal>
-                    )
-                }
+                { /* Tenant modal removed — now inline in page content */ }
                 {
                     showUserModal && (
                         <Modal onClose={() => setShowUserModal(false)} title={`Benutzer für ${selectedTenant?.name}`}>

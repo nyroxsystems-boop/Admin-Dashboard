@@ -66,10 +66,14 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
         });
 
         if (response.status === 401) {
-            clearAuth();
-            // Dispatch event so React auth context can handle the redirect
-            window.dispatchEvent(new CustomEvent('auth:expired'));
-            throw new Error('Session abgelaufen');
+            // Only force logout if the auth-validation endpoint itself returned 401
+            // (i.e., the token is truly invalid). Don't logout for 401 on data endpoints.
+            const isAuthEndpoint = endpoint.includes('/admin-auth/me') || endpoint.includes('/admin-auth/login');
+            if (isAuthEndpoint) {
+                clearAuth();
+                window.dispatchEvent(new CustomEvent('auth:expired'));
+            }
+            throw new Error('Sitzung abgelaufen – bitte erneut anmelden');
         }
 
         // Retry on 5xx with exponential backoff
