@@ -190,6 +190,9 @@ export function OemBatchTest() {
     const runBatch = useCallback(async () => {
         setRunning(true); setPaused(false); pauseRef.current = false; abortRef.current = false;
 
+        const MAX_RETRIES = 3;
+        const BASE_DELAY = 3000; // 3s between requests to avoid rate limits
+
         for (let i = 0; i < rows.length; i++) {
             if (abortRef.current) break;
             if (rows[i].status === 'found' || rows[i].status === 'not_found') continue;
@@ -201,21 +204,42 @@ export function OemBatchTest() {
             setTimeout(() => document.getElementById(`batch-row-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
 
             const t0 = Date.now();
-            try {
-                const row = rows[i];
-                const r = await resolveOemForward({
-                    vehicle: { make: row.make || undefined, model: row.model || undefined, vin: row.vin || undefined, year: row.year || undefined, engine: row.motor || undefined },
-                    part: row.part,
-                });
-                const elapsed = `${Date.now() - t0}ms`;
-                setRows(prev => prev.map((rr, idx) => idx === i ? {
-                    ...rr, oem: r.oem || null, confidence: r.confidence != null ? r.confidence / 100 : null,
-                    resolvedBy: r.notes || null, elapsed, status: r.oem ? 'found' : 'not_found',
-                } : rr));
-            } catch (err: any) {
-                setRows(prev => prev.map((rr, idx) => idx === i ? { ...rr, status: 'error', elapsed: `${Date.now() - t0}ms`, resolvedBy: err?.message?.slice(0, 50) || 'Error' } : rr));
+            let success = false;
+
+            for (let attempt = 0; attempt < MAX_RETRIES && !success; attempt++) {
+                try {
+                    const row = rows[i];
+                    const r = await resolveOemForward({
+                        vehicle: { make: row.make || undefined, model: row.model || undefined, vin: row.vin || undefined, year: row.year || undefined, engine: row.motor || undefined },
+                        part: row.part,
+                    });
+                    const elapsed = `${Date.now() - t0}ms`;
+                    setRows(prev => prev.map((rr, idx) => idx === i ? {
+                        ...rr, oem: r.oem || null, confidence: r.confidence != null ? r.confidence / 100 : null,
+                        resolvedBy: r.notes || null, elapsed, status: r.oem ? 'found' : 'not_found',
+                    } : rr));
+                    success = true;
+                } catch (err: any) {
+                    const is429 = err?.message?.includes('429') || err?.message?.includes('rate') || err?.message?.includes('Too Many');
+                    if (is429 && attempt < MAX_RETRIES - 1) {
+                        // Exponential backoff: 5s, 10s, 20s
+                        const backoff = 5000 * Math.pow(2, attempt);
+                        toast.info(`⏳ Rate-Limit erreicht — warte ${backoff / 1000}s (Retry ${attempt + 2}/${MAX_RETRIES})`);
+                        await new Promise(r => setTimeout(r, backoff));
+                    } else {
+                        setRows(prev => prev.map((rr, idx) => idx === i ? {
+                            ...rr, status: 'error', elapsed: `${Date.now() - t0}ms`,
+                            resolvedBy: is429 ? '429 Rate Limit' : (err?.message?.slice(0, 50) || 'Error'),
+                        } : rr));
+                        success = true; // Don't retry further
+                    }
+                }
             }
-            await new Promise(r => setTimeout(r, 500));
+
+            // Wait between requests to avoid rate limits
+            if (i < rows.length - 1 && !abortRef.current) {
+                await new Promise(r => setTimeout(r, BASE_DELAY));
+            }
         }
 
         setRunning(false); setCurrentIdx(-1);
