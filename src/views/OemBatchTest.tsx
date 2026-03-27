@@ -866,7 +866,7 @@ export function OemBatchTest() {
                                         <td className="px-3 py-2.5 text-xs">{row.model}</td>
                                         <td className="px-3 py-2.5 text-xs font-mono">{row.year}</td>
                                         <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground">{row.motor || '—'}</td>
-                                        <td className="px-3 py-2.5 text-[10px] font-mono text-muted-foreground/70" title={row.vin || '—'}>{row.vin ? `…${row.vin.slice(-6)}` : '—'}</td>
+                                        <td className="px-3 py-2.5 text-[10px] font-mono text-muted-foreground/70">{row.vin || '—'}</td>
                                         <td className="px-3 py-2.5 text-xs font-medium">{row.part}</td>
                                         <td className="px-3 py-2.5">
                                             {row.oem ? (
