@@ -97,69 +97,289 @@ interface VehiclePool {
 }
 
 const VEHICLE_POOL: VehiclePool[] = [
+    // ═══ GERMAN MAINSTREAM ═══
     { make: 'VW', models: [
         { name: 'Golf VII', yearFrom: 2012, yearTo: 2020, engines: ['DFGA', 'CRLB', 'CHHB', 'CZCA', 'DFHA', 'CHZJ'], vinPrefix: 'WVWZZZ1KZ' },
+        { name: 'Golf VII GTI', yearFrom: 2013, yearTo: 2020, engines: ['CHHB', 'DLBA'], vinPrefix: 'WVWZZZ1KZ' },
+        { name: 'Golf VII R', yearFrom: 2014, yearTo: 2020, engines: ['CZPB', 'DNUA'], vinPrefix: 'WVWZZZ1KZ' },
         { name: 'Golf VIII', yearFrom: 2020, yearTo: 2025, engines: ['DTGA', 'DFKA', 'DLBA'], vinPrefix: 'WVWZZZ1UZ' },
+        { name: 'Golf VIII GTI', yearFrom: 2020, yearTo: 2025, engines: ['DLBA'], vinPrefix: 'WVWZZZ1UZ' },
         { name: 'Passat B8', yearFrom: 2014, yearTo: 2023, engines: ['DFGA', 'DFHA', 'CZCA'], vinPrefix: 'WVWZZZ3CZ' },
         { name: 'Tiguan II', yearFrom: 2016, yearTo: 2024, engines: ['DFGA', 'DFHA', 'CZPA'], vinPrefix: 'WVGZZZ5NZ' },
         { name: 'T-Roc', yearFrom: 2017, yearTo: 2024, engines: ['DFGA', 'DKRA', 'CZCA'], vinPrefix: 'WVGZZZ2GZ' },
+        { name: 'T-Roc R', yearFrom: 2019, yearTo: 2024, engines: ['DNUA'], vinPrefix: 'WVGZZZ2GZ' },
         { name: 'Polo VI', yearFrom: 2017, yearTo: 2024, engines: ['CZCA', 'DKLA'], vinPrefix: 'WVWZZZ6RZ' },
+        { name: 'Polo VI GTI', yearFrom: 2018, yearTo: 2024, engines: ['DKZA'], vinPrefix: 'WVWZZZ6RZ' },
+        { name: 'Touareg III', yearFrom: 2018, yearTo: 2024, engines: ['DCBC', 'DJHC'], vinPrefix: 'WVGZZZCR' },
+        { name: 'Arteon', yearFrom: 2017, yearTo: 2024, engines: ['DFGA', 'CZPA', 'DNUA'], vinPrefix: 'WVWZZZ3HZ' },
+        { name: 'Caddy V', yearFrom: 2020, yearTo: 2024, engines: ['DTRD', 'DLGA'], vinPrefix: 'WV2ZZZSKZ' },
+        { name: 'Transporter T6.1', yearFrom: 2019, yearTo: 2024, engines: ['DTRD', 'DTRR'], vinPrefix: 'WV1ZZZSYZ' },
     ]},
     { make: 'BMW', models: [
+        { name: '1er F20', yearFrom: 2011, yearTo: 2019, engines: ['N47', 'N20', 'B47', 'B48'], vinPrefix: 'WBA1S110' },
+        { name: '1er F40', yearFrom: 2019, yearTo: 2025, engines: ['B47', 'B48'], vinPrefix: 'WBA7C110' },
         { name: '3er F30', yearFrom: 2012, yearTo: 2019, engines: ['B47', 'N47', 'N20', 'N57', 'B48'], vinPrefix: 'WBA8E110' },
         { name: '3er G20', yearFrom: 2019, yearTo: 2025, engines: ['B47', 'B48', 'B58'], vinPrefix: 'WBA5U110' },
+        { name: 'M3 F80', yearFrom: 2014, yearTo: 2018, engines: ['S55'], vinPrefix: 'WBS8M910' },
+        { name: 'M3 G80', yearFrom: 2021, yearTo: 2025, engines: ['S58'], vinPrefix: 'WBS43AT0' },
+        { name: 'M4 G82', yearFrom: 2021, yearTo: 2025, engines: ['S58'], vinPrefix: 'WBS73AZ0' },
         { name: '5er G30', yearFrom: 2017, yearTo: 2023, engines: ['B57', 'B58', 'B47', 'B48'], vinPrefix: 'WBAJC510' },
-        { name: 'X3 G01', yearFrom: 2017, yearTo: 2023, engines: ['B47', 'B48', 'B58'], vinPrefix: 'WBATX710' },
+        { name: 'M5 F90', yearFrom: 2017, yearTo: 2023, engines: ['S63'], vinPrefix: 'WBSJF010' },
         { name: 'X1 F48', yearFrom: 2015, yearTo: 2022, engines: ['B47', 'B38', 'B48'], vinPrefix: 'WBAHT110' },
-        { name: '1er F40', yearFrom: 2019, yearTo: 2025, engines: ['B47', 'B48'], vinPrefix: 'WBA7C110' },
+        { name: 'X3 G01', yearFrom: 2017, yearTo: 2023, engines: ['B47', 'B48', 'B58'], vinPrefix: 'WBATX710' },
+        { name: 'X5 G05', yearFrom: 2018, yearTo: 2025, engines: ['B57', 'B58', 'N63'], vinPrefix: 'WBAJT110' },
+        { name: 'Z4 G29', yearFrom: 2019, yearTo: 2025, engines: ['B48', 'B58'], vinPrefix: 'WBAHK110' },
     ]},
     { make: 'MERCEDES', models: [
-        { name: 'C-Klasse W205', yearFrom: 2014, yearTo: 2021, engines: ['OM654', 'M274', 'M276', 'OM651'], vinPrefix: 'WDD20500' },
-        { name: 'E-Klasse W213', yearFrom: 2016, yearTo: 2023, engines: ['OM654', 'M256', 'M274'], vinPrefix: 'WDD21300' },
-        { name: 'GLC X253', yearFrom: 2015, yearTo: 2022, engines: ['OM654', 'M274', 'M276'], vinPrefix: 'WDC25390' },
         { name: 'A-Klasse W177', yearFrom: 2018, yearTo: 2025, engines: ['OM608', 'M282', 'M260'], vinPrefix: 'WDD17700' },
+        { name: 'A35 AMG W177', yearFrom: 2019, yearTo: 2025, engines: ['M260'], vinPrefix: 'WDD17735' },
+        { name: 'A45 AMG W177', yearFrom: 2019, yearTo: 2025, engines: ['M139'], vinPrefix: 'WDD17745' },
+        { name: 'C-Klasse W205', yearFrom: 2014, yearTo: 2021, engines: ['OM654', 'M274', 'M276', 'OM651'], vinPrefix: 'WDD20500' },
+        { name: 'C63 AMG W205', yearFrom: 2015, yearTo: 2021, engines: ['M177'], vinPrefix: 'WDD20563' },
+        { name: 'C-Klasse W206', yearFrom: 2021, yearTo: 2025, engines: ['OM654', 'M254'], vinPrefix: 'WDD20600' },
+        { name: 'E-Klasse W213', yearFrom: 2016, yearTo: 2023, engines: ['OM654', 'M256', 'M274'], vinPrefix: 'WDD21300' },
+        { name: 'E63 AMG W213', yearFrom: 2017, yearTo: 2023, engines: ['M177'], vinPrefix: 'WDD21363' },
+        { name: 'GLC X253', yearFrom: 2015, yearTo: 2022, engines: ['OM654', 'M274', 'M276'], vinPrefix: 'WDC25390' },
+        { name: 'GLC63 AMG X253', yearFrom: 2018, yearTo: 2022, engines: ['M177'], vinPrefix: 'WDC25363' },
+        { name: 'GLA H247', yearFrom: 2020, yearTo: 2025, engines: ['OM608', 'M260', 'M282'], vinPrefix: 'WDC24700' },
+        { name: 'CLA C118', yearFrom: 2019, yearTo: 2025, engines: ['OM608', 'M260', 'M282'], vinPrefix: 'WDD11800' },
+        { name: 'GLE V167', yearFrom: 2019, yearTo: 2025, engines: ['OM656', 'M256', 'M176'], vinPrefix: 'WDC16700' },
     ]},
     { make: 'AUDI', models: [
-        { name: 'A4 B9', yearFrom: 2015, yearTo: 2023, engines: ['DETA', 'CVKB', 'DFGA', 'CZHA'], vinPrefix: 'WAUZZZF4' },
+        { name: 'A1 GB', yearFrom: 2018, yearTo: 2024, engines: ['DKRF', 'CZCA'], vinPrefix: 'WAUZZZ8X' },
         { name: 'A3 8V', yearFrom: 2012, yearTo: 2020, engines: ['DFGA', 'CRLB', 'CHHB', 'CZCA'], vinPrefix: 'WAUZZZGF' },
-        { name: 'Q5 FY', yearFrom: 2017, yearTo: 2024, engines: ['DTUA', 'DFGA', 'DAXB'], vinPrefix: 'WAUZZZFY' },
+        { name: 'A3 8Y', yearFrom: 2020, yearTo: 2025, engines: ['DFGA', 'DTSA', 'DLBA'], vinPrefix: 'WAUZZZGY' },
+        { name: 'RS3 8V', yearFrom: 2015, yearTo: 2020, engines: ['DAZA'], vinPrefix: 'WAUZZZGF' },
+        { name: 'RS3 8Y', yearFrom: 2021, yearTo: 2025, engines: ['DNWA'], vinPrefix: 'WAUZZZGY' },
+        { name: 'A4 B9', yearFrom: 2015, yearTo: 2023, engines: ['DETA', 'CVKB', 'DFGA', 'CZHA'], vinPrefix: 'WAUZZZF4' },
+        { name: 'RS4 B9', yearFrom: 2017, yearTo: 2023, engines: ['DTUA'], vinPrefix: 'WAUZZZF4' },
+        { name: 'A5 F5', yearFrom: 2016, yearTo: 2023, engines: ['DETA', 'DFGA', 'CZHA'], vinPrefix: 'WAUZZZF5' },
+        { name: 'A6 C8', yearFrom: 2018, yearTo: 2024, engines: ['DFGA', 'DLTA', 'DHRA'], vinPrefix: 'WAUZZZF2' },
+        { name: 'RS6 C8', yearFrom: 2019, yearTo: 2024, engines: ['DKWA'], vinPrefix: 'WAUZZZF2' },
         { name: 'Q3 F3', yearFrom: 2019, yearTo: 2024, engines: ['DFGA', 'DKTA', 'CZPA'], vinPrefix: 'WAUZZZF5' },
+        { name: 'Q5 FY', yearFrom: 2017, yearTo: 2024, engines: ['DTUA', 'DFGA', 'DAXB'], vinPrefix: 'WAUZZZFY' },
+        { name: 'Q7 4M', yearFrom: 2015, yearTo: 2024, engines: ['CVMD', 'CREC', 'DCPC'], vinPrefix: 'WAUZZZ4L' },
+        { name: 'TT FV', yearFrom: 2014, yearTo: 2023, engines: ['CHHB', 'CJSA', 'CZGA'], vinPrefix: 'TRUZZZFV' },
     ]},
     { make: 'OPEL', models: [
         { name: 'Astra K', yearFrom: 2015, yearTo: 2022, engines: ['B14XFT', 'B16DTH', 'B16SHT'], vinPrefix: 'W0LBD8EA' },
+        { name: 'Astra L', yearFrom: 2022, yearTo: 2025, engines: ['F12XHL', 'F16XHR'], vinPrefix: 'W0VF6900' },
         { name: 'Insignia B', yearFrom: 2017, yearTo: 2022, engines: ['B20DTH', 'B16SHT'], vinPrefix: 'W0LGA8EM' },
         { name: 'Corsa F', yearFrom: 2019, yearTo: 2024, engines: ['F12XHL', 'F12XHT'], vinPrefix: 'W0VF6800' },
+        { name: 'Mokka B', yearFrom: 2020, yearTo: 2024, engines: ['F12XHL', 'F12XHT', ''], vinPrefix: 'W0VF5800' },
+        { name: 'Grandland', yearFrom: 2017, yearTo: 2024, engines: ['F16XHR', 'D16DTH'], vinPrefix: 'W0LJB8EM' },
     ]},
     { make: 'FORD', models: [
         { name: 'Focus IV', yearFrom: 2018, yearTo: 2024, engines: ['M1DA', 'M2DA', 'XWDB'], vinPrefix: 'WF0XXXGCH' },
-        { name: 'Kuga II', yearFrom: 2012, yearTo: 2020, engines: ['T7CL', 'JTMA', 'XWDB'], vinPrefix: 'WF0XXXGCD' },
+        { name: 'Focus ST IV', yearFrom: 2019, yearTo: 2024, engines: ['YZDA'], vinPrefix: 'WF0XXXGCH' },
         { name: 'Fiesta VIII', yearFrom: 2017, yearTo: 2023, engines: ['M1DA', 'XWJB'], vinPrefix: 'WF0XXXGCE' },
+        { name: 'Fiesta ST VIII', yearFrom: 2018, yearTo: 2023, engines: ['YZJA'], vinPrefix: 'WF0XXXGCE' },
+        { name: 'Kuga II', yearFrom: 2012, yearTo: 2020, engines: ['T7CL', 'JTMA', 'XWDB'], vinPrefix: 'WF0XXXGCD' },
+        { name: 'Kuga III', yearFrom: 2020, yearTo: 2024, engines: ['XWDB', 'YZDA', ''], vinPrefix: 'WF0GXXGCD' },
+        { name: 'Puma', yearFrom: 2019, yearTo: 2024, engines: ['M1DA', 'XWJB', ''], vinPrefix: 'WF0RXXGCH' },
+        { name: 'Mustang Mach-E', yearFrom: 2021, yearTo: 2024, engines: [''], vinPrefix: '3FTTK8DZ' },
+        { name: 'Ranger', yearFrom: 2019, yearTo: 2024, engines: ['YNFS', 'GBVAJQJ'], vinPrefix: 'WF0KXXGCD' },
     ]},
+
+    // ═══ SPORT / PERFORMANCE ═══
+    { make: 'CUPRA', models: [
+        { name: 'Formentor', yearFrom: 2020, yearTo: 2024, engines: ['DFGA', 'DNUA', 'DAZA'], vinPrefix: 'VSSZZZKMZ' },
+        { name: 'Leon', yearFrom: 2020, yearTo: 2024, engines: ['DFGA', 'DLBA', 'DNUA'], vinPrefix: 'VSSZZZKMZ' },
+        { name: 'Born', yearFrom: 2021, yearTo: 2024, engines: [''], vinPrefix: 'VSSZZZKMZ' },
+        { name: 'Ateca', yearFrom: 2018, yearTo: 2024, engines: ['DFGA', 'DNUA'], vinPrefix: 'VSSZZZKMZ' },
+    ]},
+    { make: 'SEAT', models: [
+        { name: 'Leon III', yearFrom: 2012, yearTo: 2020, engines: ['DFGA', 'CRLB', 'CHHB', 'CZCA'], vinPrefix: 'VSSZZZKL' },
+        { name: 'Leon IV', yearFrom: 2020, yearTo: 2024, engines: ['DFGA', 'DLBA', 'DTSA'], vinPrefix: 'VSSZZZKM' },
+        { name: 'Ibiza V', yearFrom: 2017, yearTo: 2024, engines: ['CZCA', 'DKLA'], vinPrefix: 'VSSZZZ6P' },
+        { name: 'Ateca', yearFrom: 2016, yearTo: 2024, engines: ['DFGA', 'CZPA'], vinPrefix: 'VSSZZZ5F' },
+        { name: 'Tarraco', yearFrom: 2018, yearTo: 2024, engines: ['DFGA', 'DFHA', 'CZPA'], vinPrefix: 'VSSZZZ5F' },
+    ]},
+
+    // ═══ PREMIUM / EXOTIC ═══
     { make: 'PORSCHE', models: [
-        { name: 'Macan 95B', yearFrom: 2014, yearTo: 2024, engines: ['', 'CYP', 'DCB'], vinPrefix: 'WP1ZZZ95Z' },
-        { name: 'Cayenne E3', yearFrom: 2018, yearTo: 2024, engines: ['', 'DJH'], vinPrefix: 'WP1ZZZ9YZ' },
+        { name: 'Macan 95B', yearFrom: 2014, yearTo: 2024, engines: ['CYP', 'DCB', 'CTB'], vinPrefix: 'WP1ZZZ95Z' },
+        { name: 'Cayenne E3', yearFrom: 2018, yearTo: 2024, engines: ['DJH', 'DCB'], vinPrefix: 'WP1ZZZ9YZ' },
+        { name: '911 992', yearFrom: 2019, yearTo: 2024, engines: ['DKK', 'DLA'], vinPrefix: 'WP0ZZZ99Z' },
+        { name: '718 Cayman/Boxster', yearFrom: 2016, yearTo: 2024, engines: ['CYP', 'DCB', 'DKK'], vinPrefix: 'WP0ZZZ98Z' },
+        { name: 'Panamera 971', yearFrom: 2017, yearTo: 2024, engines: ['DJH', 'DCB', 'CYP'], vinPrefix: 'WP0ZZZ97Z' },
+        { name: 'Taycan', yearFrom: 2020, yearTo: 2024, engines: [''], vinPrefix: 'WP0ZZZY1Z' },
     ]},
+    { make: 'JAGUAR', models: [
+        { name: 'XE X760', yearFrom: 2015, yearTo: 2023, engines: ['204DT', '204PT', 'AJ200'], vinPrefix: 'SAJAD4BN' },
+        { name: 'XF X260', yearFrom: 2015, yearTo: 2023, engines: ['204DT', '306DT', 'AJ200'], vinPrefix: 'SAJBA4BN' },
+        { name: 'F-Pace X761', yearFrom: 2016, yearTo: 2024, engines: ['204DT', 'PT204', '306DT'], vinPrefix: 'SADCA2BN' },
+        { name: 'E-Pace X540', yearFrom: 2017, yearTo: 2024, engines: ['204DT', 'PT204'], vinPrefix: 'SADFP2BN' },
+        { name: 'I-Pace', yearFrom: 2018, yearTo: 2024, engines: [''], vinPrefix: 'SADHD2S1' },
+        { name: 'F-Type', yearFrom: 2013, yearTo: 2024, engines: ['306PS', '508PS', 'AJ133'], vinPrefix: 'SAJDA1AE' },
+    ]},
+    { make: 'LAND ROVER', models: [
+        { name: 'Range Rover Evoque L551', yearFrom: 2019, yearTo: 2024, engines: ['204DT', 'PT204', ''], vinPrefix: 'SALZA2BN' },
+        { name: 'Range Rover Sport L461', yearFrom: 2022, yearTo: 2025, engines: ['D300', 'P400', ''], vinPrefix: 'SALWA2BN' },
+        { name: 'Discovery Sport L550', yearFrom: 2014, yearTo: 2024, engines: ['204DT', 'PT204', 'D150'], vinPrefix: 'SALCA2BN' },
+        { name: 'Defender L663', yearFrom: 2020, yearTo: 2025, engines: ['D200', 'D300', 'P400'], vinPrefix: 'SALE2EEU' },
+    ]},
+    { make: 'VOLVO', models: [
+        { name: 'XC40', yearFrom: 2017, yearTo: 2024, engines: ['D4204T14', 'B4204T47', ''], vinPrefix: 'YV1XZ22V' },
+        { name: 'XC60 II', yearFrom: 2017, yearTo: 2024, engines: ['D4204T14', 'B4204T23', 'D4204T23'], vinPrefix: 'YV1UZ22V' },
+        { name: 'XC90 II', yearFrom: 2015, yearTo: 2024, engines: ['D4204T11', 'D4204T23', 'B4204T23'], vinPrefix: 'YV1LC22V' },
+        { name: 'V60 II', yearFrom: 2018, yearTo: 2024, engines: ['D4204T14', 'B4204T47'], vinPrefix: 'YV1ZW22V' },
+        { name: 'S60 III', yearFrom: 2019, yearTo: 2024, engines: ['B4204T47', 'D4204T14'], vinPrefix: 'YV1PH22V' },
+        { name: 'V40 II', yearFrom: 2012, yearTo: 2019, engines: ['D4204T8', 'B4204T11'], vinPrefix: 'YV1MH22V' },
+    ]},
+
+    // ═══ KOREAN ═══
     { make: 'HYUNDAI', models: [
         { name: 'Tucson TL', yearFrom: 2015, yearTo: 2020, engines: ['D4HA', 'G4FJ', 'G4FD'], vinPrefix: 'TMAJ3812A' },
+        { name: 'Tucson NX4', yearFrom: 2021, yearTo: 2025, engines: ['D4HA', 'G4FS', ''], vinPrefix: 'TMAJ5812A' },
         { name: 'i30 PD', yearFrom: 2017, yearTo: 2023, engines: ['D4FC', 'G4FJ', 'G4LD'], vinPrefix: 'TMAJ381AA' },
+        { name: 'i30 N PD', yearFrom: 2017, yearTo: 2023, engines: ['G4FJ'], vinPrefix: 'TMAJ381NA' },
+        { name: 'Kona OS', yearFrom: 2017, yearTo: 2023, engines: ['G4LD', 'D4FC', ''], vinPrefix: 'TMAJ581AA' },
+        { name: 'i20 BC3', yearFrom: 2020, yearTo: 2024, engines: ['G4LC', 'G3LC', 'G4GJ'], vinPrefix: 'TMAJ281AA' },
+        { name: 'i20 N BC3', yearFrom: 2021, yearTo: 2024, engines: ['G4GJ'], vinPrefix: 'TMAJ281NA' },
+        { name: 'Ioniq 5', yearFrom: 2021, yearTo: 2025, engines: [''], vinPrefix: 'KMHLJ81BA' },
+        { name: 'Santa Fe TM', yearFrom: 2018, yearTo: 2023, engines: ['D4HB', 'G4KH', ''], vinPrefix: 'TMAH781AA' },
     ]},
+    { make: 'KIA', models: [
+        { name: 'Ceed CD', yearFrom: 2018, yearTo: 2024, engines: ['D4FC', 'G4FJ', 'G4LD'], vinPrefix: 'U5YH581AA' },
+        { name: 'Ceed GT CD', yearFrom: 2019, yearTo: 2024, engines: ['G4FJ'], vinPrefix: 'U5YH581GA' },
+        { name: 'Sportage QL', yearFrom: 2016, yearTo: 2021, engines: ['D4HA', 'G4FJ', 'G4NA'], vinPrefix: 'U5YPC81AA' },
+        { name: 'Sportage NQ5', yearFrom: 2022, yearTo: 2025, engines: ['D4HA', 'G4FS', ''], vinPrefix: 'U5YPC81DA' },
+        { name: 'Stinger CK', yearFrom: 2017, yearTo: 2023, engines: ['G4KH', 'G6DG', 'D4HB'], vinPrefix: 'KNAE451CA' },
+        { name: 'Niro DE2', yearFrom: 2022, yearTo: 2025, engines: ['G4LE', '', 'G4FV'], vinPrefix: 'KNACC81PA' },
+        { name: 'EV6', yearFrom: 2021, yearTo: 2025, engines: [''], vinPrefix: 'KNACC81AA' },
+        { name: 'Picanto JA', yearFrom: 2017, yearTo: 2024, engines: ['G3LA', 'G4LA'], vinPrefix: 'KNAJ581AA' },
+    ]},
+
+    // ═══ JAPANESE ═══
     { make: 'TOYOTA', models: [
         { name: 'Corolla E210', yearFrom: 2019, yearTo: 2024, engines: ['2ZR-FXE', 'M20A-FKS'], vinPrefix: 'SB1K83BE6' },
-        { name: 'RAV4 XA50', yearFrom: 2019, yearTo: 2024, engines: ['A25A-FXS', 'M20A-FKS'], vinPrefix: 'JTMDA3FV0' },
+        { name: 'RAV4 XA50', yearFrom: 2019, yearTo: 2024, engines: ['A25A-FXS', 'M20A-FKS', ''], vinPrefix: 'JTMDA3FV0' },
+        { name: 'Yaris XP210', yearFrom: 2020, yearTo: 2024, engines: ['M15A-FKS', 'M15A-FXE'], vinPrefix: 'SB1K43BE6' },
+        { name: 'GR Yaris GXPA16', yearFrom: 2020, yearTo: 2024, engines: ['G16E-GTS'], vinPrefix: 'SB1K43BE6' },
+        { name: 'C-HR', yearFrom: 2016, yearTo: 2024, engines: ['2ZR-FXE', '8NR-FTS'], vinPrefix: 'NMTK33BE6' },
+        { name: 'Supra A90', yearFrom: 2019, yearTo: 2024, engines: ['B58', 'B48'], vinPrefix: 'WZ1DB420' },
+        { name: 'Land Cruiser J300', yearFrom: 2021, yearTo: 2024, engines: ['F33A-FTV', 'V35A-FTS'], vinPrefix: 'JTEBH3FJ0' },
     ]},
+    { make: 'HONDA', models: [
+        { name: 'Civic FK', yearFrom: 2017, yearTo: 2022, engines: ['L15B7', 'K20C1'], vinPrefix: 'SHHFK2860' },
+        { name: 'Civic Type R FK8', yearFrom: 2017, yearTo: 2022, engines: ['K20C1'], vinPrefix: 'SHHFK8S80' },
+        { name: 'Civic FL', yearFrom: 2022, yearTo: 2025, engines: ['L15BG', 'K20C1'], vinPrefix: 'SHHFL1860' },
+        { name: 'CR-V RW', yearFrom: 2017, yearTo: 2024, engines: ['L15BF', 'K20C2', ''], vinPrefix: 'SHHR3RW80' },
+        { name: 'HR-V RV', yearFrom: 2021, yearTo: 2024, engines: ['LEB', ''], vinPrefix: 'SHHR4RV80' },
+        { name: 'Jazz GR', yearFrom: 2020, yearTo: 2024, engines: ['LEB', ''], vinPrefix: 'SHHGR3GF0' },
+    ]},
+    { make: 'NISSAN', models: [
+        { name: 'Qashqai J11', yearFrom: 2014, yearTo: 2021, engines: ['R9M', 'MR20DD', 'HR13DDT'], vinPrefix: 'SJNFAAJ11' },
+        { name: 'Qashqai J12', yearFrom: 2021, yearTo: 2025, engines: ['HR13DDT', 'KR15DDT', ''], vinPrefix: 'SJNFBAJ12' },
+        { name: 'Juke F16', yearFrom: 2019, yearTo: 2024, engines: ['HR13DDT'], vinPrefix: 'SJNFBAF16' },
+        { name: 'Leaf ZE1', yearFrom: 2017, yearTo: 2024, engines: ['EM57', ''], vinPrefix: 'SJNFAAZE1' },
+        { name: 'X-Trail T32', yearFrom: 2014, yearTo: 2022, engines: ['R9M', 'MR20DD'], vinPrefix: 'SJNFAAT32' },
+        { name: 'GT-R R35', yearFrom: 2007, yearTo: 2024, engines: ['VR38DETT'], vinPrefix: 'JN1BANR3' },
+    ]},
+    { make: 'MAZDA', models: [
+        { name: 'CX-5 KF', yearFrom: 2017, yearTo: 2024, engines: ['SH-VPTS', 'PE-VPS', 'PY-VPS'], vinPrefix: 'JM3KFBCL' },
+        { name: 'Mazda3 BP', yearFrom: 2019, yearTo: 2024, engines: ['PE-VPS', 'PY-RPS', 'SH-VPTS'], vinPrefix: 'JM3BPBDM' },
+        { name: 'CX-30 DM', yearFrom: 2019, yearTo: 2024, engines: ['PE-VPS', 'PY-RPS', 'SH-VPTS'], vinPrefix: 'JM3DMBCL' },
+        { name: 'MX-5 ND', yearFrom: 2015, yearTo: 2024, engines: ['PE-VPS'], vinPrefix: 'JM3NDWC1' },
+        { name: 'CX-60', yearFrom: 2022, yearTo: 2025, engines: ['RZ01', 'PY-RPS', ''], vinPrefix: 'JM3KRWCL' },
+    ]},
+    { make: 'SUZUKI', models: [
+        { name: 'Swift ZC/ZD', yearFrom: 2017, yearTo: 2024, engines: ['K12C', 'K10C', 'K14C'], vinPrefix: 'TSMMZC83S' },
+        { name: 'Swift Sport ZC33S', yearFrom: 2018, yearTo: 2024, engines: ['K14C'], vinPrefix: 'TSMMZC33S' },
+        { name: 'Vitara LY', yearFrom: 2015, yearTo: 2024, engines: ['K14C', 'D16AA'], vinPrefix: 'TSMALY21S' },
+        { name: 'Jimny JB74', yearFrom: 2018, yearTo: 2024, engines: ['K15B'], vinPrefix: 'JS3JB74V' },
+        { name: 'S-Cross JY', yearFrom: 2022, yearTo: 2024, engines: ['K14D', 'K15C'], vinPrefix: 'TSMAJY21S' },
+    ]},
+    { make: 'MITSUBISHI', models: [
+        { name: 'Outlander GF', yearFrom: 2012, yearTo: 2021, engines: ['4B11', '4B12', '4J12', ''], vinPrefix: 'JMBXDGF2' },
+        { name: 'ASX GA', yearFrom: 2010, yearTo: 2023, engines: ['4B11', '4J10'], vinPrefix: 'JMBXDGA8' },
+        { name: 'Eclipse Cross GK', yearFrom: 2018, yearTo: 2024, engines: ['4B40', '4B11', ''], vinPrefix: 'JMBXDGK0' },
+        { name: 'L200 KK/KL', yearFrom: 2015, yearTo: 2024, engines: ['4N15'], vinPrefix: 'MMCJNKK5' },
+    ]},
+
+    // ═══ FRENCH ═══
     { make: 'RENAULT', models: [
         { name: 'Mégane IV', yearFrom: 2016, yearTo: 2023, engines: ['K9K', 'H5F', 'M5M'], vinPrefix: 'VF1RFB00X' },
-        { name: 'Clio V', yearFrom: 2019, yearTo: 2024, engines: ['H5F', 'K9K'], vinPrefix: 'VF1RJA00X' },
+        { name: 'Mégane RS IV', yearFrom: 2018, yearTo: 2023, engines: ['M5M'], vinPrefix: 'VF1RFB00X' },
+        { name: 'Clio V', yearFrom: 2019, yearTo: 2024, engines: ['H5F', 'K9K', ''], vinPrefix: 'VF1RJA00X' },
+        { name: 'Captur II', yearFrom: 2019, yearTo: 2024, engines: ['H5F', 'K9K', ''], vinPrefix: 'VF1RJE00X' },
+        { name: 'Kadjar', yearFrom: 2015, yearTo: 2022, engines: ['K9K', 'H5F', 'M5M'], vinPrefix: 'VF1RFE00X' },
+        { name: 'Austral', yearFrom: 2022, yearTo: 2025, engines: ['H5H', 'D16DTH', ''], vinPrefix: 'VF1RKA00X' },
+        { name: 'Arkana', yearFrom: 2021, yearTo: 2024, engines: ['H5H', 'M5M', ''], vinPrefix: 'VF1RJL00X' },
+    ]},
+    { make: 'PEUGEOT', models: [
+        { name: '208 II', yearFrom: 2019, yearTo: 2024, engines: ['EB2ADTS', 'DV5RD', ''], vinPrefix: 'VR3UHZKC' },
+        { name: '308 III', yearFrom: 2021, yearTo: 2025, engines: ['EB2ADTS', 'DV5RD', ''], vinPrefix: 'VR3FCYHZ' },
+        { name: '3008 II', yearFrom: 2016, yearTo: 2024, engines: ['EB2ADTS', 'DV6FD', 'DW10FC'], vinPrefix: 'VR3MRYHZ' },
+        { name: '5008 II', yearFrom: 2017, yearTo: 2024, engines: ['EB2ADTS', 'DV6FD', 'DW10FC'], vinPrefix: 'VR3MKYHZ' },
+        { name: '2008 II', yearFrom: 2019, yearTo: 2024, engines: ['EB2ADTS', 'DV5RD', ''], vinPrefix: 'VR3UHZKE' },
+        { name: '508 II', yearFrom: 2018, yearTo: 2024, engines: ['EB2ADTS', 'DV5RD', 'DW10FC'], vinPrefix: 'VR3FCYHZ' },
+    ]},
+    { make: 'CITROËN', models: [
+        { name: 'C3 III', yearFrom: 2016, yearTo: 2024, engines: ['EB2ADTS', 'EB2F', 'DV5RD'], vinPrefix: 'VR7SCAHZJ' },
+        { name: 'C4 III', yearFrom: 2020, yearTo: 2024, engines: ['EB2ADTS', 'DV5RD', ''], vinPrefix: 'VR7BCAHZJ' },
+        { name: 'C5 Aircross', yearFrom: 2018, yearTo: 2024, engines: ['EB2ADTS', 'DV6FD', 'DW10FC'], vinPrefix: 'VR7MCAHZJ' },
+        { name: 'Berlingo III', yearFrom: 2018, yearTo: 2024, engines: ['EB2ADTS', 'DV5RD', ''], vinPrefix: 'VR7ECAHZJ' },
+    ]},
+    { make: 'DACIA', models: [
+        { name: 'Duster II', yearFrom: 2018, yearTo: 2024, engines: ['K9K', 'H5H', 'H4M'], vinPrefix: 'UU1HSDEP' },
+        { name: 'Sandero III', yearFrom: 2020, yearTo: 2024, engines: ['H5H', 'K9K', 'H4M'], vinPrefix: 'UU1BSDEP' },
+        { name: 'Jogger', yearFrom: 2022, yearTo: 2024, engines: ['H5H', 'K9K', ''], vinPrefix: 'UU1RSDEP' },
+        { name: 'Spring', yearFrom: 2021, yearTo: 2024, engines: [''], vinPrefix: 'UU1ESDEP' },
+    ]},
+
+    // ═══ ITALIAN ═══
+    { make: 'FIAT', models: [
+        { name: '500 312', yearFrom: 2007, yearTo: 2024, engines: ['312A2000', '330A1000', ''], vinPrefix: 'ZFA31200' },
+        { name: '500X 334', yearFrom: 2014, yearTo: 2024, engines: ['55282328', '55263087', '55280444'], vinPrefix: 'ZFA33400' },
+        { name: 'Tipo 356', yearFrom: 2015, yearTo: 2024, engines: ['55280444', '55263087'], vinPrefix: 'ZFA35600' },
+        { name: 'Panda III 312', yearFrom: 2012, yearTo: 2024, engines: ['312A2000', '169A4000'], vinPrefix: 'ZFA31200' },
+        { name: 'Ducato 250', yearFrom: 2014, yearTo: 2024, engines: ['F1AGL411D', 'F1CGL411A'], vinPrefix: 'ZFA25000' },
+    ]},
+    { make: 'ALFA ROMEO', models: [
+        { name: 'Giulia 952', yearFrom: 2016, yearTo: 2024, engines: ['55280445', '55282327', '55274340'], vinPrefix: 'ZAR95200' },
+        { name: 'Giulia QV 952', yearFrom: 2016, yearTo: 2024, engines: ['55274340'], vinPrefix: 'ZAR95290' },
+        { name: 'Stelvio 949', yearFrom: 2017, yearTo: 2024, engines: ['55280445', '55282327', '55274340'], vinPrefix: 'ZAR94900' },
+        { name: 'Tonale', yearFrom: 2022, yearTo: 2024, engines: ['55280444', '55282328', ''], vinPrefix: 'ZAR94700' },
+    ]},
+
+    // ═══ BRITISH + SPECIAL ═══
+    { make: 'MINI', models: [
+        { name: 'Cooper F56', yearFrom: 2014, yearTo: 2021, engines: ['B38A15A', 'B48A20A', 'B47C20A'], vinPrefix: 'WMWXS310' },
+        { name: 'Cooper S F56', yearFrom: 2014, yearTo: 2021, engines: ['B48A20A'], vinPrefix: 'WMWXS510' },
+        { name: 'JCW F56', yearFrom: 2015, yearTo: 2021, engines: ['B48A20T1'], vinPrefix: 'WMWXS710' },
+        { name: 'Countryman F60', yearFrom: 2017, yearTo: 2024, engines: ['B47C20A', 'B48A20A', ''], vinPrefix: 'WMZYS310' },
+        { name: 'Cooper F66', yearFrom: 2024, yearTo: 2025, engines: ['B38K15A', ''], vinPrefix: 'WMWYU310' },
+    ]},
+    { make: 'SMART', models: [
+        { name: 'Fortwo 453', yearFrom: 2014, yearTo: 2022, engines: ['M281', 'H4B'], vinPrefix: 'WME4530' },
+        { name: 'Forfour 453', yearFrom: 2014, yearTo: 2022, engines: ['M281', 'H4B'], vinPrefix: 'WME4530' },
+        { name: '#1', yearFrom: 2022, yearTo: 2025, engines: [''], vinPrefix: 'WME4440' },
     ]},
     { make: 'TESLA', models: [
         { name: 'Model 3', yearFrom: 2019, yearTo: 2024, engines: [''], vinPrefix: '5YJ3E1EA' },
+        { name: 'Model 3 Highland', yearFrom: 2024, yearTo: 2025, engines: [''], vinPrefix: 'LRW3E7EA' },
         { name: 'Model Y', yearFrom: 2020, yearTo: 2024, engines: [''], vinPrefix: '7SAYGDEE' },
+        { name: 'Model S', yearFrom: 2012, yearTo: 2024, engines: [''], vinPrefix: '5YJSA1E2' },
+        { name: 'Model X', yearFrom: 2015, yearTo: 2024, engines: [''], vinPrefix: '5YJXCCE4' },
     ]},
     { make: 'SKODA', models: [
         { name: 'Octavia III', yearFrom: 2012, yearTo: 2020, engines: ['DFGA', 'CRLB', 'CZCA', 'CHHB'], vinPrefix: 'TMBAG7NE' },
+        { name: 'Octavia III RS', yearFrom: 2013, yearTo: 2020, engines: ['CHHB', 'CZGA'], vinPrefix: 'TMBAG7NE' },
+        { name: 'Octavia IV', yearFrom: 2020, yearTo: 2025, engines: ['DFGA', 'DLBA', 'DTSA'], vinPrefix: 'TMBAR7NE' },
+        { name: 'Octavia IV RS', yearFrom: 2020, yearTo: 2025, engines: ['DLBA', 'DNUA'], vinPrefix: 'TMBAR7NE' },
         { name: 'Superb III', yearFrom: 2015, yearTo: 2023, engines: ['DFGA', 'DFHA', 'CZPA'], vinPrefix: 'TMBAJ7NS' },
+        { name: 'Kodiaq NS', yearFrom: 2017, yearTo: 2024, engines: ['DFGA', 'DFHA', 'CZPA'], vinPrefix: 'TMBAR7NS' },
+        { name: 'Karoq NU', yearFrom: 2017, yearTo: 2024, engines: ['DFGA', 'CZCA', 'DKRA'], vinPrefix: 'TMBAR5NU' },
+        { name: 'Fabia IV PJ', yearFrom: 2021, yearTo: 2024, engines: ['CZCA', 'DKLA'], vinPrefix: 'TMBAR6PJ' },
+        { name: 'Enyaq iV', yearFrom: 2021, yearTo: 2024, engines: [''], vinPrefix: 'TMBAR7NE' },
     ]},
 ];
+
+const EXOTIC_BRANDS = new Set(['PORSCHE', 'TESLA', 'HYUNDAI', 'TOYOTA', 'RENAULT', 'SKODA', 'KIA', 'HONDA', 'NISSAN',
+    'MAZDA', 'SUZUKI', 'MITSUBISHI', 'PEUGEOT', 'CITROËN', 'DACIA', 'FIAT', 'ALFA ROMEO', 'JAGUAR',
+    'LAND ROVER', 'VOLVO', 'MINI', 'SMART']);
 
 interface PartPool {
     name: string;
@@ -230,7 +450,7 @@ function generateRandomRows(count: number): BatchRow[] {
         const engine = pick(model.engines);
         const year = randomYear(model.yearFrom, model.yearTo);
         const part = pick(PARTS_POOL);
-        const isExoticBrand = ['PORSCHE', 'TESLA', 'HYUNDAI', 'TOYOTA', 'RENAULT', 'SKODA'].includes(brand.make);
+        const isExoticBrand = EXOTIC_BRANDS.has(brand.make);
         const difficulty = isExoticBrand ? 'exotic' as const : part.difficulty;
         rows.push({
             id: createId(),
