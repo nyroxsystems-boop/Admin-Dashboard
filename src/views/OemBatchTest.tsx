@@ -9,7 +9,7 @@ import { useState, useCallback, useRef } from 'react';
 import {
     Loader2, CheckCircle, XCircle, Clock, Zap, BarChart2,
     AlertTriangle, Sparkles, Play, Pause, Trash2, Download, Upload,
-    FileSpreadsheet
+    FileSpreadsheet, Dice5
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { resolveOemForward } from '../api/wws';
@@ -84,6 +84,167 @@ function createId() {
 
 function presetToRow(preset: typeof PRESET_DATA[number]): BatchRow {
     return { ...preset, id: createId(), oem: null, confidence: null, resolvedBy: null, elapsed: null, status: 'pending' };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 🎲 Random Vehicle + Part Generator
+// ═══════════════════════════════════════════════════════════════════
+
+interface VehiclePool {
+    make: string;
+    models: { name: string; yearFrom: number; yearTo: number; engines: string[]; vinPrefix: string }[];
+}
+
+const VEHICLE_POOL: VehiclePool[] = [
+    { make: 'VW', models: [
+        { name: 'Golf VII', yearFrom: 2012, yearTo: 2020, engines: ['DFGA', 'CRLB', 'CHHB', 'CZCA', 'DFHA', 'CHZJ'], vinPrefix: 'WVWZZZ1KZ' },
+        { name: 'Golf VIII', yearFrom: 2020, yearTo: 2025, engines: ['DTGA', 'DFKA', 'DLBA'], vinPrefix: 'WVWZZZ1UZ' },
+        { name: 'Passat B8', yearFrom: 2014, yearTo: 2023, engines: ['DFGA', 'DFHA', 'CZCA'], vinPrefix: 'WVWZZZ3CZ' },
+        { name: 'Tiguan II', yearFrom: 2016, yearTo: 2024, engines: ['DFGA', 'DFHA', 'CZPA'], vinPrefix: 'WVGZZZ5NZ' },
+        { name: 'T-Roc', yearFrom: 2017, yearTo: 2024, engines: ['DFGA', 'DKRA', 'CZCA'], vinPrefix: 'WVGZZZ2GZ' },
+        { name: 'Polo VI', yearFrom: 2017, yearTo: 2024, engines: ['CZCA', 'DKLA'], vinPrefix: 'WVWZZZ6RZ' },
+    ]},
+    { make: 'BMW', models: [
+        { name: '3er F30', yearFrom: 2012, yearTo: 2019, engines: ['B47', 'N47', 'N20', 'N57', 'B48'], vinPrefix: 'WBA8E110' },
+        { name: '3er G20', yearFrom: 2019, yearTo: 2025, engines: ['B47', 'B48', 'B58'], vinPrefix: 'WBA5U110' },
+        { name: '5er G30', yearFrom: 2017, yearTo: 2023, engines: ['B57', 'B58', 'B47', 'B48'], vinPrefix: 'WBAJC510' },
+        { name: 'X3 G01', yearFrom: 2017, yearTo: 2023, engines: ['B47', 'B48', 'B58'], vinPrefix: 'WBATX710' },
+        { name: 'X1 F48', yearFrom: 2015, yearTo: 2022, engines: ['B47', 'B38', 'B48'], vinPrefix: 'WBAHT110' },
+        { name: '1er F40', yearFrom: 2019, yearTo: 2025, engines: ['B47', 'B48'], vinPrefix: 'WBA7C110' },
+    ]},
+    { make: 'MERCEDES', models: [
+        { name: 'C-Klasse W205', yearFrom: 2014, yearTo: 2021, engines: ['OM654', 'M274', 'M276', 'OM651'], vinPrefix: 'WDD20500' },
+        { name: 'E-Klasse W213', yearFrom: 2016, yearTo: 2023, engines: ['OM654', 'M256', 'M274'], vinPrefix: 'WDD21300' },
+        { name: 'GLC X253', yearFrom: 2015, yearTo: 2022, engines: ['OM654', 'M274', 'M276'], vinPrefix: 'WDC25390' },
+        { name: 'A-Klasse W177', yearFrom: 2018, yearTo: 2025, engines: ['OM608', 'M282', 'M260'], vinPrefix: 'WDD17700' },
+    ]},
+    { make: 'AUDI', models: [
+        { name: 'A4 B9', yearFrom: 2015, yearTo: 2023, engines: ['DETA', 'CVKB', 'DFGA', 'CZHA'], vinPrefix: 'WAUZZZF4' },
+        { name: 'A3 8V', yearFrom: 2012, yearTo: 2020, engines: ['DFGA', 'CRLB', 'CHHB', 'CZCA'], vinPrefix: 'WAUZZZGF' },
+        { name: 'Q5 FY', yearFrom: 2017, yearTo: 2024, engines: ['DTUA', 'DFGA', 'DAXB'], vinPrefix: 'WAUZZZFY' },
+        { name: 'Q3 F3', yearFrom: 2019, yearTo: 2024, engines: ['DFGA', 'DKTA', 'CZPA'], vinPrefix: 'WAUZZZF5' },
+    ]},
+    { make: 'OPEL', models: [
+        { name: 'Astra K', yearFrom: 2015, yearTo: 2022, engines: ['B14XFT', 'B16DTH', 'B16SHT'], vinPrefix: 'W0LBD8EA' },
+        { name: 'Insignia B', yearFrom: 2017, yearTo: 2022, engines: ['B20DTH', 'B16SHT'], vinPrefix: 'W0LGA8EM' },
+        { name: 'Corsa F', yearFrom: 2019, yearTo: 2024, engines: ['F12XHL', 'F12XHT'], vinPrefix: 'W0VF6800' },
+    ]},
+    { make: 'FORD', models: [
+        { name: 'Focus IV', yearFrom: 2018, yearTo: 2024, engines: ['M1DA', 'M2DA', 'XWDB'], vinPrefix: 'WF0XXXGCH' },
+        { name: 'Kuga II', yearFrom: 2012, yearTo: 2020, engines: ['T7CL', 'JTMA', 'XWDB'], vinPrefix: 'WF0XXXGCD' },
+        { name: 'Fiesta VIII', yearFrom: 2017, yearTo: 2023, engines: ['M1DA', 'XWJB'], vinPrefix: 'WF0XXXGCE' },
+    ]},
+    { make: 'PORSCHE', models: [
+        { name: 'Macan 95B', yearFrom: 2014, yearTo: 2024, engines: ['', 'CYP', 'DCB'], vinPrefix: 'WP1ZZZ95Z' },
+        { name: 'Cayenne E3', yearFrom: 2018, yearTo: 2024, engines: ['', 'DJH'], vinPrefix: 'WP1ZZZ9YZ' },
+    ]},
+    { make: 'HYUNDAI', models: [
+        { name: 'Tucson TL', yearFrom: 2015, yearTo: 2020, engines: ['D4HA', 'G4FJ', 'G4FD'], vinPrefix: 'TMAJ3812A' },
+        { name: 'i30 PD', yearFrom: 2017, yearTo: 2023, engines: ['D4FC', 'G4FJ', 'G4LD'], vinPrefix: 'TMAJ381AA' },
+    ]},
+    { make: 'TOYOTA', models: [
+        { name: 'Corolla E210', yearFrom: 2019, yearTo: 2024, engines: ['2ZR-FXE', 'M20A-FKS'], vinPrefix: 'SB1K83BE6' },
+        { name: 'RAV4 XA50', yearFrom: 2019, yearTo: 2024, engines: ['A25A-FXS', 'M20A-FKS'], vinPrefix: 'JTMDA3FV0' },
+    ]},
+    { make: 'RENAULT', models: [
+        { name: 'Mégane IV', yearFrom: 2016, yearTo: 2023, engines: ['K9K', 'H5F', 'M5M'], vinPrefix: 'VF1RFB00X' },
+        { name: 'Clio V', yearFrom: 2019, yearTo: 2024, engines: ['H5F', 'K9K'], vinPrefix: 'VF1RJA00X' },
+    ]},
+    { make: 'TESLA', models: [
+        { name: 'Model 3', yearFrom: 2019, yearTo: 2024, engines: [''], vinPrefix: '5YJ3E1EA' },
+        { name: 'Model Y', yearFrom: 2020, yearTo: 2024, engines: [''], vinPrefix: '7SAYGDEE' },
+    ]},
+    { make: 'SKODA', models: [
+        { name: 'Octavia III', yearFrom: 2012, yearTo: 2020, engines: ['DFGA', 'CRLB', 'CZCA', 'CHHB'], vinPrefix: 'TMBAG7NE' },
+        { name: 'Superb III', yearFrom: 2015, yearTo: 2023, engines: ['DFGA', 'DFHA', 'CZPA'], vinPrefix: 'TMBAJ7NS' },
+    ]},
+];
+
+interface PartPool {
+    name: string;
+    difficulty: 'easy' | 'medium' | 'hard';
+}
+
+const PARTS_POOL: PartPool[] = [
+    // Easy — common wear parts
+    { name: 'Bremsscheibe vorne', difficulty: 'easy' },
+    { name: 'Bremsscheibe hinten', difficulty: 'easy' },
+    { name: 'Bremsbelag vorne', difficulty: 'easy' },
+    { name: 'Bremsbelag hinten', difficulty: 'easy' },
+    { name: 'Ölfilter', difficulty: 'easy' },
+    { name: 'Luftfilter', difficulty: 'easy' },
+    { name: 'Pollenfilter', difficulty: 'easy' },
+    { name: 'Kraftstofffilter', difficulty: 'easy' },
+    { name: 'Zündkerze', difficulty: 'easy' },
+    { name: 'Scheibenwischer vorne', difficulty: 'easy' },
+    // Medium — suspension, cooling, steering
+    { name: 'Stoßdämpfer vorne', difficulty: 'medium' },
+    { name: 'Stoßdämpfer hinten', difficulty: 'medium' },
+    { name: 'Querlenker vorne links', difficulty: 'medium' },
+    { name: 'Querlenker vorne rechts', difficulty: 'medium' },
+    { name: 'Spurstangenkopf außen', difficulty: 'medium' },
+    { name: 'Radlager vorne', difficulty: 'medium' },
+    { name: 'Radlager hinten', difficulty: 'medium' },
+    { name: 'Koppelstange vorne', difficulty: 'medium' },
+    { name: 'Wasserpumpe', difficulty: 'medium' },
+    { name: 'Thermostat', difficulty: 'medium' },
+    { name: 'Lichtmaschine', difficulty: 'medium' },
+    { name: 'Klimakompressor', difficulty: 'medium' },
+    { name: 'Kupplung', difficulty: 'medium' },
+    { name: 'Turbolader', difficulty: 'medium' },
+    { name: 'Anlasser', difficulty: 'medium' },
+    { name: 'Keilrippenriemen', difficulty: 'medium' },
+    // Hard — niche parts
+    { name: 'Nockenwellensensor', difficulty: 'hard' },
+    { name: 'Kurbelwellensensor', difficulty: 'hard' },
+    { name: 'AGR-Ventil', difficulty: 'hard' },
+    { name: 'Ansaugkrümmer', difficulty: 'hard' },
+    { name: 'Steuerkettensatz', difficulty: 'hard' },
+    { name: 'Differentialsperre', difficulty: 'hard' },
+    { name: 'Öldrucksensor', difficulty: 'hard' },
+    { name: 'Ladedrucksensor', difficulty: 'hard' },
+    { name: 'DPF Differenzdrucksensor', difficulty: 'hard' },
+    { name: 'EGR-Kühler', difficulty: 'hard' },
+    { name: 'Dosierpumpe AdBlue', difficulty: 'hard' },
+    { name: 'Ölpumpe', difficulty: 'hard' },
+    { name: 'Einspritzdüse', difficulty: 'hard' },
+    { name: 'Lambda-Sonde', difficulty: 'hard' },
+];
+
+const YEAR_CHARS = '0123456789ABCDEFGHJKLMNPRSTVWXY';
+function randomVin(prefix: string): string {
+    const yearIdx = Math.floor(Math.random() * 10);
+    const serial = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
+    return (prefix + YEAR_CHARS[yearIdx] + serial).slice(0, 17);
+}
+
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+function randomYear(from: number, to: number): number { return from + Math.floor(Math.random() * (to - from + 1)); }
+
+function generateRandomRows(count: number): BatchRow[] {
+    const rows: BatchRow[] = [];
+    for (let i = 0; i < count; i++) {
+        const brand = pick(VEHICLE_POOL);
+        const model = pick(brand.models);
+        const engine = pick(model.engines);
+        const year = randomYear(model.yearFrom, model.yearTo);
+        const part = pick(PARTS_POOL);
+        const isExoticBrand = ['PORSCHE', 'TESLA', 'HYUNDAI', 'TOYOTA', 'RENAULT', 'SKODA'].includes(brand.make);
+        const difficulty = isExoticBrand ? 'exotic' as const : part.difficulty;
+        rows.push({
+            id: createId(),
+            make: brand.make,
+            model: model.name,
+            year: String(year),
+            motor: engine,
+            vin: randomVin(model.vinPrefix),
+            part: part.name,
+            oem: null, confidence: null, resolvedBy: null, elapsed: null,
+            status: 'pending',
+            difficulty,
+        });
+    }
+    return rows;
 }
 
 // ── CSV helpers ──
@@ -266,6 +427,20 @@ export function OemBatchTest() {
                     <button onClick={downloadTemplate} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border border-border/50 bg-muted/30 hover:bg-muted/60 transition-colors">
                         <Download className="w-3.5 h-3.5" /> Vorlage
                     </button>
+                    <div className="w-px h-8 bg-border/50 mx-1" />
+                    {/* 🎲 Random Generator */}
+                    <div className="relative group">
+                        <button disabled={running} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 border border-violet-500/30 text-violet-700 dark:text-violet-300 hover:from-violet-500/20 hover:to-fuchsia-500/20 disabled:opacity-40 transition-all">
+                            <Dice5 className="w-3.5 h-3.5" /> Würfeln ▾
+                        </button>
+                        <div className="absolute top-full left-0 mt-1 bg-card border border-border/60 rounded-xl shadow-xl p-1.5 hidden group-hover:flex flex-col gap-0.5 z-50 min-w-[160px]">
+                            {[10, 20, 30, 50].map(n => (
+                                <button key={n} onClick={() => { setRows(generateRandomRows(n)); setCurrentIdx(-1); toast.success(`🎲 ${n} zufällige Test-Zeilen generiert`); }} className="px-3 py-2 rounded-lg text-xs font-medium text-left hover:bg-muted/60 transition-colors">
+                                    🎲 {n} zufällige Zeilen
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className="flex-1" />
 
                     {rows.length > 0 && !running && (
