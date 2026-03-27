@@ -434,9 +434,11 @@ const PARTS_POOL: PartPool[] = [
 
 const YEAR_CHARS = '0123456789ABCDEFGHJKLMNPRSTVWXY';
 function randomVin(prefix: string): string {
-    const yearIdx = Math.floor(Math.random() * 10);
-    const serial = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
-    return (prefix + YEAR_CHARS[yearIdx] + serial).slice(0, 17);
+    const yearChar = YEAR_CHARS[Math.floor(Math.random() * YEAR_CHARS.length)];
+    // VIN = 17 chars total. prefix + yearChar + serial must = 17
+    const serialLen = 17 - prefix.length - 1;
+    const serial = String(Math.floor(Math.random() * Math.pow(10, serialLen))).padStart(serialLen, '0');
+    return prefix + yearChar + serial;
 }
 
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
