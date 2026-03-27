@@ -5,15 +5,16 @@
  * Reverse: OEM → Part + Vehicles (Gemini AI / Registry)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Search, Loader2, CheckCircle, XCircle, Hash,
-    Car, Sparkles, ArrowRight, AlertTriangle, Wrench, ArrowLeftRight, FileSpreadsheet
+    Car, Sparkles, ArrowRight, AlertTriangle, Wrench, ArrowLeftRight, FileSpreadsheet, Flag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { lookupOem, approveOemResult, resolveOemForward, OemLookupResult } from '../api/wws';
 import { OemBatchTest } from './OemBatchTest';
+import { OemErrorReview, getErrorCount, addErrors, type ErrorItem } from './OemErrorReview';
 
 interface LookupHistoryItem {
     oem: string;
@@ -23,7 +24,15 @@ interface LookupHistoryItem {
 }
 
 export function OemLookupView() {
-    const [mode, setMode] = useState<'forward' | 'reverse' | 'batch'>('forward');
+    const [mode, setMode] = useState<'forward' | 'reverse' | 'batch' | 'errors'>('forward');
+    const [errorCount, setErrorCount] = useState(0);
+
+    // Poll error count for badge
+    useEffect(() => {
+        setErrorCount(getErrorCount());
+        const interval = setInterval(() => setErrorCount(getErrorCount()), 2000);
+        return () => clearInterval(interval);
+    }, []);
 
     // ── Reverse mode state ──
     const [searchInput, setSearchInput] = useState('');
@@ -221,6 +230,22 @@ export function OemLookupView() {
                         <FileSpreadsheet className="w-4 h-4" />
                         Batch-Test
                     </button>
+                    <button
+                        onClick={() => setMode('errors')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all relative ${
+                            mode === 'errors'
+                                ? 'bg-warn text-white shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <Flag className="w-4 h-4" />
+                        Fehler
+                        {errorCount > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-destructive text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center">
+                                {errorCount > 99 ? '99+' : errorCount}
+                            </span>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -347,6 +372,36 @@ export function OemLookupView() {
                                                             {fwdResult.confidence}%
                                                         </strong></span>
                                                         {fwdResult.notes && <span>· {fwdResult.notes}</span>}
+                                                    </div>
+                                                    <div className="flex gap-2 mt-3">
+                                                        <button
+                                                            onClick={() => {
+                                                                addErrors([{
+                                                                    id: `err-${Date.now()}`,
+                                                                    make: fwdMake, model: fwdModel, year: '', motor: '', vin: fwdVin,
+                                                                    part: fwdPart, oem: fwdResult!.oem, confidence: fwdResult!.confidence ? fwdResult!.confidence / 100 : null,
+                                                                    source: 'forward', addedAt: new Date().toISOString(), status: 'pending',
+                                                                }]);
+                                                                toast.success('⚠️ Zur Fehlerliste hinzugefügt');
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-warn-light text-warn border border-warn/30 hover:bg-warn/20 transition-colors"
+                                                        >
+                                                            <Flag className="w-3 h-3" /> Als Fehler markieren
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await approveOemResult({
+                                                                        oem: fwdResult!.oem!, brand: fwdMake, model: fwdModel,
+                                                                        part_category: fwdPart, part_description: fwdPart, confidence: (fwdResult!.confidence || 90) / 100,
+                                                                    });
+                                                                    toast.success(`✅ ${fwdResult!.oem} in DB übernommen`);
+                                                                } catch (err: any) { toast.error(`Fehler: ${err.message}`); }
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-success-light text-success border border-brand/30 hover:bg-success/20 transition-colors"
+                                                        >
+                                                            <CheckCircle className="w-3 h-3" /> In DB übernehmen
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -676,6 +731,11 @@ export function OemLookupView() {
                BATCH MODE: CSV → Pipeline → Results
             ═══════════════════════════════════════════ */}
             {mode === 'batch' && <OemBatchTest />}
+
+            {/* ═══════════════════════════════════════════
+               ERRORS MODE: Review flagged OEM results
+            ═══════════════════════════════════════════ */}
+            {mode === 'errors' && <OemErrorReview />}
         </div>
     );
 }

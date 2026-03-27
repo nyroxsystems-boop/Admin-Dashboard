@@ -9,10 +9,11 @@ import { useState, useCallback, useRef } from 'react';
 import {
     Loader2, CheckCircle, XCircle, Clock, Zap, BarChart2,
     AlertTriangle, Sparkles, Play, Pause, Trash2, Download, Upload,
-    FileSpreadsheet, Dice5
+    FileSpreadsheet, Dice5, Database, Flag
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { resolveOemForward } from '../api/wws';
+import { resolveOemForward, approveOemResult } from '../api/wws';
+import { addErrors, type ErrorItem } from './OemErrorReview';
 
 // ═══════════════════════════════════════════════════════════════════
 // Types
@@ -307,6 +308,50 @@ export function OemBatchTest() {
     const abortRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [currentIdx, setCurrentIdx] = useState(-1);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+
+    const toggleSelect = (id: string) => {
+        setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    };
+    const doneRows = rows.filter(r => r.status === 'found' || r.status === 'not_found' || r.status === 'error');
+    const allDoneSelected = doneRows.length > 0 && doneRows.every(r => selected.has(r.id));
+    const toggleAllDone = () => {
+        if (allDoneSelected) setSelected(new Set());
+        else setSelected(new Set(doneRows.map(r => r.id)));
+    };
+
+    // ── Push selected to error list ──
+    const pushToErrors = () => {
+        const items: ErrorItem[] = rows.filter(r => selected.has(r.id)).map(r => ({
+            id: `err-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            make: r.make, model: r.model, year: r.year, motor: r.motor, vin: r.vin,
+            part: r.part, oem: r.oem, confidence: r.confidence,
+            source: 'batch', addedAt: new Date().toISOString(), status: 'pending',
+        }));
+        addErrors(items);
+        setSelected(new Set());
+        toast.success(`⚠️ ${items.length} Einträge zur Fehlerliste hinzugefügt`);
+    };
+
+    // ── Push selected correct results to DB ──
+    const pushToDb = async () => {
+        const toApprove = rows.filter(r => selected.has(r.id) && r.oem && r.confidence);
+        if (!toApprove.length) { toast.info('Keine Zeilen mit OEM ausgewählt'); return; }
+        let ok = 0;
+        for (const r of toApprove) {
+            try {
+                await approveOemResult({
+                    oem: r.oem!,
+                    brand: r.make, model: r.model, part_category: r.part,
+                    part_description: `${r.part} (${r.model} ${r.year})`,
+                    confidence: r.confidence || 0.95,
+                });
+                ok++;
+            } catch { /* skip failures */ }
+        }
+        setSelected(new Set());
+        toast.success(`✅ ${ok}/${toApprove.length} OEMs in Datenbank übernommen`);
+    };
 
     const total = rows.length;
     const done = rows.filter(r => r.status === 'found' || r.status === 'not_found' || r.status === 'error').length;
@@ -530,6 +575,9 @@ export function OemBatchTest() {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-muted/30 border-b border-border/50">
+                                    <th className="px-2 py-3 w-8">
+                                        <input type="checkbox" checked={allDoneSelected} onChange={toggleAllDone} className="rounded border-border/50 accent-primary" title="Alle fertigen auswählen" />
+                                    </th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-8">#</th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Level</th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Marke</th>
@@ -557,6 +605,11 @@ export function OemBatchTest() {
                                             : 'hover:bg-muted/20'
                                         }`}
                                     >
+                                        <td className="px-2 py-2.5">
+                                            {(row.status === 'found' || row.status === 'not_found' || row.status === 'error') && (
+                                                <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelect(row.id)} className="rounded border-border/50 accent-primary" />
+                                            )}
+                                        </td>
                                         <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono">{i + 1}</td>
                                         <td className="px-3 py-2.5"><DifficultyBadge d={row.difficulty} /></td>
                                         <td className="px-3 py-2.5 font-bold text-xs">{row.make}</td>
