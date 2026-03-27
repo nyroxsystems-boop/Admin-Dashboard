@@ -635,3 +635,52 @@ export async function reverseOemLookup(oem: string): Promise<{
         body: JSON.stringify({ oem }),
     });
 }
+
+// ============================================================================
+// PartsLink24 Catalog Scraper (standalone service on port 4100)
+// ============================================================================
+
+const CATALOG_SCRAPER_URL = 'http://localhost:4100';
+
+export interface PartslinkResult {
+    success: boolean;
+    vin: string;
+    part: string;
+    brand?: string | null;
+    results: Array<{
+        oem: string;
+        description: string;
+        bildtafel?: string;
+        hg?: string;
+        fg?: string;
+    }>;
+    fromCache: boolean;
+    elapsedMs?: number;
+    cachedAt?: string;
+    error?: string;
+}
+
+export async function lookupPartslink24(params: {
+    vin: string;
+    part: string;
+    brand?: string;
+}): Promise<PartslinkResult> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || `Catalog Scraper Error: ${res.status}`);
+    }
+
+    return res.json();
+}
+
+export async function getPartslinkHealth(): Promise<{ status: string; service: string }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/health`);
+    if (!res.ok) throw new Error('Catalog Scraper not reachable');
+    return res.json();
+}
