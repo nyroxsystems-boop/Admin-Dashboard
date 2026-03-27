@@ -5,7 +5,7 @@
  * Uses Admin-Dashboard API (resolveOemForward) and glass-card styling.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
     Loader2, CheckCircle, XCircle, Clock, Zap, BarChart2,
     AlertTriangle, Sparkles, Play, Pause, Trash2, Download, Upload,
@@ -529,6 +529,17 @@ export function OemBatchTest() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [currentIdx, setCurrentIdx] = useState(-1);
     const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [showDice, setShowDice] = useState(false);
+    const diceRef = useRef<HTMLDivElement>(null);
+
+    // Close dice dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (diceRef.current && !diceRef.current.contains(e.target as Node)) setShowDice(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const toggleSelect = (id: string) => {
         setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -694,17 +705,36 @@ export function OemBatchTest() {
                     </button>
                     <div className="w-px h-8 bg-border/50 mx-1" />
                     {/* 🎲 Random Generator */}
-                    <div className="relative group">
-                        <button disabled={running} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 border border-violet-500/30 text-violet-700 dark:text-violet-300 hover:from-violet-500/20 hover:to-fuchsia-500/20 disabled:opacity-40 transition-all">
-                            <Dice5 className="w-3.5 h-3.5" /> Würfeln ▾
+                    <div className="relative" ref={diceRef}>
+                        <button
+                            disabled={running}
+                            onClick={() => setShowDice(v => !v)}
+                            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all disabled:opacity-40 ${
+                                showDice
+                                    ? 'bg-violet-500/20 border-violet-500/50 text-violet-700 dark:text-violet-300 shadow-sm'
+                                    : 'bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 border-violet-500/30 text-violet-700 dark:text-violet-300 hover:from-violet-500/20 hover:to-fuchsia-500/20'
+                            }`}
+                        >
+                            <Dice5 className="w-3.5 h-3.5" /> Würfeln <span className="text-[9px] opacity-60">▾</span>
                         </button>
-                        <div className="absolute top-full left-0 mt-1 bg-card border border-border/60 rounded-xl shadow-xl p-1.5 hidden group-hover:flex flex-col gap-0.5 z-50 min-w-[160px]">
-                            {[10, 20, 30, 50].map(n => (
-                                <button key={n} onClick={() => { setRows(generateRandomRows(n)); setCurrentIdx(-1); toast.success(`🎲 ${n} zufällige Test-Zeilen generiert`); }} className="px-3 py-2 rounded-lg text-xs font-medium text-left hover:bg-muted/60 transition-colors">
-                                    🎲 {n} zufällige Zeilen
-                                </button>
-                            ))}
-                        </div>
+                        {showDice && (
+                            <div className="absolute top-full left-0 mt-1.5 bg-card border border-border/60 rounded-xl shadow-2xl p-1.5 flex flex-col gap-0.5 z-50 min-w-[180px] animate-in fade-in slide-in-from-top-1 duration-150">
+                                {[10, 20, 30, 50].map(n => (
+                                    <button
+                                        key={n}
+                                        onClick={() => {
+                                            setRows(generateRandomRows(n));
+                                            setCurrentIdx(-1);
+                                            setShowDice(false);
+                                            toast.success(`🎲 ${n} zufällige Test-Zeilen generiert`);
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-left hover:bg-muted/60 transition-colors"
+                                    >
+                                        <Dice5 className="w-3.5 h-3.5 text-violet-500" /> {n} zufällige Zeilen
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div className="flex-1" />
 
@@ -870,6 +900,41 @@ export function OemBatchTest() {
                     <div className="px-4 py-3 bg-muted/20 border-t border-border/30 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{total} Zeilen · {done} verarbeitet</span>
                         {found > 0 && <span className="font-bold text-success">Erfolgsrate: {Math.round((found / Math.max(done, 1)) * 100)}%</span>}
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ FLOATING SELECTION ACTION BAR ═══ */}
+            {selected.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-card/95 backdrop-blur-xl border-2 border-primary/30 shadow-2xl shadow-primary/10">
+                        <div className="flex items-center gap-2 pr-3 border-r border-border/50">
+                            <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center">
+                                <CheckCircle className="w-4 h-4 text-primary" />
+                            </div>
+                            <div>
+                                <div className="text-sm font-bold">{selected.size} ausgewählt</div>
+                                <div className="text-[10px] text-muted-foreground">{rows.filter(r => selected.has(r.id) && r.oem).length} mit OEM</div>
+                            </div>
+                        </div>
+                        <button
+                            onClick={pushToErrors}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-all"
+                        >
+                            <Flag className="w-3.5 h-3.5" /> Als Fehler markieren
+                        </button>
+                        <button
+                            onClick={pushToDb}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all"
+                        >
+                            <Database className="w-3.5 h-3.5" /> In DB übernehmen
+                        </button>
+                        <button
+                            onClick={() => setSelected(new Set())}
+                            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted/60 transition-colors"
+                        >
+                            <XCircle className="w-3.5 h-3.5" /> Aufheben
+                        </button>
                     </div>
                 </div>
             )}
