@@ -361,6 +361,7 @@ export function OemBatchTest() {
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modell</th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Bj.</th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Motor</th>
+                                    <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">VIN</th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ersatzteil</th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground min-w-[140px]">OEM-Nummer</th>
                                     <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Conf.</th>
@@ -387,6 +388,7 @@ export function OemBatchTest() {
                                         <td className="px-3 py-2.5 text-xs">{row.model}</td>
                                         <td className="px-3 py-2.5 text-xs font-mono">{row.year}</td>
                                         <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground">{row.motor || '—'}</td>
+                                        <td className="px-3 py-2.5 text-[10px] font-mono text-muted-foreground/70" title={row.vin || '—'}>{row.vin ? `…${row.vin.slice(-6)}` : '—'}</td>
                                         <td className="px-3 py-2.5 text-xs font-medium">{row.part}</td>
                                         <td className="px-3 py-2.5">
                                             {row.oem ? (
