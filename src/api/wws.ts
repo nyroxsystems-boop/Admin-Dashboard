@@ -640,7 +640,7 @@ export async function reverseOemLookup(oem: string): Promise<{
 // PartsLink24 Catalog Scraper (standalone service on port 4100)
 // ============================================================================
 
-const CATALOG_SCRAPER_URL = 'http://localhost:4100';
+const CATALOG_SCRAPER_URL = 'https://oemdetectservice-production.up.railway.app';
 
 export interface PartslinkResult {
     success: boolean;

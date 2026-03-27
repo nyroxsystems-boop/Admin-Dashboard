@@ -71,7 +71,7 @@ export function OemLookupView() {
         if (usePartslink && plAvailable === null) {
             getPartslinkHealth()
                 .then(() => { setPlAvailable(true); toast.success('PartsLink24 Scraper verbunden'); })
-                .catch(() => { setPlAvailable(false); toast.error('PartsLink24 Scraper nicht erreichbar (localhost:4100)'); });
+                .catch(() => { setPlAvailable(false); toast.error('PartsLink24 Scraper nicht erreichbar'); });
         }
     }, [usePartslink]);
 
