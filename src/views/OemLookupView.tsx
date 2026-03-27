@@ -9,10 +9,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Search, Loader2, CheckCircle, XCircle, Hash,
-    Car, Sparkles, ArrowRight, AlertTriangle, Wrench, ArrowLeftRight
+    Car, Sparkles, ArrowRight, AlertTriangle, Wrench, ArrowLeftRight, FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { lookupOem, approveOemResult, resolveOemForward, OemLookupResult } from '../api/wws';
+import { OemBatchTest } from './OemBatchTest';
 
 interface LookupHistoryItem {
     oem: string;
@@ -22,7 +23,7 @@ interface LookupHistoryItem {
 }
 
 export function OemLookupView() {
-    const [mode, setMode] = useState<'forward' | 'reverse'>('forward');
+    const [mode, setMode] = useState<'forward' | 'reverse' | 'batch'>('forward');
 
     // ── Reverse mode state ──
     const [searchInput, setSearchInput] = useState('');
@@ -180,7 +181,9 @@ export function OemLookupView() {
                     <p className="text-muted-foreground text-sm mt-1.5 ml-[52px]">
                         {mode === 'reverse'
                             ? 'OEM-Nummer → KI identifiziert das Teil → Bestätigen → Ins Registry aufnehmen'
-                            : 'Fahrzeug + Teil → OEM-Nummer (Hydra v2: DB → CrossRef → AI → Validation)'}
+                            : mode === 'batch'
+                                ? 'CSV importieren → Bot testet alle Zeilen → OEM-Ergebnisse exportieren'
+                                : 'Fahrzeug + Teil → OEM-Nummer (Hydra v2: DB → CrossRef → AI → Validation)'}
                     </p>
                 </div>
 
@@ -194,7 +197,7 @@ export function OemLookupView() {
                         }`}
                     >
                         <Car className="w-4 h-4" />
-                        Fahrzeug → OEM
+                        Einzeltest
                     </button>
                     <button
                         onClick={() => setMode('reverse')}
@@ -206,6 +209,17 @@ export function OemLookupView() {
                     >
                         <Hash className="w-4 h-4" />
                         OEM → Teil
+                    </button>
+                    <button
+                        onClick={() => setMode('batch')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                            mode === 'batch'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Batch-Test
                     </button>
                 </div>
             </div>
@@ -657,6 +671,11 @@ export function OemLookupView() {
                     )}
                 </>
             )}
+
+            {/* ═══════════════════════════════════════════
+               BATCH MODE: CSV → Pipeline → Results
+            ═══════════════════════════════════════════ */}
+            {mode === 'batch' && <OemBatchTest />}
         </div>
     );
 }
