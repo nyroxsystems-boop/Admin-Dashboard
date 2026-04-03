@@ -195,9 +195,12 @@ export function AdminDashboardView() {
             toast.error('Bitte eine gültige E-Mail-Adresse eingeben');
             return;
         }
-        if (newTenantPassword && newTenantPassword.length < 8) {
-            toast.error('Passwort muss mindestens 8 Zeichen haben');
-            return;
+        if (newTenantPassword) {
+            if (newTenantPassword.length < 12) { toast.error('Passwort muss mindestens 12 Zeichen haben'); return; }
+            if (!/[A-Z]/.test(newTenantPassword)) { toast.error('Mindestens ein Großbuchstabe erforderlich'); return; }
+            if (!/[a-z]/.test(newTenantPassword)) { toast.error('Mindestens ein Kleinbuchstabe erforderlich'); return; }
+            if (!/[0-9]/.test(newTenantPassword)) { toast.error('Mindestens eine Zahl erforderlich'); return; }
+            if (!/[^A-Za-z0-9]/.test(newTenantPassword)) { toast.error('Mindestens ein Sonderzeichen erforderlich'); return; }
         }
         setCreatingTenant(true);
         try {
@@ -976,7 +979,11 @@ export function AdminDashboardView() {
                                             const newPw = (form.elements.namedItem('newPw') as HTMLInputElement).value;
                                             const confirm = (form.elements.namedItem('confirmPw') as HTMLInputElement).value;
                                             if (newPw !== confirm) { toast.error('Passwörter stimmen nicht überein'); return; }
-                                            if (newPw.length < 8) { toast.error('Mindestens 8 Zeichen'); return; }
+                                            if (newPw.length < 12) { toast.error('Passwort muss mindestens 12 Zeichen haben'); return; }
+                                            if (!/[A-Z]/.test(newPw)) { toast.error('Mindestens ein Großbuchstabe erforderlich'); return; }
+                                            if (!/[a-z]/.test(newPw)) { toast.error('Mindestens ein Kleinbuchstabe erforderlich'); return; }
+                                            if (!/[0-9]/.test(newPw)) { toast.error('Mindestens eine Zahl erforderlich'); return; }
+                                            if (!/[^A-Za-z0-9]/.test(newPw)) { toast.error('Mindestens ein Sonderzeichen erforderlich'); return; }
                                             try {
                                                 await changePassword(current, newPw);
                                                 toast.success('Passwort geändert');

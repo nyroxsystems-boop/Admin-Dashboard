@@ -51,6 +51,16 @@ export function PasswordResetView({ onBack, resetToken }: Props) {
         }
     };
 
+    // Password complexity validation
+    const validatePassword = (password: string): string | null => {
+        if (password.length < 12) return 'Passwort muss mindestens 12 Zeichen haben';
+        if (!/[A-Z]/.test(password)) return 'Mindestens ein Großbuchstabe erforderlich';
+        if (!/[a-z]/.test(password)) return 'Mindestens ein Kleinbuchstabe erforderlich';
+        if (!/[0-9]/.test(password)) return 'Mindestens eine Zahl erforderlich';
+        if (!/[^A-Za-z0-9]/.test(password)) return 'Mindestens ein Sonderzeichen erforderlich';
+        return null;
+    };
+
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -65,8 +75,9 @@ export function PasswordResetView({ onBack, resetToken }: Props) {
             return;
         }
 
-        if (newPassword.length < 8) {
-            setError('Passwort muss mindestens 8 Zeichen haben');
+        const pwError = validatePassword(newPassword);
+        if (pwError) {
+            setError(pwError);
             return;
         }
 
@@ -185,7 +196,7 @@ export function PasswordResetView({ onBack, resetToken }: Props) {
                                                 type={showPassword ? 'text' : 'password'}
                                                 value={newPassword}
                                                 onChange={(e) => setNewPassword(e.target.value)}
-                                                placeholder="Mindestens 8 Zeichen"
+                                                placeholder="Min. 12 Zeichen, Groß-/Kleinbuchstaben, Zahl, Sonderzeichen"
                                                 className="w-full pl-12 pr-12 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
                                             />
                                             <button
