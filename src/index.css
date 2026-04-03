@@ -194,7 +194,6 @@
   border-color: hsla(var(--brand), 0.15);
   box-shadow: 0 12px 40px -12px hsla(var(--surface-overlay), 0.15),
               0 0 0 1px hsla(var(--brand), 0.06);
-  transform: translateY(-2px);
 }
 
 /* ═══════ STAT CARD ═══════ */
@@ -215,7 +214,6 @@
   border-color: hsla(var(--brand), 0.2);
   box-shadow: 0 8px 32px -8px hsla(var(--surface-overlay), 0.12),
               0 0 24px -8px hsla(var(--brand), 0.06);
-  transform: translateY(-3px);
 }
 
 /* ═══════ PREMIUM TABLE ═══════ */
@@ -681,6 +679,36 @@ input:focus, textarea:focus, button:focus-visible {
 }
 
 @media (min-width: 769px) { .mobile-menu-btn { display: none !important; } }
+
+/* ═══════ HIDE SCROLLBAR UTILITY ═══════ */
+
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ═══════ REDUCED MOTION ═══════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════ LOGIN INPUT ═══════ */
+
+.login-input {
+  background: hsla(225, 12%, 14%, 0.6);
+  border: 1px solid hsla(225, 10%, 22%, 0.5);
+  transition: all 0.3s ease;
+}
+
+.login-input:focus {
+  border-color: hsla(221, 83%, 53%, 0.4);
+  background: hsla(225, 12%, 14%, 0.8);
+  box-shadow: 0 0 0 3px hsla(221, 83%, 53%, 0.08);
+  outline: none;
+}
 
 /* ═══════ AUTOFILL FIX ═══════ */
 /* Prevent browsers from overriding dark input backgrounds with yellow */

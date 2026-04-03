@@ -170,10 +170,11 @@ export function OemRegistryView() {
     };
 
     const toggleSelectAll = () => {
-        if (selectedIds.size === data?.records.length) {
+        if (!data?.records?.length) return;
+        if (selectedIds.size === data.records.length) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(data?.records.map(r => r.id)));
+            setSelectedIds(new Set(data.records.map(r => r.id)));
         }
     };
 

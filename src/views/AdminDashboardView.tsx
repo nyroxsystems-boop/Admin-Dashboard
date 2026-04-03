@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature, deactivateTenant, activateTenant, getAuditLog, AuditLogEntry } from '../api/wws';
+import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature, deactivateTenant, activateTenant, getAuditLog, AuditLogEntry, getAuthToken } from '../api/wws';
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
 import { OemLookupView } from './OemLookupView';
@@ -136,12 +136,14 @@ export function AdminDashboardView() {
     };
 
     // Load OEM stats when settings tab is active
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
     useEffect(() => {
         if (activeTab === 'settings') {
             loadOemStats();
-            // A1: Load maintenance mode state from backend
-            fetch('/api/dashboard/admin/maintenance', {
-                headers: { 'Authorization': `Token ${localStorage.getItem('admin_token')}` }
+            // Load maintenance mode state from backend
+            fetch(`${API_BASE}/api/dashboard/admin/maintenance`, {
+                headers: { 'Authorization': `Token ${getAuthToken()}` }
             }).then(r => r.json()).then(d => setMaintenanceEnabled(d.enabled || false)).catch(() => {});
         }
     }, [activeTab]);
@@ -392,21 +394,21 @@ export function AdminDashboardView() {
 
                     <nav className={`flex-1 ${sidebarOpen ? 'p-4' : 'p-2'} space-y-1`}>
                         <SidebarItem icon={<LayoutDashboard />} label="Übersicht" active={activeTab === 'overview'}
-                            onClick={() => { setActiveTab('overview'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('overview'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Users />} label="Händler & Mandanten" active={activeTab === 'tenants'}
-                            onClick={() => { setActiveTab('tenants'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('tenants'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Database />} label="OEM Registry" active={activeTab === 'oem-registry'}
-                            onClick={() => { setActiveTab('oem-registry'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('oem-registry'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Search />} label="OEM Lookup" active={activeTab === 'oem-lookup'}
-                            onClick={() => { setActiveTab('oem-lookup'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('oem-lookup'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Bot />} label="Bot Testing" active={activeTab === 'bot-testing'}
-                            onClick={() => { setActiveTab('bot-testing'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('bot-testing'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<BarChart2 />} label="AI Accuracy" active={activeTab === 'accuracy'}
-                            onClick={() => { setActiveTab('accuracy'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('accuracy'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Mail />} label="Postfach" active={activeTab === 'inbox'}
-                            onClick={() => { setActiveTab('inbox'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('inbox'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Shield />} label="Audit Log" active={activeTab === 'audit'}
-                            onClick={() => { setActiveTab('audit'); }} collapsed={!sidebarOpen} />
+                            onClick={() => { setActiveTab('audit'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                     </nav>
 
                     <div className="p-4 border-t border-border/50 relative">
@@ -464,19 +466,26 @@ export function AdminDashboardView() {
                         >
                             <Menu className="w-5 h-5 text-muted-foreground" />
                         </button>
-                        <div className="relative hidden md:block group">
-                            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-primary transition-colors" />
-                            <input
-                                placeholder="Suche..."
-                                className="pl-9 pr-4 py-2 bg-muted/50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20 w-64 transition-all"
-                            />
-                        </div>
+                        <h1 className="text-sm font-semibold text-muted-foreground hidden md:block">
+                            {activeTab === 'overview' ? 'Dashboard' :
+                             activeTab === 'tenants' ? 'Händler & Mandanten' :
+                             activeTab === 'oem-registry' ? 'OEM Registry' :
+                             activeTab === 'oem-lookup' ? 'OEM Lookup' :
+                             activeTab === 'bot-testing' ? 'Bot Testing' :
+                             activeTab === 'accuracy' ? 'AI Accuracy' :
+                             activeTab === 'inbox' ? 'E-Mail Postfach' :
+                             activeTab === 'audit' ? 'Audit Log' :
+                             activeTab === 'settings' ? 'Einstellungen' : ''}
+                        </h1>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button className="p-2 hover:bg-muted rounded-full relative">
-                            <Bell className="w-5 h-5 text-muted-foreground" />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-background" />
+                        <button
+                            onClick={loadStats}
+                            className="p-2 hover:bg-muted rounded-full transition-colors"
+                            title="Daten aktualisieren"
+                        >
+                            <RefreshCcw className={`w-4 h-4 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
                         </button>
                         <div className="icon-box w-8 h-8 text-xs font-bold rounded-full">
                             {(user?.username || 'A').charAt(0).toUpperCase()}
@@ -508,13 +517,13 @@ export function AdminDashboardView() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <StatsCard title="Gesamt Händler" value={stats?.total_tenants || 0}
                                         icon={<Globe className="w-5 h-5 text-primary-foreground" />}
-                                        trend="+12% diesen Monat" color="from-primary to-primary/70" />
+                                        trend={`${stats?.tenants?.filter(t => t.is_active).length || 0} aktiv`} color="from-primary to-primary/70" />
                                     <StatsCard title="Aktive Benutzer" value={stats?.total_users || 0}
                                         icon={<Users className="w-5 h-5 text-primary-foreground" />}
-                                        trend="+5 Neuanmeldungen" color="from-accent to-accent/70" />
+                                        trend={`${stats?.total_tenants || 0} Mandanten`} color="from-accent to-accent/70" />
                                     <StatsCard title="Aktive Geräte" value={stats?.total_devices || 0}
                                         icon={<Smartphone className="w-5 h-5 text-primary-foreground" />}
-                                        trend="Online" color="from-primary to-primary/60" />
+                                        trend="Verbunden" color="from-primary to-primary/60" />
                                 </div>
 
                                 {/* Business KPIs */}
@@ -863,12 +872,14 @@ export function AdminDashboardView() {
                         )}
 
                         {activeTab === 'inbox' && (
-                            <div className="h-[calc(100vh-180px)]">
-                                <div className="mb-6">
+                            <div className="h-[calc(100vh-180px)] flex flex-col">
+                                <div className="mb-4 hidden md:block">
                                     <h2 className="text-2xl font-bold">E-Mail Postfach</h2>
                                     <p className="text-muted-foreground">Lese und beantworte E-Mails mit KI-Unterstützung.</p>
                                 </div>
-                                <InboxView />
+                                <div className="flex-1 min-h-0">
+                                    <InboxView />
+                                </div>
                             </div>
                         )}
 
@@ -930,7 +941,7 @@ export function AdminDashboardView() {
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-3 text-sm text-muted-foreground max-w-[200px] truncate">
-                                                        {log.details ? JSON.stringify(JSON.parse(log.details)).replace(/[{}"]/g, '') : '-'}
+                                                        {log.details ? (() => { try { return JSON.stringify(JSON.parse(log.details)).replace(/[{}"]/g, ''); } catch { return log.details; } })() : '-'}
                                                     </td>
                                                     <td className="px-6 py-3 text-xs text-muted-foreground font-mono">{log.ip_address}</td>
                                                 </tr>
@@ -1020,9 +1031,9 @@ export function AdminDashboardView() {
                                                 onClick={async () => {
                                                     const newState = !maintenanceEnabled;
                                                     try {
-                                                        await fetch('/api/dashboard/admin/maintenance', {
+                                                        await fetch(`${API_BASE}/api/dashboard/admin/maintenance`, {
                                                             method: 'PUT',
-                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${localStorage.getItem('admin_token')}` },
+                                                            headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${getAuthToken()}` },
                                                             body: JSON.stringify({ enabled: newState }),
                                                         });
                                                         setMaintenanceEnabled(newState);
@@ -1047,9 +1058,9 @@ export function AdminDashboardView() {
                                             onChange={async (e) => {
                                                 const lang = e.target.value;
                                                 try {
-                                                    await fetch('/api/dashboard/admin/language', {
+                                                    await fetch(`${API_BASE}/api/dashboard/admin/language`, {
                                                         method: 'PUT',
-                                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${localStorage.getItem('admin_token')}` },
+                                                        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${getAuthToken()}` },
                                                         body: JSON.stringify({ language: lang }),
                                                     });
                                                     setSystemLanguage(lang);

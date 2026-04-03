@@ -214,21 +214,7 @@ export function LoginView({ onForgotPassword }: Props) {
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         placeholder="Ihr Benutzername"
-                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl text-white placeholder:text-white/20 outline-none transition-all duration-300"
-                                        style={{
-                                            background: 'hsla(225, 12%, 14%, 0.6)',
-                                            border: '1px solid hsla(225, 10%, 22%, 0.5)',
-                                        }}
-                                        onFocus={(e) => {
-                                            e.target.style.borderColor = 'hsla(221, 83%, 53%, 0.4)';
-                                            e.target.style.background = 'hsla(225, 12%, 14%, 0.8)';
-                                            e.target.style.boxShadow = '0 0 0 3px hsla(221, 83%, 53%, 0.08)';
-                                        }}
-                                        onBlur={(e) => {
-                                            e.target.style.borderColor = 'hsla(225, 10%, 22%, 0.5)';
-                                            e.target.style.background = 'hsla(225, 12%, 14%, 0.6)';
-                                            e.target.style.boxShadow = 'none';
-                                        }}
+                                        className="login-input w-full pl-12 pr-4 py-3.5 rounded-xl text-white placeholder:text-white/20 outline-none transition-all duration-300"
                                         autoComplete="username"
                                     />
                                 </div>
@@ -251,21 +237,7 @@ export function LoginView({ onForgotPassword }: Props) {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="••••••••"
-                                        className="w-full pl-12 pr-12 py-3.5 rounded-xl text-white placeholder:text-white/20 outline-none transition-all duration-300"
-                                        style={{
-                                            background: 'hsla(225, 12%, 14%, 0.6)',
-                                            border: '1px solid hsla(225, 10%, 22%, 0.5)',
-                                        }}
-                                        onFocus={(e) => {
-                                            e.target.style.borderColor = 'hsla(221, 83%, 53%, 0.4)';
-                                            e.target.style.background = 'hsla(225, 12%, 14%, 0.8)';
-                                            e.target.style.boxShadow = '0 0 0 3px hsla(221, 83%, 53%, 0.08)';
-                                        }}
-                                        onBlur={(e) => {
-                                            e.target.style.borderColor = 'hsla(225, 10%, 22%, 0.5)';
-                                            e.target.style.background = 'hsla(225, 12%, 14%, 0.6)';
-                                            e.target.style.boxShadow = 'none';
-                                        }}
+                                        className="login-input w-full pl-12 pr-12 py-3.5 rounded-xl text-white placeholder:text-white/20 outline-none transition-all duration-300"
                                         autoComplete="current-password"
                                     />
                                     <button

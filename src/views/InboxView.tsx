@@ -490,10 +490,25 @@ export function InboxView() {
         );
     }
 
+    // Responsive: on mobile, show list or detail, not both
+    const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
+
+    // Keyboard shortcut: Escape to deselect email
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (showCompose) { setShowCompose(false); return; }
+                if (selectedEmail) { setSelectedEmail(null); setMobileView('list'); }
+            }
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    }, [showCompose, selectedEmail]);
+
     return (
-        <div className="h-full flex gap-4">
-            {/* 1. Left Sidebar - Folders & Mailboxes */}
-            <div className="w-64 shrink-0 flex flex-col gap-4">
+        <div className="h-full flex flex-col lg:flex-row gap-4">
+            {/* 1. Left Sidebar - Folders & Mailboxes (hidden on mobile when viewing detail) */}
+            <div className={`w-full lg:w-64 shrink-0 flex flex-col gap-4 ${selectedEmail && mobileView === 'detail' ? 'hidden lg:flex' : 'flex'}`}>
                 <button
                     onClick={() => setShowCompose(true)}
                     className="w-full px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-2xl font-semibold transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
@@ -563,7 +578,7 @@ export function InboxView() {
             </div>
 
             {/* 2. Middle Column - Email List */}
-            <div className="w-80 shrink-0 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-sm">
+            <div className={`w-full lg:w-80 shrink-0 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-sm ${selectedEmail && mobileView === 'detail' ? 'hidden lg:flex' : 'flex'}`}>
                 <div className="px-5 py-4 border-b border-border bg-muted/10 space-y-3">
                     <div className="flex items-center justify-between">
                         <h3 className="font-bold text-foreground">
@@ -599,14 +614,14 @@ export function InboxView() {
                             filteredEmails.map((email) => (
                                 <button
                                     key={email.uid}
-                                    onClick={() => { setSelectedEmail(email); setShowReply(false); }}
-                                    className={`w-full p-4 border-b border-border text-left hover:bg-muted/50 transition-colors ${selectedEmail?.uid === email.uid ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
+                                    onClick={() => { setSelectedEmail(email); setShowReply(false); setMobileView('detail'); }}
+                                    className={`w-full p-4 border-b border-border text-left hover:bg-muted/50 transition-colors ${selectedEmail?.uid === email.uid ? 'bg-primary/5 border-l-4 border-l-primary' : ''} ${!email.isRead ? 'bg-primary/[0.02]' : ''}`}
                                 >
                                     <div className="flex items-start justify-between gap-2 mb-1">
-                                        <span className="font-medium truncate">{email.from.name}</span>
+                                        <span className={`truncate ${!email.isRead ? 'font-bold text-foreground' : 'font-medium'}`}>{email.from.name}</span>
                                         <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(email.date)}</span>
                                     </div>
-                                    <p className="font-medium text-sm mb-1 truncate">{email.subject}</p>
+                                    <p className={`text-sm mb-1 truncate ${!email.isRead ? 'font-semibold text-foreground' : 'font-medium'}`}>{email.subject}</p>
                                     <p className="text-sm text-muted-foreground truncate">{email.snippet}</p>
                                     {email.assignment && (
                                         <div className="flex items-center gap-2 mt-2">
@@ -625,20 +640,28 @@ export function InboxView() {
                 </div>
 
             {/* 3. Right Column - Email Detail & Inline Reply */}
-            <div className="flex-1 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-sm relative">
+            <div className={`flex-1 bg-card border border-border rounded-2xl flex flex-col overflow-hidden shadow-sm relative ${!selectedEmail && mobileView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
                 {selectedEmail ? (
                     <>
                         {/* Detail Header & Action Bar */}
                         <div className="bg-muted/10 border-b border-border">
-                            <div className="p-6 pb-4 flex items-start justify-between">
-                                <div>
-                                    <h2 className="text-2xl font-bold mb-3">{selectedEmail.subject}</h2>
-                                    <div className="flex items-center gap-5 text-sm text-foreground">
+                            <div className="p-4 lg:p-6 pb-4 flex items-start justify-between">
+                                <div className="min-w-0 flex-1">
+                                    {/* Mobile back button */}
+                                    <button
+                                        onClick={() => { setSelectedEmail(null); setMobileView('list'); }}
+                                        className="lg:hidden flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors"
+                                    >
+                                        <ArrowLeft className="w-4 h-4" />
+                                        Zurück
+                                    </button>
+                                    <h2 className="text-xl lg:text-2xl font-bold mb-3 break-words">{selectedEmail.subject}</h2>
+                                    <div className="flex flex-wrap items-center gap-3 lg:gap-5 text-sm text-foreground">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                                            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
                                                 {selectedEmail.from.name.charAt(0)}
                                             </div>
-                                            <span className="font-medium">{selectedEmail.from.name} <span className="text-muted-foreground font-normal ml-1">&lt;{selectedEmail.from.address}&gt;</span></span>
+                                            <span className="font-medium truncate">{selectedEmail.from.name} <span className="text-muted-foreground font-normal ml-1 hidden sm:inline">&lt;{selectedEmail.from.address}&gt;</span></span>
                                         </div>
                                         <span className="flex items-center gap-1.5 text-muted-foreground">
                                             <Clock className="w-4 h-4" />
@@ -655,7 +678,7 @@ export function InboxView() {
                             </div>
                             
                             {/* Actions Bar */}
-                            <div className="px-6 py-3 bg-muted/30 border-t border-border flex items-center justify-between">
+                            <div className="px-4 lg:px-6 py-3 bg-muted/30 border-t border-border flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-3">
                                     {selectedEmail.assignment?.status !== 'done' && selectedEmail.assignment?.assigned_to !== profile?.username && (
                                         <button onClick={() => updateAssignment(selectedEmail, 'in_progress')} className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border hover:border-primary/50 text-foreground rounded-lg text-sm font-medium transition-colors shadow-sm">
@@ -687,19 +710,26 @@ export function InboxView() {
                         </div>
 
                         {/* Email Body Scroll Area */}
-                        <div className="flex-1 overflow-y-auto p-8 pb-32">
-                            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground/90 leading-relaxed font-medium">
-                                {selectedEmail.body}
-                            </div>
+                        <div className="flex-1 overflow-y-auto p-4 lg:p-8 pb-48 lg:pb-40">
+                            {selectedEmail.html ? (
+                                <div
+                                    className="prose prose-sm max-w-none text-foreground/90 leading-relaxed [&_img]:max-w-full [&_img]:h-auto [&_a]:text-primary [&_a]:underline"
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedEmail.html, { ADD_ATTR: ['target'] }) }}
+                                />
+                            ) : (
+                                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground/90 leading-relaxed">
+                                    {selectedEmail.body}
+                                </div>
+                            )}
                         </div>
 
                         {/* Anchored Inline Reply Box */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)] p-4 pt-3">
+                        <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border shadow-[0_-10px_40px_-5px_rgba(0,0,0,0.1)] p-3 lg:p-4 pt-3">
                             {/* AI Quick Templates */}
                             <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 hide-scrollbar">
                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-light text-brand rounded-full text-xs font-semibold shrink-0">
                                     <Sparkles className="w-3.5 h-3.5" />
-                                    KI Antwort:
+                                    KI:
                                 </div>
                                 {AI_PROMPTS.map((p) => (
                                     <button
@@ -715,34 +745,39 @@ export function InboxView() {
                             </div>
 
                             {/* Reply Textarea */}
-                            <div className="relative">
+                            <div className="flex gap-2 items-end">
                                 <textarea
                                     value={replyText}
                                     onChange={(e) => setReplyText(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && replyText.trim() && !sendingReply) {
+                                            e.preventDefault();
+                                            sendReply();
+                                        }
+                                    }}
                                     placeholder={`Antworten an ${selectedEmail.from.name}...`}
-                                    rows={replyText.trim() ? 5 : 2}
-                                    className="w-full pl-4 pr-32 py-3 bg-muted/40 border border-border focus:border-primary focus:bg-background rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/10 resize-none transition-all text-sm"
+                                    rows={replyText.trim() ? 4 : 2}
+                                    className="flex-1 pl-4 pr-4 py-3 bg-muted/40 border border-border focus:border-primary focus:bg-background rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/10 resize-none transition-all text-sm"
                                 />
-                                <div className="absolute right-2 bottom-2">
-                                     <button
-                                        onClick={sendReply}
-                                        disabled={!replyText.trim() || sendingReply}
-                                        className="px-5 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
-                                    >
-                                        {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                        Senden
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={sendReply}
+                                    disabled={!replyText.trim() || sendingReply}
+                                    className="px-4 lg:px-5 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm shrink-0"
+                                    title="Senden (Ctrl+Enter)"
+                                >
+                                    {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    <span className="hidden lg:inline">Senden</span>
+                                </button>
                             </div>
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-muted/5">
+                    <div className="flex-1 hidden lg:flex flex-col items-center justify-center text-muted-foreground bg-muted/5">
                         <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
                             <Mail className="w-8 h-8 opacity-50" />
                         </div>
                         <p className="text-xl font-semibold text-foreground mb-2">Keine E-Mail ausgewählt</p>
-                        <p className="text-sm">Wähle eine E-Mail aus der Liste aus, um die Details anzuzeigen und zu antworten.</p>
+                        <p className="text-sm text-center px-8">Wähle eine E-Mail aus der Liste, um Details anzuzeigen und zu antworten.</p>
                     </div>
                 )}
             </div>
@@ -761,7 +796,7 @@ export function InboxView() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-card border border-border rounded-2xl w-full max-w-6xl h-[85vh] overflow-hidden flex flex-col shadow-2xl"
+                            className="bg-card border border-border rounded-2xl w-full max-w-6xl h-[90vh] lg:h-[85vh] overflow-hidden flex flex-col shadow-2xl"
                         >
                             {/* Header & Tabs */}
                             <div className="flex flex-col border-b border-border shrink-0 bg-muted/5">
@@ -815,7 +850,7 @@ export function InboxView() {
                             </div>
 
                             {/* Main Content Area depends on emailType */}
-                            <div className="flex-1 flex overflow-hidden">
+                            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                                 {emailType === 'normal' ? (
                                     /* SIMPLE COMPOSE LOGIC FOR 1-ON-1 EMAILS */
                                     <div className="flex-1 flex flex-col p-8 bg-card max-w-4xl mx-auto w-full">
@@ -841,10 +876,16 @@ export function InboxView() {
                                                 />
                                             </div>
                                             
-                                            <div className="flex flex-col flex-1 pl-24 pt-2 relative">
+                                            <div className="flex flex-col flex-1 pl-0 lg:pl-24 pt-2 relative">
                                                 <textarea
                                                     value={composeData.body}
                                                     onChange={(e) => setComposeData(prev => ({ ...prev, body: e.target.value }))}
+                                                    onKeyDown={(e) => {
+                                                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && composeData.to && composeData.subject && composeData.body && !composeSending) {
+                                                            e.preventDefault();
+                                                            sendCompose();
+                                                        }
+                                                    }}
                                                     placeholder="Schreibe deine Nachricht..."
                                                     className="flex-1 w-full px-5 py-4 bg-muted/30 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
                                                 />
@@ -865,7 +906,7 @@ export function InboxView() {
                                     /* 2-COLUMN MARKETING CAMPAIGN LOGIC */
                                     <>
                                         {/* Left Column - AI Generator & Recipients */}
-                                        <div className="w-[45%] border-r border-border flex flex-col overflow-y-auto bg-muted/5">
+                                        <div className="w-full lg:w-[45%] border-r border-border flex flex-col overflow-y-auto bg-muted/5">
                                             <div className="p-6 space-y-8">
 
                                     {/* AI Generator Section */}
@@ -998,7 +1039,7 @@ export function InboxView() {
                                 </div>
 
                                 {/* Right Column - Email Preview */}
-                                <div className="w-1/2 flex flex-col overflow-hidden p-6">
+                                <div className="w-full lg:w-1/2 flex flex-col overflow-hidden p-4 lg:p-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-2">
                                             <Mail className="w-5 h-5 text-primary" />
@@ -1062,7 +1103,7 @@ export function InboxView() {
 
                                         {/* Mini HTML Preview when not in full preview mode */}
                                         {!showPreview && composeData.htmlContent && (
-                                            <div className="border border-border rounded-xl overflow-hidden">
+                                            <div className="border border-border rounded-xl overflow-hidden relative">
                                                 <div className="px-3 py-2 bg-muted text-xs font-medium border-b border-border flex items-center justify-between">
                                                     <span className="flex items-center gap-1">
                                                         <Megaphone className="w-3 h-3 text-warn" />
@@ -1076,7 +1117,7 @@ export function InboxView() {
                                                     </button>
                                                 </div>
                                                 <div
-                                                    className="p-4 bg-white text-black text-sm max-h-32 overflow-hidden relative"
+                                                    className="p-4 bg-white text-black text-sm max-h-32 overflow-hidden"
                                                     dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(composeData.htmlContent) }}
                                                 />
                                                 <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />

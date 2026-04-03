@@ -53,7 +53,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
     };
 
     if (token) {
-        headers['Authorization'] = `Token ${token}`;
+        headers['Authorization'] = `Bearer ${token}`;
     }
 
     const MAX_RETRIES = 3;

@@ -70,9 +70,13 @@ export function PasswordResetView({ onBack, resetToken }: Props) {
             return;
         }
 
+        if (!resetToken) {
+            setError('Kein Reset-Token vorhanden. Bitte fordern Sie einen neuen Link an.');
+            return;
+        }
         setIsLoading(true);
         try {
-            await resetPassword(resetToken!, newPassword);
+            await resetPassword(resetToken, newPassword);
             setSuccess(true);
             toast.success('Passwort erfolgreich geändert');
             setTimeout(() => onBack(), 2000);

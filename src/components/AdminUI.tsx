@@ -33,6 +33,7 @@ interface LimitBarProps {
 
 interface StatusBadgeProps {
     status: string;
+    type?: 'onboarding' | 'payment';
 }
 
 interface ActionButtonProps {
@@ -70,6 +71,7 @@ interface InputProps {
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     children: React.ReactNode;
     variant?: 'primary' | 'ghost';
+    loading?: boolean;
 }
 
 // ── Sidebar Item ──
@@ -130,15 +132,23 @@ export const LimitBar = ({ current, max, label }: LimitBarProps) => {
 };
 
 // ── Status Badge ──
-export const StatusBadge = ({ status }: StatusBadgeProps) => {
+export const StatusBadge = ({ status, type }: StatusBadgeProps) => {
     const isGood = status === 'completed' || status === 'paid';
     const isWarn = status === 'trial' || status === 'pending';
     const badgeClass = isGood ? 'badge-success' : isWarn ? 'badge-warn' : 'badge-danger';
     const dotClass = isGood ? 'bg-success' : isWarn ? 'bg-warn' : 'bg-danger';
-    const label = status === 'completed' ? 'Onboarding Fertig' : status === 'paid' ? 'Bezahlt'
-        : status === 'trial' ? 'Testphase' : status === 'pending' ? 'Ausstehend' : status;
+
+    const labelMap: Record<string, string> = {
+        completed: 'Onboarding Fertig',
+        paid: 'Bezahlt',
+        trial: 'Testphase',
+        pending: 'Ausstehend',
+        overdue: 'Überfällig',
+    };
+    const label = labelMap[status] || status;
+
     return (
-        <span className={`badge ${badgeClass}`}>
+        <span className={`badge ${badgeClass}`} title={type ? `${type === 'onboarding' ? 'Onboarding' : 'Zahlung'}: ${label}` : undefined}>
             <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
             {label}
         </span>
@@ -154,26 +164,36 @@ export const ActionButton = ({ icon, onClick, tooltip, variant }: ActionButtonPr
 );
 
 // ── Modal ──
-export const Modal = ({ children, onClose, title }: ModalProps) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 modal-overlay" />
-        <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            className="relative w-full max-w-md rounded-2xl overflow-hidden modal-card"
-        >
-            <div className="px-6 py-4 border-b border-border/50 flex justify-between items-center">
-                <h3 className="font-bold text-lg tracking-tight">{title}</h3>
-                <button onClick={onClose} className="action-btn"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="p-6">{children}</div>
-        </motion.div>
-    </div>
-);
+export const Modal = ({ children, onClose, title }: ModalProps) => {
+    React.useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    }, [onClose]);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="absolute inset-0 modal-overlay" />
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                className="relative w-full max-w-md rounded-2xl overflow-hidden modal-card"
+            >
+                <div className="px-6 py-4 border-b border-border/50 flex justify-between items-center">
+                    <h3 className="font-bold text-lg tracking-tight">{title}</h3>
+                    <button onClick={onClose} className="action-btn"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="p-6">{children}</div>
+            </motion.div>
+        </div>
+    );
+};
 
 // ── Device Drawer ──
 export const DeviceDrawer = ({ tenant, devices, onClose, onRemove }: DeviceDrawerProps) => (
@@ -234,10 +254,11 @@ export const Input = ({ label, onChange, ...props }: InputProps) => (
 );
 
 // ── Button ──
-export const Button = ({ children, variant = 'primary', disabled, ...props }: ButtonProps) => (
-    <button disabled={disabled}
-        className={variant === 'primary' ? 'btn-brand' : 'btn-ghost'}
+export const Button = ({ children, variant = 'primary', disabled, loading, ...props }: ButtonProps) => (
+    <button disabled={disabled || loading}
+        className={`${variant === 'primary' ? 'btn-brand' : 'btn-ghost'} ${loading ? 'opacity-70 cursor-wait' : ''}`}
         {...props}>
+        {loading && <Loader2 className="w-4 h-4 animate-spin mr-2 inline" />}
         {children}
     </button>
 );

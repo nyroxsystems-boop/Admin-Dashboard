@@ -111,9 +111,10 @@ export function BotTestingView() {
         const reader = new FileReader();
         reader.onload = (event) => {
             const base64 = event.target?.result as string;
+            if (!base64) return;
             setImageData({
-                base64: base64.split(',')[1], // Remove data:image/...;base64, prefix
-                preview: base64 // Keep full for preview
+                base64: base64.includes(',') ? base64.split(',')[1] : base64,
+                preview: base64
             });
             toast.success('Bild hinzugefügt - Fahrzeugschein erkannt?');
         };
@@ -496,7 +497,7 @@ export function BotTestingView() {
                                                 try {
                                                     const res = await fetch(`${API_BASE_URL}/api/bot-testing/oem-reverse-lookup`, {
                                                         method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+                                                        headers: { 'Content-Type': 'application/json', Authorization: `Token ${getAuthToken()}` },
                                                         body: JSON.stringify({ oem: orderDetails.oem_number }),
                                                     });
                                                     const data = await res.json();
