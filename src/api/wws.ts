@@ -886,3 +886,20 @@ export async function exportBulkToOemDb(jobIds?: number[]): Promise<{
     if (!res.ok) throw new Error('Export failed');
     return res.json();
 }
+
+// Brands
+export async function getBrands(): Promise<{ brands: string[] }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/brands`);
+    if (!res.ok) throw new Error('Failed to fetch brands');
+    return res.json();
+}
+
+export async function crawlBrand(brand: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/crawl-brand`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand }),
+    });
+    if (!res.ok) throw new Error('Failed to start brand crawl');
+    return res.json();
+}

@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Play, Pause, Square, Loader2, CheckCircle, XCircle, AlertTriangle,
-    ChevronDown, ChevronRight, Upload, Database, RefreshCcw,
+    ChevronDown, ChevronRight, Upload, Database, RefreshCcw, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
     getBulkStatus, discoverFromPL24, startAllBulkJobs,
     pauseBulkJob, resumeBulkJob, cancelBulkJob,
     getBulkJobs, getBulkJobDetail, getBulkJobResults, exportBulkToOemDb,
+    getBrands, crawlBrand,
     BulkJob, BulkStatus, BulkResultRow, BulkJobProgress,
 } from '../api/wws';
 
@@ -24,7 +25,28 @@ export function BulkScraperView() {
     const [jobProgress, setJobProgress] = useState<BulkJobProgress | null>(null);
     const [starting, setStarting] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [brands, setBrands] = useState<string[]>([]);
+    const [selectedBrand, setSelectedBrand] = useState<string>('');
     const tableBottomRef = useRef<HTMLDivElement>(null);
+
+    // Load brands on mount
+    useEffect(() => {
+        getBrands()
+            .then(r => {
+                setBrands(r.brands);
+                if (r.brands.length > 0 && !selectedBrand) {
+                    setSelectedBrand(r.brands[0]);
+                }
+            })
+            .catch(() => {
+                // Fallback brand list if API is down
+                setBrands(['VW', 'AUDI', 'BMW', 'MERCEDES', 'PORSCHE', 'SEAT', 'SKODA', 'CUPRA',
+                    'FORD', 'OPEL', 'TOYOTA', 'HYUNDAI', 'KIA', 'RENAULT', 'PEUGEOT', 'CITROEN',
+                    'FIAT', 'VOLVO', 'JAGUAR', 'LAND ROVER', 'MINI', 'NISSAN', 'HONDA', 'MAZDA',
+                    'SUZUKI', 'LEXUS', 'BENTLEY', 'DACIA', 'JEEP', 'ALPINE', 'IVECO', 'INFINITI', 'MAN']);
+                setSelectedBrand('VW');
+            });
+    }, []);
 
     // Auto-refresh status + jobs + live results
     const loadAll = useCallback(async () => {
@@ -52,14 +74,32 @@ export function BulkScraperView() {
         return () => clearInterval(interval);
     }, [loadAll]);
 
-    // Start full scrape: discover brands → start all jobs
-    const handleStart = async () => {
+    // Start single brand crawl
+    const handleStartBrand = async () => {
+        if (!selectedBrand) {
+            toast.error('Bitte Marke auswählen');
+            return;
+        }
         setStarting(true);
         try {
-            toast.info('Starte PL24 Discovery...');
+            toast.info(`Starte Crawl für ${selectedBrand}...`);
+            await crawlBrand(selectedBrand);
+            toast.success(`${selectedBrand} Crawl gestartet — Fortschritt in den Logs`);
+            await loadAll();
+        } catch (err: any) {
+            toast.error('Start fehlgeschlagen: ' + err.message);
+        } finally {
+            setStarting(false);
+        }
+    };
+
+    // Start all brands (discover → start-all)
+    const handleStartAll = async () => {
+        setStarting(true);
+        try {
+            toast.info('Starte Discovery aller Marken...');
             const discovery = await discoverFromPL24();
             toast.success(`${discovery.models.length} Modelle von ${discovery.brands.length} Marken entdeckt`);
-
             const result = await startAllBulkJobs();
             toast.success(`${result.queued} Jobs gestartet`);
             await loadAll();
@@ -101,14 +141,40 @@ export function BulkScraperView() {
     return (
         <div className="space-y-6">
 
-            {/* ── Control Bar ─────────────────────────────────────────── */}
+            {/* ── Brand Selector + Control Bar ────────────────────────── */}
             <div className="flex items-center gap-3 flex-wrap">
                 {!isRunning && !isPaused ? (
-                    <button onClick={handleStart} disabled={starting}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 shadow-sm">
-                        {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                        Scraper starten
-                    </button>
+                    <>
+                        {/* Brand Selector */}
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={selectedBrand}
+                                onChange={e => setSelectedBrand(e.target.value)}
+                                className="px-3 py-2.5 bg-background border border-border rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none min-w-[140px]"
+                            >
+                                {brands.map(b => (
+                                    <option key={b} value={b}>{b}</option>
+                                ))}
+                            </select>
+
+                            <button onClick={handleStartBrand} disabled={starting || !selectedBrand}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 shadow-sm">
+                                {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                                Marke crawlen
+                            </button>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-8 w-px bg-border mx-1" />
+
+                        {/* Start all (secondary) */}
+                        <button onClick={handleStartAll} disabled={starting}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-muted text-foreground border border-border rounded-lg text-sm font-medium hover:bg-muted/80 disabled:opacity-50"
+                            title="Discovery + alle Marken nacheinander">
+                            {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                            Alle Marken
+                        </button>
+                    </>
                 ) : (
                     <>
                         {isRunning && (
