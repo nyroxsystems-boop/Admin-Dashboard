@@ -6,7 +6,7 @@ import {
 import { toast } from 'sonner';
 import {
     getBulkStatus, getBulkVehicles, createBulkVehicle, updateBulkVehicle, deleteBulkVehicle,
-    seedBulkVins, startBulkJob, startAllBulkJobs, pauseBulkJob, resumeBulkJob, cancelBulkJob,
+    seedBulkVins, discoverFromPL24, startBulkJob, startAllBulkJobs, pauseBulkJob, resumeBulkJob, cancelBulkJob,
     getBulkJobs, getBulkJobDetail, getBulkJobResults, exportBulkToOemDb,
     BulkVehicle, BulkJob, BulkStatus, BulkResultRow, BulkJobProgress,
 } from '../api/wws';
@@ -122,6 +122,7 @@ function VehiclesPanel({ onRefresh }: { onRefresh: () => void }) {
     const [vehicles, setVehicles] = useState<BulkVehicle[]>([]);
     const [loading, setLoading] = useState(true);
     const [seeding, setSeeding] = useState(false);
+    const [discovering, setDiscovering] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ vin: '', brand: 'VW', model: '', model_code: '', year_from: '', year_to: '', notes: '' });
 
@@ -207,6 +208,21 @@ function VehiclesPanel({ onRefresh }: { onRefresh: () => void }) {
             <div className="flex items-center justify-between mb-4">
                 <div className="flex gap-2">
                     <button onClick={async () => {
+                        setDiscovering(true);
+                        try {
+                            const result = await discoverFromPL24();
+                            toast.success(`${result.models.length} Modelle von ${result.brands.length} Marken entdeckt!`);
+                            load();
+                            onRefresh();
+                        } catch (err: any) { toast.error('Discovery: ' + err.message); }
+                        finally { setDiscovering(false); }
+                    }}
+                        disabled={discovering || seeding}
+                        className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:opacity-90 disabled:opacity-50">
+                        {discovering ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                        Von PL24 entdecken
+                    </button>
+                    <button onClick={async () => {
                         setSeeding(true);
                         try {
                             const result = await seedBulkVins();
@@ -216,7 +232,7 @@ function VehiclesPanel({ onRefresh }: { onRefresh: () => void }) {
                         } catch (err: any) { toast.error(err.message); }
                         finally { setSeeding(false); }
                     }}
-                        disabled={seeding}
+                        disabled={seeding || discovering}
                         className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:opacity-90 disabled:opacity-50">
                         {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         VINs auto-laden

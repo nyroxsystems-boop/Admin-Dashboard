@@ -793,6 +793,14 @@ export async function updateBulkVehicle(id: number, data: Record<string, any>): 
     return res.json();
 }
 
+export async function discoverFromPL24(): Promise<{
+    success: boolean; brands: string[]; models: Array<{ brand: string; model: string }>; errors: string[];
+}> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/discover`, { method: 'POST' });
+    if (!res.ok) throw new Error('Discovery failed');
+    return res.json();
+}
+
 export async function seedBulkVins(): Promise<{ success: boolean; added: number; skipped: number; total: number; availableVins: number }> {
     const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/vehicles/seed`, { method: 'POST' });
     if (!res.ok) throw new Error('VIN seed failed');
