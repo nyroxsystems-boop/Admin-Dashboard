@@ -16,6 +16,7 @@ import { OemLookupView } from './OemLookupView';
 import { BotTestingView } from './BotTestingView';
 import { InboxView } from './InboxView';
 import { AccuracyDashboardView } from './AccuracyDashboardView';
+import { BulkScraperView } from './BulkScraperView';
 import { TenantDetailView } from './TenantDetailView';
 import { useAuth } from '../context/AuthContext';
 import { SidebarItem, StatsCard, LimitBar, StatusBadge, ActionButton, Modal, DeviceDrawer, Input, Button } from '../components/AdminUI';
@@ -35,7 +36,7 @@ export function AdminDashboardView() {
     const [viewingTenant, setViewingTenant] = useState<any | null>(null);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'audit' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bulk-scraper' | 'bot-testing' | 'accuracy' | 'inbox' | 'audit' | 'settings'>('overview');
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
@@ -404,6 +405,8 @@ export function AdminDashboardView() {
                             onClick={() => { setActiveTab('oem-registry'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Search />} label="OEM Lookup" active={activeTab === 'oem-lookup'}
                             onClick={() => { setActiveTab('oem-lookup'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<HardDrive />} label="Bulk Scraper" active={activeTab === 'bulk-scraper'}
+                            onClick={() => { setActiveTab('bulk-scraper'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Bot />} label="Bot Testing" active={activeTab === 'bot-testing'}
                             onClick={() => { setActiveTab('bot-testing'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<BarChart2 />} label="AI Accuracy" active={activeTab === 'accuracy'}
@@ -474,6 +477,7 @@ export function AdminDashboardView() {
                              activeTab === 'tenants' ? 'Händler & Mandanten' :
                              activeTab === 'oem-registry' ? 'OEM Registry' :
                              activeTab === 'oem-lookup' ? 'OEM Lookup' :
+                             activeTab === 'bulk-scraper' ? 'PL24 Bulk Scraper' :
                              activeTab === 'bot-testing' ? 'Bot Testing' :
                              activeTab === 'accuracy' ? 'AI Accuracy' :
                              activeTab === 'inbox' ? 'E-Mail Postfach' :
@@ -851,6 +855,12 @@ export function AdminDashboardView() {
                         {activeTab === 'oem-lookup' && (
                             <div>
                                 <OemLookupView />
+                            </div>
+                        )}
+
+                        {activeTab === 'bulk-scraper' && (
+                            <div>
+                                <BulkScraperView />
                             </div>
                         )}
 

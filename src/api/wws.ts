@@ -684,3 +684,197 @@ export async function getPartslinkHealth(): Promise<{ status: string; service: s
     if (!res.ok) throw new Error('Catalog Scraper not reachable');
     return res.json();
 }
+
+// ============================================================================
+// Bulk OEM Scraper
+// ============================================================================
+
+export interface BulkVehicle {
+    id: number;
+    vin: string;
+    brand: string;
+    model: string;
+    model_code: string | null;
+    year_from: number | null;
+    year_to: number | null;
+    notes: string | null;
+    is_active: number;
+    created_at: string;
+}
+
+export interface BulkJob {
+    id: number;
+    vehicle_id: number;
+    vin: string;
+    brand: string;
+    model: string;
+    status: 'pending' | 'queued' | 'running' | 'paused' | 'completed' | 'failed';
+    total_hg: number;
+    completed_hg: number;
+    total_parts_found: number;
+    error_count: number;
+    last_error: string | null;
+    started_at: string | null;
+    completed_at: string | null;
+    created_at: string;
+}
+
+export interface BulkStatus {
+    running: boolean;
+    paused: boolean;
+    currentJob: BulkJob | null;
+    totalVehicles: number;
+    activeVehicles: number;
+    totalJobs: number;
+    totalResults: number;
+    resultsByBrand: Array<{ brand: string; count: number }>;
+}
+
+export interface BulkResultRow {
+    oem: string;
+    description: string | null;
+    brand: string;
+    model: string;
+    bildtafel: string | null;
+    hg_code: string | null;
+    hg_name: string | null;
+    fg_code: string | null;
+    fg_name: string | null;
+}
+
+export interface BulkJobProgress {
+    total: number;
+    completed: number;
+    failed: number;
+    pending: number;
+    byHg: Array<{ hg_code: string; hg_name: string | null; total: number; completed: number; failed: number; parts_found: number }>;
+}
+
+// Status
+export async function getBulkStatus(): Promise<BulkStatus> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/status`);
+    if (!res.ok) throw new Error('Bulk status unavailable');
+    return res.json();
+}
+
+// Vehicles
+export async function getBulkVehicles(brand?: string): Promise<{ vehicles: BulkVehicle[] }> {
+    const url = brand
+        ? `${CATALOG_SCRAPER_URL}/api/bulk/vehicles?brand=${encodeURIComponent(brand)}`
+        : `${CATALOG_SCRAPER_URL}/api/bulk/vehicles`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch vehicles');
+    return res.json();
+}
+
+export async function createBulkVehicle(data: {
+    vin: string; brand: string; model: string;
+    model_code?: string; year_from?: number; year_to?: number; notes?: string;
+}): Promise<{ success: boolean; id: number }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/vehicles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || 'Failed to create vehicle');
+    }
+    return res.json();
+}
+
+export async function updateBulkVehicle(id: number, data: Record<string, any>): Promise<{ success: boolean }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/vehicles/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update vehicle');
+    return res.json();
+}
+
+export async function seedBulkVins(): Promise<{ success: boolean; added: number; skipped: number; total: number; availableVins: number }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/vehicles/seed`, { method: 'POST' });
+    if (!res.ok) throw new Error('VIN seed failed');
+    return res.json();
+}
+
+export async function deleteBulkVehicle(id: number): Promise<{ success: boolean }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/vehicles/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete vehicle');
+    return res.json();
+}
+
+// Jobs
+export async function startBulkJob(vehicleId: number): Promise<{ success: boolean; jobId: number }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicleId }),
+    });
+    if (!res.ok) throw new Error('Failed to start job');
+    return res.json();
+}
+
+export async function startAllBulkJobs(): Promise<{ success: boolean; queued: number }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs/start-all`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to start all jobs');
+    return res.json();
+}
+
+export async function pauseBulkJob(jobId: number): Promise<{ success: boolean }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs/${jobId}/pause`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to pause job');
+    return res.json();
+}
+
+export async function resumeBulkJob(jobId: number): Promise<{ success: boolean }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs/${jobId}/resume`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to resume job');
+    return res.json();
+}
+
+export async function cancelBulkJob(jobId: number): Promise<{ success: boolean }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs/${jobId}/cancel`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to cancel job');
+    return res.json();
+}
+
+export async function getBulkJobs(opts?: { status?: string }): Promise<{ jobs: BulkJob[]; total: number }> {
+    const params = new URLSearchParams();
+    if (opts?.status) params.set('status', opts.status);
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch jobs');
+    return res.json();
+}
+
+export async function getBulkJobDetail(jobId: number): Promise<{ job: BulkJob; progress: BulkJobProgress }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs/${jobId}`);
+    if (!res.ok) throw new Error('Failed to fetch job detail');
+    return res.json();
+}
+
+export async function getBulkJobResults(jobId: number, opts?: {
+    limit?: number; offset?: number; search?: string;
+}): Promise<{ results: BulkResultRow[]; total: number }> {
+    const params = new URLSearchParams();
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    if (opts?.offset) params.set('offset', String(opts.offset));
+    if (opts?.search) params.set('search', opts.search);
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/jobs/${jobId}/results?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch results');
+    return res.json();
+}
+
+// Export
+export async function exportBulkToOemDb(jobIds?: number[]): Promise<{
+    success: boolean; total: number; exported: number; errors: number;
+}> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobIds }),
+    });
+    if (!res.ok) throw new Error('Export failed');
+    return res.json();
+}
