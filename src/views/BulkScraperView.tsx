@@ -42,17 +42,6 @@ export function BulkScraperView() {
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h2 className="text-2xl font-bold">PL24 Bulk Scraper</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Vollständige OEM-Katalog-Extraktion via PartsLink24
-                    </p>
-                </div>
-                <button onClick={loadStatus} className="p-2 rounded-lg hover:bg-muted transition-colors">
-                    <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-            </div>
 
             {/* Status Bar */}
             {status && (

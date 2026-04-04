@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { lookupOem, approveOemResult, resolveOemForward, lookupPartslink24, getPartslinkHealth, OemLookupResult, PartslinkResult } from '../api/wws';
 import { OemBatchTest } from './OemBatchTest';
 import { OemErrorReview, getErrorCount, addErrors, type ErrorItem } from './OemErrorReview';
+import { BulkScraperView } from './BulkScraperView';
 
 interface LookupHistoryItem {
     oem: string;
@@ -25,7 +26,7 @@ interface LookupHistoryItem {
 }
 
 export function OemLookupView() {
-    const [mode, setMode] = useState<'forward' | 'reverse' | 'batch' | 'errors'>('forward');
+    const [mode, setMode] = useState<'forward' | 'reverse' | 'batch' | 'errors' | 'bulk'>('forward');
     const [errorCount, setErrorCount] = useState(0);
 
     // Poll error count for badge
@@ -237,7 +238,9 @@ export function OemLookupView() {
                             ? 'OEM-Nummer → KI identifiziert das Teil → Bestätigen → Ins Registry aufnehmen'
                             : mode === 'batch'
                                 ? 'CSV importieren → Bot testet alle Zeilen → OEM-Ergebnisse exportieren'
-                                : 'Fahrzeug + Teil → OEM-Nummer (Hydra v2: DB → CrossRef → AI → Validation)'}
+                                : mode === 'bulk'
+                                    ? 'PartsLink24 Katalog komplett scrapen → Alle OEMs in die Datenbank'
+                                    : 'Fahrzeug + Teil → OEM-Nummer (Hydra v2: DB → CrossRef → AI → Validation)'}
                     </p>
                 </div>
 
@@ -290,6 +293,17 @@ export function OemLookupView() {
                                 {errorCount > 99 ? '99+' : errorCount}
                             </span>
                         )}
+                    </button>
+                    <button
+                        onClick={() => setMode('bulk')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                            mode === 'bulk'
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <Database className="w-4 h-4" />
+                        Katalog-Scraper
                     </button>
                 </div>
             </div>
@@ -899,6 +913,11 @@ export function OemLookupView() {
                ERRORS MODE: Review flagged OEM results
             ═══════════════════════════════════════════ */}
             {mode === 'errors' && <OemErrorReview />}
+
+            {/* ═══════════════════════════════════════════
+               BULK MODE: PL24 Catalog Scraper
+            ═══════════════════════════════════════════ */}
+            {mode === 'bulk' && <BulkScraperView />}
         </div>
     );
 }
