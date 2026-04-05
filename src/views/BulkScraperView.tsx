@@ -203,9 +203,24 @@ export function BulkScraperView() {
                                 <Play className="w-4 h-4" /> Fortsetzen
                             </button>
                         )}
-                        <button onClick={() => { if (activeJob) cancelBulkJob(activeJob.id); }}
+                        <button onClick={async () => {
+                            if (!confirm('Gesamten Crawl-Vorgang abbrechen?')) return;
+                            try {
+                                // Cancel all running/queued jobs
+                                for (const job of jobs) {
+                                    if (job.status === 'running' || job.status === 'queued' || job.status === 'paused') {
+                                        await cancelBulkJob(job.id);
+                                    }
+                                }
+                                if (activeJob) await cancelBulkJob(activeJob.id);
+                                toast.success('Alle Jobs abgebrochen');
+                                await loadAll();
+                            } catch (err: any) {
+                                toast.error('Abbruch fehlgeschlagen: ' + err.message);
+                            }
+                        }}
                             className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:opacity-90">
-                            <Square className="w-4 h-4" /> Stoppen
+                            <Square className="w-4 h-4" /> Alles abbrechen
                         </button>
                     </>
                 )}
