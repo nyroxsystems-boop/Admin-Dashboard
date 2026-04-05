@@ -27,6 +27,7 @@ export function BulkScraperView() {
     const [exporting, setExporting] = useState(false);
     const [brands, setBrands] = useState<string[]>([]);
     const [selectedBrand, setSelectedBrand] = useState<string>('');
+    const [crawlMode, setCrawlMode] = useState<'api' | 'browser'>('api');
     const tableBottomRef = useRef<HTMLDivElement>(null);
 
     // Load brands on mount
@@ -82,8 +83,8 @@ export function BulkScraperView() {
         }
         setStarting(true);
         try {
-            toast.info(`Starte Crawl für ${selectedBrand}...`);
-            await crawlBrand(selectedBrand);
+            toast.info(`Starte ${crawlMode === 'api' ? '⚡ API' : '🌐 Browser'} Crawl für ${selectedBrand}...`);
+            await crawlBrand(selectedBrand, crawlMode);
             toast.success(`${selectedBrand} Crawl gestartet — Fortschritt in den Logs`);
             await loadAll();
         } catch (err: any) {
@@ -163,6 +164,19 @@ export function BulkScraperView() {
                                 Marke crawlen
                             </button>
                         </div>
+
+                        {/* Mode Toggle */}
+                        <button
+                            onClick={() => setCrawlMode(m => m === 'api' ? 'browser' : 'api')}
+                            className={`px-3 py-2.5 rounded-lg text-xs font-bold border transition-all ${
+                                crawlMode === 'api'
+                                    ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                    : 'bg-blue-50 border-blue-300 text-blue-700'
+                            }`}
+                            title={crawlMode === 'api' ? 'API-Modus: 10-20x schneller, direkte REST-Calls' : 'Browser-Modus: Langsamer, aber stabiler'}
+                        >
+                            {crawlMode === 'api' ? '⚡ API' : '🌐 Browser'}
+                        </button>
 
                         {/* Divider */}
                         <div className="h-8 w-px bg-border mx-1" />

@@ -894,11 +894,11 @@ export async function getBrands(): Promise<{ brands: string[] }> {
     return res.json();
 }
 
-export async function crawlBrand(brand: string): Promise<{ success: boolean; message: string }> {
+export async function crawlBrand(brand: string, mode: 'api' | 'browser' = 'api'): Promise<{ success: boolean; message: string }> {
     const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/crawl-brand`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brand }),
+        body: JSON.stringify({ brand, mode }),
     });
     if (!res.ok) throw new Error('Failed to start brand crawl');
     return res.json();
