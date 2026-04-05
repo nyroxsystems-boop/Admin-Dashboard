@@ -848,6 +848,12 @@ export async function cancelBulkJob(jobId: number): Promise<{ success: boolean }
     return res.json();
 }
 
+export async function cancelAllBulkJobs(): Promise<{ success: boolean; cancelled: number }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/cancel-all`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to cancel all');
+    return res.json();
+}
+
 export async function getBulkJobs(opts?: { status?: string }): Promise<{ jobs: BulkJob[]; total: number }> {
     const params = new URLSearchParams();
     if (opts?.status) params.set('status', opts.status);

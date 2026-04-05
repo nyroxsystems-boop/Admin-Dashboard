@@ -6,7 +6,7 @@ import {
 import { toast } from 'sonner';
 import {
     getBulkStatus, discoverFromPL24, startAllBulkJobs,
-    pauseBulkJob, resumeBulkJob, cancelBulkJob,
+    pauseBulkJob, resumeBulkJob, cancelBulkJob, cancelAllBulkJobs,
     getBulkJobs, getBulkJobDetail, getBulkJobResults, exportBulkToOemDb,
     getBrands, crawlBrand,
     BulkJob, BulkStatus, BulkResultRow, BulkJobProgress,
@@ -206,14 +206,8 @@ export function BulkScraperView() {
                         <button onClick={async () => {
                             if (!confirm('Gesamten Crawl-Vorgang abbrechen?')) return;
                             try {
-                                // Cancel all running/queued jobs
-                                for (const job of jobs) {
-                                    if (job.status === 'running' || job.status === 'queued' || job.status === 'paused') {
-                                        await cancelBulkJob(job.id);
-                                    }
-                                }
-                                if (activeJob) await cancelBulkJob(activeJob.id);
-                                toast.success('Alle Jobs abgebrochen');
+                                const result = await cancelAllBulkJobs();
+                                toast.success(`${result.cancelled} Jobs abgebrochen`);
                                 await loadAll();
                             } catch (err: any) {
                                 toast.error('Abbruch fehlgeschlagen: ' + err.message);
