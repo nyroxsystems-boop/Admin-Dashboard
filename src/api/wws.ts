@@ -454,6 +454,10 @@ export interface OemRecord {
     part_category: string;
     part_description: string;
     model: string;
+    model_code?: string | null;
+    year_from?: number | null;
+    year_to?: number | null;
+    engine?: string | null;
     confidence: number;
     sources: string;
     created_at: string;
@@ -468,6 +472,7 @@ export interface OemRecordsResponse {
     filters: {
         brands: string[];
         categories: string[];
+        modelCodes?: string[];
     };
 }
 
@@ -477,6 +482,10 @@ export interface OemSearchParams {
     search?: string;
     brand?: string;
     category?: string;
+    modelCode?: string;
+    year?: number;
+    yearFrom?: number;
+    yearTo?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
 }
@@ -488,6 +497,10 @@ export async function getOemRecords(params: OemSearchParams = {}): Promise<OemRe
     if (params.search) query.set('search', params.search);
     if (params.brand) query.set('brand', params.brand);
     if (params.category) query.set('category', params.category);
+    if (params.modelCode) query.set('model_code', params.modelCode);
+    if (params.year) query.set('year', String(params.year));
+    if (params.yearFrom) query.set('year_from', String(params.yearFrom));
+    if (params.yearTo) query.set('year_to', String(params.yearTo));
     if (params.sortBy) query.set('sortBy', params.sortBy);
     if (params.sortOrder) query.set('sortOrder', params.sortOrder);
 
@@ -908,4 +921,94 @@ export async function crawlBrand(brand: string, mode: 'api' | 'browser' = 'api')
     });
     if (!res.ok) throw new Error('Failed to start brand crawl');
     return res.json();
+}
+
+// ── Brand Chain (auto-continue) ─────────────────────────────────────────────
+
+export interface BrandChainError {
+    brand: string;
+    message: string;
+    at: string;
+}
+
+export interface BrandChainState {
+    active: boolean;
+    paused: boolean;
+    cancelled: boolean;
+    mode: 'api' | 'browser';
+    brands: string[];
+    currentIndex: number;
+    currentBrand: string | null;
+    startedAt: string | null;
+    finishedAt: string | null;
+    lastCompletedBrand: string | null;
+    completedBrands: string[];
+    errors: BrandChainError[];
+    totalOemsAllBrands: number;
+    totalModelsAllBrands: number;
+}
+
+export async function startBrandChain(startBrand: string, mode: 'api' | 'browser' = 'api'): Promise<{ success: boolean; state: BrandChainState }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/chain/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startBrand, mode }),
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || 'Failed to start brand chain');
+    }
+    return res.json();
+}
+
+export async function pauseBrandChain(): Promise<{ success: boolean; state: BrandChainState }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/chain/pause`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to pause chain');
+    return res.json();
+}
+
+export async function resumeBrandChain(): Promise<{ success: boolean; state: BrandChainState }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/chain/resume`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to resume chain');
+    return res.json();
+}
+
+export async function cancelBrandChain(): Promise<{ success: boolean; state: BrandChainState }> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/chain/cancel`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to cancel chain');
+    return res.json();
+}
+
+export async function getBrandChainState(): Promise<BrandChainState> {
+    const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/chain/state`);
+    if (!res.ok) throw new Error('Failed to get chain state');
+    return res.json();
+}
+
+// ── VIN → OEM Search ────────────────────────────────────────────────────────
+
+export interface VinDecodedInfo {
+    brand: string | null;
+    year: number | null;
+    group: string | null;
+    wmi: string;
+    isVAG: boolean;
+    motorcode?: string;
+    nhtsaModel?: string;
+    nhtsaEngine?: string;
+    nhtsaDisplacement?: number;
+}
+
+export interface VinSearchResponse {
+    vin: string;
+    decoded: VinDecodedInfo;
+    total: number;
+    records: OemRecord[];
+}
+
+export async function searchOemByVin(vin: string, opts?: { limit?: number; category?: string }): Promise<VinSearchResponse> {
+    return await apiFetch('/api/admin/oem-records/by-vin', {
+        method: 'POST',
+        body: JSON.stringify({ vin, ...opts }),
+    });
 }

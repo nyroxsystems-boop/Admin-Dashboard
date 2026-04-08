@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Play, Pause, Square, Loader2, CheckCircle, XCircle, AlertTriangle,
-    ChevronDown, ChevronRight, Upload, Database, RefreshCcw, Zap,
+    ChevronDown, ChevronRight, Upload, Database, RefreshCcw, Zap, Link2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -9,7 +9,8 @@ import {
     pauseBulkJob, resumeBulkJob, cancelBulkJob, cancelAllBulkJobs,
     getBulkJobs, getBulkJobDetail, getBulkJobResults, exportBulkToOemDb,
     getBrands, crawlBrand,
-    BulkJob, BulkStatus, BulkResultRow, BulkJobProgress,
+    startBrandChain, pauseBrandChain, resumeBrandChain, cancelBrandChain, getBrandChainState,
+    BulkJob, BulkStatus, BulkResultRow, BulkJobProgress, BrandChainState,
 } from '../api/wws';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -28,6 +29,8 @@ export function BulkScraperView() {
     const [brands, setBrands] = useState<string[]>([]);
     const [selectedBrand, setSelectedBrand] = useState<string>('');
     const [crawlMode, setCrawlMode] = useState<'api' | 'browser'>('api');
+    const [autoContinue, setAutoContinue] = useState(true);
+    const [chainState, setChainState] = useState<BrandChainState | null>(null);
     const tableBottomRef = useRef<HTMLDivElement>(null);
 
     // Load brands on mount
@@ -49,15 +52,17 @@ export function BulkScraperView() {
             });
     }, []);
 
-    // Auto-refresh status + jobs + live results
+    // Auto-refresh status + jobs + live results + chain state
     const loadAll = useCallback(async () => {
         try {
-            const [s, j] = await Promise.all([
+            const [s, j, cs] = await Promise.all([
                 getBulkStatus().catch(() => null),
                 getBulkJobs().catch(() => ({ jobs: [], total: 0 })),
+                getBrandChainState().catch(() => null),
             ]);
             if (s) setStatus(s);
             setJobs(j.jobs);
+            setChainState(cs);
 
             // Load live results from the running or most recent job
             const activeJob = j.jobs.find(job => job.status === 'running') || j.jobs[0];
@@ -75,7 +80,7 @@ export function BulkScraperView() {
         return () => clearInterval(interval);
     }, [loadAll]);
 
-    // Start single brand crawl
+    // Start brand crawl — chain if auto-continue is on, single otherwise
     const handleStartBrand = async () => {
         if (!selectedBrand) {
             toast.error('Bitte Marke auswählen');
@@ -83,9 +88,15 @@ export function BulkScraperView() {
         }
         setStarting(true);
         try {
-            toast.info(`Starte ${crawlMode === 'api' ? '⚡ API' : '🌐 Browser'} Crawl für ${selectedBrand}...`);
-            await crawlBrand(selectedBrand, crawlMode);
-            toast.success(`${selectedBrand} Crawl gestartet — Fortschritt in den Logs`);
+            if (autoContinue) {
+                toast.info(`Starte Chain ab ${selectedBrand} (${crawlMode === 'api' ? '⚡ API' : '🌐 Browser'}) — läuft bis Ende`);
+                const result = await startBrandChain(selectedBrand, crawlMode);
+                toast.success(`Chain gestartet — ${result.state.brands.length} Marken in Queue`);
+            } else {
+                toast.info(`Starte ${crawlMode === 'api' ? '⚡ API' : '🌐 Browser'} Crawl für ${selectedBrand}...`);
+                await crawlBrand(selectedBrand, crawlMode);
+                toast.success(`${selectedBrand} Crawl gestartet — Fortschritt in den Logs`);
+            }
             await loadAll();
         } catch (err: any) {
             toast.error('Start fehlgeschlagen: ' + err.message);
@@ -138,6 +149,8 @@ export function BulkScraperView() {
     const isRunning = status?.running && !status?.paused;
     const isPaused = status?.running && status?.paused;
     const activeJob = status?.currentJob;
+    const chainActive = !!chainState?.active;
+    const chainPaused = !!chainState?.paused;
 
     return (
         <div className="space-y-6">
@@ -177,6 +190,25 @@ export function BulkScraperView() {
                         >
                             {crawlMode === 'api' ? '⚡ API' : '🌐 Browser'}
                         </button>
+
+                        {/* Auto-Continue Toggle */}
+                        <label
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
+                                autoContinue
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                                    : 'bg-muted/50 border-border text-muted-foreground'
+                            }`}
+                            title="Nach dieser Marke automatisch mit allen folgenden Marken weitermachen"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={autoContinue}
+                                onChange={(e) => setAutoContinue(e.target.checked)}
+                                className="w-3.5 h-3.5"
+                            />
+                            <Link2 className="w-3.5 h-3.5" />
+                            Auto-weiter
+                        </label>
 
                         {/* Divider */}
                         <div className="h-8 w-px bg-border mx-1" />
@@ -245,6 +277,83 @@ export function BulkScraperView() {
                     </span>
                 </div>
             </div>
+
+            {/* ── Chain-Fortschritt (Auto-Continue) ──────────────────── */}
+            {chainState && (chainActive || (chainState.brands.length > 0 && chainState.finishedAt)) && (
+                <div className="border border-emerald-200 dark:border-emerald-900 rounded-lg overflow-hidden bg-emerald-50/30 dark:bg-emerald-950/10">
+                    <div className="bg-emerald-100/50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-900 px-4 py-2.5 flex items-center gap-3">
+                        <Link2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                        <span className="font-semibold text-sm text-emerald-900 dark:text-emerald-200">
+                            Auto-Chain {chainActive ? (chainPaused ? '(pausiert)' : '(läuft)') : '(fertig)'}
+                        </span>
+                        <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                            {chainState.completedBrands.length} / {chainState.brands.length} Marken • {chainState.totalOemsAllBrands.toLocaleString()} OEMs
+                        </span>
+
+                        {chainActive && (
+                            <div className="ml-auto flex items-center gap-2">
+                                {!chainPaused ? (
+                                    <button
+                                        onClick={async () => { await pauseBrandChain(); await loadAll(); }}
+                                        className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-semibold hover:opacity-90 flex items-center gap-1"
+                                    >
+                                        <Pause className="w-3 h-3" /> Pausieren
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={async () => { await resumeBrandChain(); await loadAll(); }}
+                                        className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-semibold hover:opacity-90 flex items-center gap-1"
+                                    >
+                                        <Play className="w-3 h-3" /> Fortsetzen
+                                    </button>
+                                )}
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm('Chain abbrechen?')) return;
+                                        await cancelBrandChain();
+                                        await loadAll();
+                                    }}
+                                    className="px-3 py-1 bg-red-600 text-white rounded text-xs font-semibold hover:opacity-90 flex items-center gap-1"
+                                >
+                                    <Square className="w-3 h-3" /> Abbrechen
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="px-4 py-3">
+                        {/* Brand pills */}
+                        <div className="flex flex-wrap gap-1.5">
+                            {chainState.brands.map((b, i) => {
+                                const isDone = chainState.completedBrands.includes(b);
+                                const isCurrent = i === chainState.currentIndex && chainActive;
+                                return (
+                                    <span
+                                        key={b}
+                                        className={`px-2 py-0.5 rounded text-xs font-mono ${
+                                            isCurrent
+                                                ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300'
+                                                : isDone
+                                                    ? 'bg-emerald-100 text-emerald-700 line-through opacity-60 dark:bg-emerald-950 dark:text-emerald-400'
+                                                    : 'bg-muted text-muted-foreground'
+                                        }`}
+                                    >
+                                        {isCurrent && <Loader2 className="w-3 h-3 animate-spin inline mr-1" />}
+                                        {b}
+                                    </span>
+                                );
+                            })}
+                        </div>
+
+                        {/* Error summary */}
+                        {chainState.errors.length > 0 && (
+                            <div className="mt-3 text-xs text-red-700 dark:text-red-400">
+                                ⚠ {chainState.errors.length} Fehler in der Chain — siehe Logs für Details
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ── Marke/Modell Übersicht (PL24-Style) ─────────────────── */}
             {jobs.length > 0 && (
