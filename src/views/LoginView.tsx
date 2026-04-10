@@ -22,6 +22,10 @@ export function LoginView({ onForgotPassword }: Props) {
     const [error, setError] = useState('');
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
+    // Client-side login throttling — mirrors User-Dashboard behavior
+    const [loginAttempts, setLoginAttempts] = useState(0);
+    const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+
     // Track mouse for subtle gradient follow
     useEffect(() => {
         const handleMouse = (e: MouseEvent) => {
@@ -60,11 +64,28 @@ export function LoginView({ onForgotPassword }: Props) {
             return;
         }
 
+        // Client-side throttle: 5 fails → 30s lockout, 10 fails → 5min lockout
+        if (lockoutUntil && Date.now() < lockoutUntil) {
+            const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+            setError(`Zu viele Versuche. Bitte warten Sie ${remaining} Sekunden.`);
+            return;
+        }
+
         setIsLoading(true);
         try {
             await login(username, password);
+            // Reset on success
+            setLoginAttempts(0);
+            setLockoutUntil(null);
             toast.success('Willkommen zurück!');
         } catch (err: any) {
+            const newAttempts = loginAttempts + 1;
+            setLoginAttempts(newAttempts);
+            if (newAttempts >= 10) {
+                setLockoutUntil(Date.now() + 5 * 60 * 1000); // 5 min
+            } else if (newAttempts >= 5) {
+                setLockoutUntil(Date.now() + 30 * 1000); // 30 sec
+            }
             setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
