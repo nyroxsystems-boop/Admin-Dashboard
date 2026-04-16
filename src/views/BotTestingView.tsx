@@ -60,7 +60,7 @@ export function BotTestingView() {
     const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
     const [oemStats, setOemStats] = useState<OemStats | null>(null);
     const [imageData, setImageData] = useState<{ base64: string; preview: string } | null>(null);
-    const [reverseLookup, setReverseLookup] = useState<{ loading: boolean; result: any | null }>({ loading: false, result: null });
+    const [reverseLookup, setReverseLookup] = useState<{ loading: boolean; result: unknown | null }>({ loading: false, result: null });
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -194,7 +194,7 @@ export function BotTestingView() {
             // Refresh stats after interaction
             loadOemStats();
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error(`Fehler: ${err.message}`);
             setMessages(prev => [...prev, {
                 role: 'bot',
@@ -227,7 +227,7 @@ export function BotTestingView() {
             setOrderDetails(null);
             setImageData(null);
             toast.success('Konversation gelöscht & Session zurückgesetzt');
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error(`Reset fehlgeschlagen: ${err.message}`);
         }
     };

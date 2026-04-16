@@ -119,7 +119,7 @@ export function OemErrorReview() {
             setItems(updated);
             saveErrors(updated);
             toast.success(`✅ ${item.oem} in DB übernommen`);
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error(`DB-Fehler: ${err.message}`);
         } finally {
             setApproving(null);

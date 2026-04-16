@@ -3,21 +3,23 @@ import {
     Users, Shield, Smartphone, Server,
     Globe, LogOut, Plus, Settings, RefreshCcw,
     LayoutDashboard, Search, Bell, Menu, X,
-    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, HardDrive, Mail, Bot, BarChart2, Eye
+    ChevronRight, MoreVertical, Loader2, CreditCard, Edit, Database, HardDrive, Mail, Bot, BarChart2, Eye, ShoppingCart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature, deactivateTenant, activateTenant, getAuditLog, AuditLogEntry, getAuthToken } from '../api/wws';
+import { getAdminStats, listActiveDevices, removeActiveDevice, updateTenantLimits, createTenantUser, AdminStats, ActiveDevice, Tenant, AdminUser, createTenant, getOemDatabaseStats, triggerOemSeeder, OemDatabaseStats, listAdminUsers as fetchAdminUsers, updateAdminUserEmail, changePassword, updateSignature, deactivateTenant, activateTenant, getAuditLog, AuditLogEntry, getAuthToken } from '../api/wws';
 import { toast } from 'sonner';
 import { OemRegistryView } from './OemRegistryView';
 import { OemLookupView } from './OemLookupView';
 import { BotTestingView } from './BotTestingView';
 import { InboxView } from './InboxView';
 import { AccuracyDashboardView } from './AccuracyDashboardView';
+import { OrderManagementView } from './OrderManagementView';
 import { TenantDetailView } from './TenantDetailView';
 import { useAuth } from '../context/AuthContext';
+import { hasPermission } from '../types/roles';
 import { SidebarItem, StatsCard, LimitBar, StatusBadge, ActionButton, Modal, DeviceDrawer, Input, Button } from '../components/AdminUI';
 
 // Mock Data for Charts (not used anymore, real data coming from API)
@@ -30,12 +32,12 @@ export function AdminDashboardView() {
     // --- State ---
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [loading, setLoading] = useState(true);
-    const [selectedTenant, setSelectedTenant] = useState<any | null>(null);
+    const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
     const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
-    const [viewingTenant, setViewingTenant] = useState<any | null>(null);
+    const [viewingTenant, setViewingTenant] = useState<Tenant | null>(null);
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'audit' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tenants' | 'oem-registry' | 'oem-lookup' | 'bot-testing' | 'accuracy' | 'inbox' | 'orders' | 'audit' | 'settings'>('overview');
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
@@ -59,7 +61,7 @@ export function AdminDashboardView() {
 
     // Settings Modal State (for tenant limits & settings)
     const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [editingTenant, setEditingTenant] = useState<any>(null);
+    const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
     const [editMaxUsers, setEditMaxUsers] = useState(10);
     const [editMaxDevices, setEditMaxDevices] = useState(5);
     const [savingSettings, setSavingSettings] = useState(false);
@@ -68,6 +70,7 @@ export function AdminDashboardView() {
     const [newUserEmail, setNewUserEmail] = useState('');
     const [newUsername, setNewUsername] = useState('');
     const [newUserPassword, setNewUserPassword] = useState('');
+    const [newUserRole, setNewUserRole] = useState<'TENANT_ADMIN' | 'TENANT_USER'>('TENANT_ADMIN');
 
     // OEM Seeder State
     const [oemStats, setOemStats] = useState<OemDatabaseStats | null>(null);
@@ -80,7 +83,7 @@ export function AdminDashboardView() {
     const [systemLanguage, setSystemLanguage] = useState('de');
 
     // Admin User Management State (Fecat only)
-    const [adminUsers, setAdminUsers] = useState<any[]>([]);
+    const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
     const [adminLoading, setAdminLoading] = useState(false);
     const [editingAdminEmail, setEditingAdminEmail] = useState<{ id: number, email: string } | null>(null);
 
@@ -106,7 +109,10 @@ export function AdminDashboardView() {
     // Auto-load audit logs when switching to audit tab
     useEffect(() => {
         if (activeTab === 'audit') {
-            getAuditLog().then(d => setAuditLogs(d.logs)).catch(() => {});
+            getAuditLog().then(d => setAuditLogs(d.logs)).catch((err) => {
+                console.error('[Audit] Failed to load audit logs:', err?.message);
+                toast.error('Audit-Logs konnten nicht geladen werden');
+            });
         }
     }, [activeTab]);
 
@@ -116,7 +122,7 @@ export function AdminDashboardView() {
             setLoading(true);
             const data = await getAdminStats();
             setStats(data);
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Fehler beim Laden der Statistiken');
         } finally {
             setLoading(false);
@@ -128,7 +134,7 @@ export function AdminDashboardView() {
             setOemLoading(true);
             const data = await getOemDatabaseStats();
             setOemStats(data);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Failed to load OEM stats:', err);
         } finally {
             setOemLoading(false);
@@ -155,8 +161,8 @@ export function AdminDashboardView() {
             toast.success(`Seeder gestartet: ${result.message}`);
             // Reload stats after a delay
             setTimeout(() => loadOemStats(), 5000);
-        } catch (err: any) {
-            toast.error(`Seeder-Fehler: ${err.message}`);
+        } catch (err: unknown) {
+            toast.error(`Seeder-Fehler: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`);
         } finally {
             setSeeding(false);
         }
@@ -219,7 +225,7 @@ export function AdminDashboardView() {
             if (creds?.initial_password) {
                 toast.success(
                     `Händler angelegt!\nBenutzer: ${creds.username}\nPasswort: ${creds.initial_password}`,
-                    { duration: 15000 }
+                    { duration: 5000 }
                 );
             } else {
                 toast.success('Händler erfolgreich angelegt!', { duration: 5000 });
@@ -228,7 +234,7 @@ export function AdminDashboardView() {
             setShowTenantForm(false);
             resetTenantForm();
             await loadStats();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Fehler beim Anlegen des Händlers. Bitte überprüfen Sie die Eingaben.');
         } finally {
             setCreatingTenant(false);
@@ -246,14 +252,14 @@ export function AdminDashboardView() {
                 email: newUserEmail.trim(),
                 username: newUsername,
                 password: newUserPassword,
-                role: 'TENANT_ADMIN'
+                role: newUserRole,
             });
             toast.success('Benutzer angelegt');
             setShowUserModal(false);
             resetUserForm();
             loadStats();
-        } catch (err: any) {
-            toast.error(err.message || 'Fehler beim Anlegen');
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Fehler beim Anlegen');
         }
     };
 
@@ -272,7 +278,7 @@ export function AdminDashboardView() {
         }
     };
 
-    const openSettingsModal = (tenant: any) => {
+    const openSettingsModal = (tenant: Tenant) => {
         setEditingTenant(tenant);
         setEditMaxUsers(tenant.max_users);
         setEditMaxDevices(tenant.max_devices);
@@ -298,16 +304,14 @@ export function AdminDashboardView() {
             toast.success(`E-Mail geändert: ${email}`);
             setEditingAdminEmail(null);
             loadAdminUsers();
-        } catch (err: any) {
-            toast.error(err.message || 'Fehler beim Aktualisieren');
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Fehler beim Aktualisieren');
         }
     };
 
-    // Load admin users when settings tab is active and user is Fecat
+    // Load admin users when settings tab is active and user has permission
     useEffect(() => {
-        // A4 FIX: Role-based check instead of hardcoded username
-        const isSuperAdmin = (user as any)?.role === 'superadmin' || user?.username?.toLowerCase() === 'fecat';
-        if (activeTab === 'settings' && isSuperAdmin) {
+        if (activeTab === 'settings' && hasPermission(user?.role, 'admin_users.manage')) {
             loadAdminUsers();
         }
     }, [activeTab, user]);
@@ -330,7 +334,7 @@ export function AdminDashboardView() {
         setWizardStep(1);
     };
     const resetUserForm = () => {
-        setNewUserEmail(''); setNewUsername(''); setNewUserPassword('');
+        setNewUserEmail(''); setNewUsername(''); setNewUserPassword(''); setNewUserRole('TENANT_ADMIN');
     };
 
     // --- Renders ---
@@ -410,6 +414,8 @@ export function AdminDashboardView() {
                             onClick={() => { setActiveTab('accuracy'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Mail />} label="Postfach" active={activeTab === 'inbox'}
                             onClick={() => { setActiveTab('inbox'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
+                        <SidebarItem icon={<ShoppingCart />} label="Bestellungen" active={activeTab === 'orders'}
+                            onClick={() => { setActiveTab('orders'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                         <SidebarItem icon={<Shield />} label="Audit Log" active={activeTab === 'audit'}
                             onClick={() => { setActiveTab('audit'); if (isMobile) setSidebarOpen(false); }} collapsed={!sidebarOpen} />
                     </nav>
@@ -477,6 +483,7 @@ export function AdminDashboardView() {
                              activeTab === 'bot-testing' ? 'Bot Testing' :
                              activeTab === 'accuracy' ? 'AI Accuracy' :
                              activeTab === 'inbox' ? 'E-Mail Postfach' :
+                             activeTab === 'orders' ? 'Bestellungen' :
                              activeTab === 'audit' ? 'Audit Log' :
                              activeTab === 'settings' ? 'Einstellungen' : ''}
                         </h1>
@@ -728,7 +735,7 @@ export function AdminDashboardView() {
                                     </div>
                                     <select
                                         value={tenantStatusFilter}
-                                        onChange={(e) => setTenantStatusFilter(e.target.value as any)}
+                                        onChange={(e) => setTenantStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
                                         className="px-4 py-2.5 bg-muted/50 border border-border/50 rounded-xl text-sm min-w-[140px]"
                                     >
                                         <option value="all">Alle Status</option>
@@ -737,7 +744,7 @@ export function AdminDashboardView() {
                                     </select>
                                     <select
                                         value={tenantPaymentFilter}
-                                        onChange={(e) => setTenantPaymentFilter(e.target.value as any)}
+                                        onChange={(e) => setTenantPaymentFilter(e.target.value as 'all' | 'paid' | 'trial')}
                                         className="px-4 py-2.5 bg-muted/50 border border-border/50 rounded-xl text-sm min-w-[140px]"
                                     >
                                         <option value="all">Alle Zahlungen</option>
@@ -819,13 +826,13 @@ export function AdminDashboardView() {
                                                                                 await deactivateTenant(tenant.id);
                                                                                 toast.success(`${tenant.name} deaktiviert`);
                                                                                 loadStats();
-                                                                            } catch (err: any) { toast.error('Fehler beim Deaktivieren'); }
+                                                                            } catch (err: unknown) { toast.error('Fehler beim Deaktivieren'); }
                                                                         } else {
                                                                             try {
                                                                                 await activateTenant(tenant.id);
                                                                                 toast.success(`${tenant.name} aktiviert`);
                                                                                 loadStats();
-                                                                            } catch (err: any) { toast.error('Fehler beim Aktivieren'); }
+                                                                            } catch (err: unknown) { toast.error('Fehler beim Aktivieren'); }
                                                                         }
                                                                     }}
                                                                     tooltip={tenant.is_active ? 'Deaktivieren' : 'Aktivieren'}
@@ -886,6 +893,12 @@ export function AdminDashboardView() {
                             </div>
                         )}
 
+
+                        {activeTab === 'orders' && (
+                            <div className="flex-1">
+                                <OrderManagementView />
+                            </div>
+                        )}
 
                         {activeTab === 'audit' && (
                             <div
@@ -988,7 +1001,7 @@ export function AdminDashboardView() {
                                                 await changePassword(current, newPw);
                                                 toast.success('Passwort geändert');
                                                 form.reset();
-                                            } catch (err: any) { toast.error(err.message || 'Fehler beim Ändern'); }
+                                            } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Fehler beim Ändern'); }
                                         }} className="space-y-3">
                                             <input name="currentPw" type="password" placeholder="Aktuelles Passwort" className="premium-input w-full" required />
                                             <input name="newPw" type="password" placeholder="Neues Passwort" className="premium-input w-full" required />
@@ -1011,7 +1024,7 @@ export function AdminDashboardView() {
                                             try {
                                                 await updateSignature(sig);
                                                 toast.success('Signatur gespeichert');
-                                            } catch (err: any) { toast.error(err.message || 'Fehler beim Speichern'); }
+                                            } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern'); }
                                         }} className="space-y-3">
                                             <textarea name="signature" rows={4} placeholder="Mit freundlichen Grüßen,&#10;Dein Name" className="premium-input w-full resize-none" />
                                             <button type="submit" className="btn-success w-full">Signatur speichern</button>
@@ -1118,7 +1131,7 @@ export function AdminDashboardView() {
                                         {/* Brand Distribution */}
                                         {oemStats?.brands && oemStats.brands.length > 0 && (
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-4 border-t border-border/50">
-                                                {oemStats.brands.slice(0, 8).map((b: any) => (
+                                                {oemStats.brands.slice(0, 8).map((b: { brand: string; count: number }) => (
                                                     <div key={b.brand} className="bg-muted/30 rounded-lg p-2 text-center">
                                                         <div className="text-xs font-bold text-muted-foreground">{b.brand}</div>
                                                         <div className="text-sm font-bold">{b.count.toLocaleString()}</div>
@@ -1162,12 +1175,12 @@ export function AdminDashboardView() {
                                 </div>
 
                                 {/* Admin User Management - Superadmin Only */}
-                                {((user as any)?.role === 'superadmin' || user?.username?.toLowerCase() === 'fecat') && (
+                                {hasPermission(user?.role, 'admin_users.manage') && (
                                     <div className="space-y-4 border-t border-border/50 pt-8">
                                         <h3 className="text-lg font-bold flex items-center gap-2">
                                             <Shield className="w-5 h-5 text-primary" />
                                             Admin-Benutzerverwaltung
-                                            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-2">Nur Fecat</span>
+                                            <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-2">Superadmin</span>
                                         </h3>
 
                                         <div className="bg-card border border-border/50 p-6 rounded-2xl space-y-4 shadow-sm">

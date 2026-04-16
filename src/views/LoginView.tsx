@@ -35,7 +35,7 @@ export function LoginView({ onForgotPassword }: Props) {
         return () => window.removeEventListener('mousemove', handleMouse);
     }, []);
 
-    const getErrorMessage = (err: any): string => {
+    const getErrorMessage = (err: unknown): string => {
         const raw = err?.message || '';
         if (raw.includes('401') || raw.includes('Unauthorized') || raw.includes('Invalid')) {
             return 'Ungültige Anmeldedaten. Bitte überprüfen Sie Benutzername und Passwort.';
@@ -78,7 +78,7 @@ export function LoginView({ onForgotPassword }: Props) {
             setLoginAttempts(0);
             setLockoutUntil(null);
             toast.success('Willkommen zurück!');
-        } catch (err: any) {
+        } catch (err: unknown) {
             const newAttempts = loginAttempts + 1;
             setLoginAttempts(newAttempts);
             if (newAttempts >= 10) {

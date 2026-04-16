@@ -100,7 +100,7 @@ export function OemLookupView() {
             if (result.existsInRegistry) {
                 toast.info('✅ Diese OEM-Nummer ist bereits im Registry vorhanden');
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error(`Lookup fehlgeschlagen: ${err.message}`);
         } finally {
             setReverseLoading(false);
@@ -137,7 +137,7 @@ export function OemLookupView() {
                 } else {
                     toast.warning('PartsLink24: Keine Ergebnisse gefunden');
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 toast.error(`PartsLink24 Fehler: ${err.message}`);
             } finally {
                 setFwdLoading(false);
@@ -159,7 +159,7 @@ export function OemLookupView() {
             if (result.success && result.oem) {
                 toast.success(`OEM gefunden: ${result.oem}`);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error(err?.message || 'Suche fehlgeschlagen');
         } finally {
             setFwdLoading(false);
@@ -201,7 +201,7 @@ export function OemLookupView() {
 
             setCurrentResult(null);
             setSearchInput('');
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error(`Genehmigung fehlgeschlagen: ${err.message}`);
         } finally {
             setApproving(false);
@@ -496,7 +496,7 @@ export function OemLookupView() {
                                                                             confidence: 0.99,
                                                                         });
                                                                         toast.success(`✅ ${r.oem} in DB übernommen (99% — Katalogdaten)`);
-                                                                    } catch (err: any) { toast.error(`Fehler: ${err.message}`); }
+                                                                    } catch (err: unknown) { toast.error(`Fehler: ${err.message}`); }
                                                                 }}
                                                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-success-light text-success border border-brand/30 hover:bg-success/20 transition-colors"
                                                             >
@@ -573,7 +573,7 @@ export function OemLookupView() {
                                                                         part_category: fwdPart, part_description: fwdPart, confidence: (fwdResult!.confidence || 90) / 100,
                                                                     });
                                                                     toast.success(`✅ ${fwdResult!.oem} in DB übernommen`);
-                                                                } catch (err: any) { toast.error(`Fehler: ${err.message}`); }
+                                                                } catch (err: unknown) { toast.error(`Fehler: ${err.message}`); }
                                                             }}
                                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-success-light text-success border border-brand/30 hover:bg-success/20 transition-colors"
                                                         >

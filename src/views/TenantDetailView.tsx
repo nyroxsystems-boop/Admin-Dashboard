@@ -46,6 +46,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
     const [newEmail, setNewEmail] = useState('');
     const [newUsername, setNewUsername] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [newUserRole, setNewUserRole] = useState<'TENANT_ADMIN' | 'TENANT_USER'>('TENANT_ADMIN');
     const [addingUser, setAddingUser] = useState(false);
 
     const [editMaxUsers, setEditMaxUsers] = useState(10);
@@ -69,11 +70,11 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
         if (!newEmail || !newPassword) { toast.error('E-Mail und Passwort erforderlich'); return; }
         setAddingUser(true);
         try {
-            await createTenantUser(tenant.id, { email: newEmail, username: newUsername || newEmail.split('@')[0], password: newPassword, role: 'TENANT_ADMIN' });
+            await createTenantUser(tenant.id, { email: newEmail, username: newUsername || newEmail.split('@')[0], password: newPassword, role: newUserRole || 'TENANT_ADMIN' });
             toast.success('Benutzer erstellt');
             setShowAddUser(false); setNewEmail(''); setNewUsername(''); setNewPassword('');
             loadDetail();
-        } catch (err: any) { toast.error(err.message); }
+        } catch (err: unknown) { toast.error(err.message); }
         finally { setAddingUser(false); }
     };
 
@@ -82,7 +83,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
         try {
             await updateTenantLimits(tenant.id, { max_users: editMaxUsers, max_devices: editMaxDevices });
             toast.success('Einstellungen gespeichert'); loadDetail();
-        } catch (err: any) { toast.error(err.message); }
+        } catch (err: unknown) { toast.error(err.message); }
         finally { setSavingSettings(false); }
     };
 
@@ -90,10 +91,10 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
         if (tenant.is_active) {
             if (!confirm(`"${tenant.name}" wirklich deaktivieren?`)) return;
             try { await deactivateTenant(tenant.id); toast.success('Deaktiviert'); onRefresh(); }
-            catch (err: any) { toast.error(err.message); }
+            catch (err: unknown) { toast.error(err.message); }
         } else {
             try { await activateTenant(tenant.id); toast.success('Aktiviert'); onRefresh(); }
-            catch (err: any) { toast.error(err.message); }
+            catch (err: unknown) { toast.error(err.message); }
         }
     };
 
@@ -106,7 +107,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
         return m[s] || 'badge-muted';
     };
 
-    const tabs: { key: DetailTab; label: string; icon: any; count?: number }[] = [
+    const tabs: { key: DetailTab; label: string; icon: unknown; count?: number }[] = [
         { key: 'overview', label: 'Übersicht', icon: BarChart2 },
         { key: 'users', label: 'Benutzer', icon: Users, count: detail?.users.length },
         { key: 'orders', label: 'Bestellungen', icon: Package, count: detail?.orders.length },
@@ -376,7 +377,7 @@ export function TenantDetailView({ tenant, onBack, onRefresh }: TenantDetailView
                                                 </div>
                                                 <button onClick={async () => {
                                                     try { await removeActiveDevice(tenant.id, d.device_id); toast.success('Gerät entfernt'); loadDetail(); }
-                                                    catch (err: any) { toast.error(err.message); }
+                                                    catch (err: unknown) { toast.error(err.message); }
                                                 }} className="action-btn opacity-0 group-hover:opacity-100 hover:!bg-danger-light hover:!text-danger">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>

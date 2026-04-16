@@ -98,7 +98,7 @@ export function BulkScraperView() {
                 toast.success(`${selectedBrand} Crawl gestartet — Fortschritt in den Logs`);
             }
             await loadAll();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Start fehlgeschlagen: ' + err.message);
         } finally {
             setStarting(false);
@@ -115,7 +115,7 @@ export function BulkScraperView() {
             const result = await startAllBulkJobs();
             toast.success(`${result.queued} Jobs gestartet`);
             await loadAll();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Start fehlgeschlagen: ' + err.message);
         } finally {
             setStarting(false);
@@ -127,7 +127,7 @@ export function BulkScraperView() {
         try {
             const result = await exportBulkToOemDb();
             toast.success(`${result.exported} OEMs in die Datenbank exportiert`);
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Export fehlgeschlagen: ' + err.message);
         } finally {
             setExporting(false);
@@ -241,7 +241,7 @@ export function BulkScraperView() {
                                 const result = await cancelAllBulkJobs();
                                 toast.success(`${result.cancelled} Jobs abgebrochen`);
                                 await loadAll();
-                            } catch (err: any) {
+                            } catch (err: unknown) {
                                 toast.error('Abbruch fehlgeschlagen: ' + err.message);
                             }
                         }}

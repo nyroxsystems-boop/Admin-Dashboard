@@ -658,7 +658,7 @@ export function OemBatchTest() {
                         resolvedBy: r.notes || null, elapsed, status: r.oem ? 'found' : 'not_found',
                     } : rr));
                     success = true;
-                } catch (err: any) {
+                } catch (err: unknown) {
                     const is429 = err?.message?.includes('429') || err?.message?.includes('rate') || err?.message?.includes('Too Many');
                     if (is429 && attempt < MAX_RETRIES - 1) {
                         // Exponential backoff: 5s, 10s, 20s

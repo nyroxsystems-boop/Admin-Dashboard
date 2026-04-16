@@ -11,26 +11,23 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 // Auth State Management
 // ============================================================================
 
+// In-memory only — token no longer persisted in localStorage (XSS-safe).
+// The httpOnly cookie `admin_session` carries the session for API calls.
+// The in-memory token is kept temporarily for backward compat during migration.
 let authToken: string | null = null;
 
 export function setAuthToken(token: string | null) {
     authToken = token;
-    if (token) {
-        localStorage.setItem('admin_token', token);
-    } else {
-        localStorage.removeItem('admin_token');
-    }
+    // Migration: stop persisting to localStorage — httpOnly cookie is the source of truth
 }
 
 export function getAuthToken(): string | null {
-    if (!authToken) {
-        authToken = localStorage.getItem('admin_token');
-    }
     return authToken;
 }
 
 export function clearAuth() {
     authToken = null;
+    // Clean up legacy localStorage entries
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
 }
@@ -63,6 +60,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers,
+            credentials: 'include', // Send httpOnly cookies with every request
         });
 
         if (response.status === 401) {
@@ -79,7 +77,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
         // Retry on 5xx with exponential backoff
         if (response.status >= 500 && response.status < 600) {
             lastError = new Error(`Server error ${response.status} on ${endpoint}`);
-            const waitMs = Math.pow(2, attempt) * 1000;
+            const waitMs = Math.pow(2, attempt) * 1000 * (0.5 + Math.random());
             await new Promise(resolve => setTimeout(resolve, waitMs));
             continue;
         }
@@ -104,6 +102,7 @@ export interface AdminUser {
     username: string;
     email: string;
     must_change_password: boolean;
+    role?: 'superadmin' | 'admin' | 'viewer';
 }
 
 export interface LoginResponse {
@@ -118,8 +117,7 @@ export async function adminLogin(username: string, password: string): Promise<Lo
     });
 
     if (response.access) {
-        setAuthToken(response.access);
-        localStorage.setItem('admin_user', JSON.stringify(response.user));
+        setAuthToken(response.access); // in-memory only, cookie is primary
     }
 
     return response;
@@ -384,7 +382,7 @@ export async function createTenant(data: {
     password?: string;
     whatsapp_number?: string;
     logo_url?: string
-}): Promise<any> {
+}): Promise<unknown> {
     return apiFetch('/api/admin/tenants', {
         method: 'POST',
         body: JSON.stringify(data)
@@ -796,7 +794,7 @@ export async function createBulkVehicle(data: {
     return res.json();
 }
 
-export async function updateBulkVehicle(id: number, data: Record<string, any>): Promise<{ success: boolean }> {
+export async function updateBulkVehicle(id: number, data: Record<string, unknown>): Promise<{ success: boolean }> {
     const res = await fetch(`${CATALOG_SCRAPER_URL}/api/bulk/vehicles/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1010,5 +1008,43 @@ export async function searchOemByVin(vin: string, opts?: { limit?: number; categ
     return await apiFetch('/api/admin/oem-records/by-vin', {
         method: 'POST',
         body: JSON.stringify({ vin, ...opts }),
+    });
+}
+
+// ============================================================================
+// Order Management API
+// ============================================================================
+
+export type OrderStatus = 'new' | 'in_progress' | 'awaiting_parts' | 'ready' | 'done' | 'archived' | 'cancelled';
+
+export interface Order {
+    id: string;
+    status: OrderStatus;
+    customer_name: string | null;
+    customer_contact: string | null;
+    requested_part_name: string | null;
+    oem_number: string | null;
+    vehicle_description: string | null;
+    created_at: string;
+    updated_at: string;
+    merchant_id: string;
+    notes?: string | null;
+}
+
+export async function listAllOrders(): Promise<Order[]> {
+    return await apiFetch('/api/admin/orders');
+}
+
+export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
+    return await apiFetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+    });
+}
+
+export async function updateOrder(orderId: string, data: Partial<Pick<Order, 'status' | 'customer_name' | 'customer_contact' | 'notes' | 'oem_number' | 'requested_part_name' | 'vehicle_description'>>): Promise<Order> {
+    return await apiFetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
     });
 }

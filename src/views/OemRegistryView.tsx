@@ -74,7 +74,7 @@ export function OemRegistryView() {
                 sortOrder: 'asc'
             });
             setData(result);
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Fehler beim Laden der OEM-Daten');
         } finally {
             setLoading(false);
@@ -106,8 +106,8 @@ export function OemRegistryView() {
                 filters: data?.filters || { brands: [], categories: [] },
             });
             toast.success(`${result.decoded.brand || '?'} ${result.decoded.year || ''} — ${result.total} OEMs gefunden`);
-        } catch (err: any) {
-            toast.error(err?.message || 'VIN-Suche fehlgeschlagen');
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'VIN-Suche fehlgeschlagen');
         } finally {
             setVinSearching(false);
         }
@@ -149,7 +149,7 @@ export function OemRegistryView() {
             toast.success('OEM-Eintrag aktualisiert');
             setEditingRecord(null);
             loadData();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Fehler beim Speichern');
         } finally {
             setSaving(false);
@@ -164,12 +164,12 @@ export function OemRegistryView() {
 
         setSaving(true);
         try {
-            await createOemRecord(formData as any);
+            await createOemRecord(formData);
             toast.success('OEM-Eintrag erstellt');
             setShowCreateModal(false);
             setFormData({ oem: '', brand: '', part_category: '', part_description: '', model: '', confidence: 0.9 });
             loadData();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Fehler beim Erstellen');
         } finally {
             setSaving(false);
@@ -183,7 +183,7 @@ export function OemRegistryView() {
             await deleteOemRecord(id);
             toast.success('OEM-Eintrag gelöscht');
             loadData();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Fehler beim Löschen');
         }
     };
@@ -197,7 +197,7 @@ export function OemRegistryView() {
             toast.success(`${selectedIds.size} Einträge gelöscht`);
             setSelectedIds(new Set());
             loadData();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Fehler beim Löschen');
         }
     };
@@ -209,7 +209,7 @@ export function OemRegistryView() {
             toast.success(result.message);
             // Reload after delay
             setTimeout(() => loadData(), 3000);
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Validator-Fehler');
         } finally {
             setValidating(false);

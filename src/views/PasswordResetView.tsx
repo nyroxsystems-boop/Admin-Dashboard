@@ -44,7 +44,7 @@ export function PasswordResetView({ onBack, resetToken }: Props) {
             await requestPasswordReset(username);
             setSuccess(true);
             toast.success('Reset-Link wurde versendet');
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError(err.message || 'Anfrage fehlgeschlagen');
         } finally {
             setIsLoading(false);
@@ -91,7 +91,7 @@ export function PasswordResetView({ onBack, resetToken }: Props) {
             setSuccess(true);
             toast.success('Passwort erfolgreich geändert');
             setTimeout(() => onBack(), 2000);
-        } catch (err: any) {
+        } catch (err: unknown) {
             setError(err.message || 'Zurücksetzen fehlgeschlagen');
         } finally {
             setIsLoading(false);

@@ -151,8 +151,8 @@ export function InboxView() {
             } else {
                 throw new Error(data.error);
             }
-        } catch (error: any) {
-            toast.error(error.message || 'E-Mails konnten nicht geladen werden');
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'E-Mails konnten nicht geladen werden');
             setEmails([]);
         } finally {
             setIsLoading(false);
@@ -178,8 +178,8 @@ export function InboxView() {
             } else {
                 throw new Error(data.error);
             }
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'IMAP-Einrichtung fehlgeschlagen');
         } finally {
             setSetupLoading(false);
         }
@@ -210,8 +210,8 @@ export function InboxView() {
             } else {
                 throw new Error(data.error);
             }
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'KI-Antwort fehlgeschlagen');
         } finally {
             setAiLoading(false);
         }
@@ -240,8 +240,8 @@ export function InboxView() {
             } else {
                 throw new Error(data.error);
             }
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Antwort konnte nicht gesendet werden');
         } finally {
             setSendingReply(false);
         }
@@ -279,8 +279,8 @@ export function InboxView() {
                 const data = await res.json();
                 throw new Error(data.error);
             }
-        } catch (error: any) {
-            toast.error(error.message || 'Aktion fehlgeschlagen');
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'Aktion fehlgeschlagen');
         }
     };
 
@@ -340,8 +340,8 @@ export function InboxView() {
             } else {
                 throw new Error(data.error);
             }
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'E-Mail konnte nicht gesendet werden');
         } finally {
             setComposeSending(false);
         }
@@ -379,8 +379,8 @@ export function InboxView() {
             } else {
                 throw new Error(data.error || 'Generierung fehlgeschlagen');
             }
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : 'E-Mail-Generierung fehlgeschlagen');
         } finally {
             setComposeAiLoading(false);
         }
@@ -398,7 +398,7 @@ export function InboxView() {
                 setRecipientList(data.recipients);
                 toast.success(`${data.count} Empfänger geladen`);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast.error('Empfänger konnten nicht geladen werden');
         } finally {
             setLoadingRecipients(false);
