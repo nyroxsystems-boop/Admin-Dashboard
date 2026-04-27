@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AdminRoutes } from './routes/adminRoutes';
 import { AuthProvider } from './context/AuthContext';
 import { LoadingState } from '@/components/feedback/LoadingState';
+import { ChunkErrorBoundary } from '@/components/ChunkErrorBoundary';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -30,9 +31,11 @@ export default function App(): JSX.Element {
     return (
         <QueryClientProvider client={queryClient}>
             <AuthProvider>
-                <Suspense fallback={<LoadingState label="Lade Anwendung…" />}>
-                    <AdminRoutes />
-                </Suspense>
+                <ChunkErrorBoundary>
+                    <Suspense fallback={<LoadingState label="Lade Anwendung…" />}>
+                        <AdminRoutes />
+                    </Suspense>
+                </ChunkErrorBoundary>
             </AuthProvider>
         </QueryClientProvider>
     );
