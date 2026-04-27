@@ -9,20 +9,38 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { useScraperHealth, useScraperLookup } from '@/hooks/useScraper';
+import { isScraperConfigured } from '@/api/scraper';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LoadingState } from '@/components/feedback/LoadingState';
 import { ErrorState } from '@/components/feedback/ErrorState';
+import { EmptyState } from '@/components/feedback/EmptyState';
 
 export default function BulkScraperView(): JSX.Element {
-    const healthQuery = useScraperHealth(true);
+    const configured = isScraperConfigured();
+    // autoRefresh + enabled both gated on configured so the hook never fires the API when ENV is missing.
+    const healthQuery = useScraperHealth(configured, configured);
     const lookupMut = useScraperLookup();
     const [vin, setVin] = useState('');
     const [part, setPart] = useState('');
     const [brand, setBrand] = useState('');
 
     const canSubmit = vin.trim().length > 0 && part.trim().length > 0;
+
+    if (!configured) {
+        return (
+            <div className="p-6 md:p-8 max-w-4xl mx-auto">
+                <header className="mb-6">
+                    <h1 className="text-2xl font-display font-semibold tracking-tight">Scraper Monitor</h1>
+                </header>
+                <EmptyState
+                    title="Scraper-Service nicht konfiguriert"
+                    description="Setze VITE_SCRAPER_BASE_URL in den Railway-Service-Variables und re-deploye, um die PartsLink24-Integration zu aktivieren."
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 md:p-8 max-w-4xl mx-auto">

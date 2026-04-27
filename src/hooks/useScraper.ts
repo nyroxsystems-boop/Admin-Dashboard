@@ -39,14 +39,16 @@ export interface ScraperHealth {
 }
 
 export function useScraperHealth(
-    autoRefresh = true
+    autoRefresh = true,
+    enabled = true
 ): UseQueryResult<ScraperHealth, Error> {
     return useQuery({
         queryKey: ['admin', 'scraper', 'health'] as const,
         queryFn: () => getPartslinkHealth(),
-        refetchInterval: autoRefresh ? 15_000 : false,
+        refetchInterval: autoRefresh && enabled ? 15_000 : false,
         staleTime: 10_000,
         gcTime: 5 * 60_000,
+        enabled,
     });
 }
 

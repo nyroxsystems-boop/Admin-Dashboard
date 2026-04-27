@@ -125,7 +125,15 @@ function buildHeaders(extra?: HeadersInit): Record<string, string> {
         Accept: 'application/json',
     };
     if (csrf) headers['X-CSRF-Token'] = csrf;
-    if (token) headers.Authorization = `Bearer ${token}`;
+    // Admin-session tokens (random hex from /api/admin-auth/login) MUST use
+    // the "Token" auth prefix. The backend's authMiddleware only matches
+    // admin_sessions under `Token <token>`; `Bearer <token>` is reserved for
+    // JWT / service tokens and would 403. JWTs (3-segment dot-separated)
+    // still go via Bearer.
+    if (token) {
+        const looksLikeJwt = token.split('.').length === 3;
+        headers.Authorization = looksLikeJwt ? `Bearer ${token}` : `Token ${token}`;
+    }
 
     if (extra) {
         const incoming = extra as Record<string, string>;

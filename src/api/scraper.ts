@@ -7,18 +7,30 @@
 
 /// <reference types="vite/client" />
 
-const RAW_SCRAPER_URL = import.meta.env.VITE_SCRAPER_BASE_URL;
-
-if (!RAW_SCRAPER_URL || typeof RAW_SCRAPER_URL !== 'string') {
-    throw new Error(
-        '[api/scraper] VITE_SCRAPER_BASE_URL is not set. Refusing to use a hardcoded fallback. Set VITE_SCRAPER_BASE_URL in your .env file.'
-    );
+/**
+ * Resolved at first call (NOT at module load) so the rest of the app
+ * still boots even if the scraper microservice isn't configured. Pages
+ * that don't touch scraper functionality (Dashboard, Tenants, Audit, …)
+ * will never trigger this check.
+ */
+function getScraperUrl(): string {
+    const raw = import.meta.env.VITE_SCRAPER_BASE_URL;
+    if (!raw || typeof raw !== 'string') {
+        throw new Error(
+            'VITE_SCRAPER_BASE_URL ist nicht gesetzt. Setze die Variable in den Railway-Service-Variables (oder .env), um Scraper-Funktionen zu nutzen.'
+        );
+    }
+    return raw.replace(/\/+$/, '');
 }
 
-const CATALOG_SCRAPER_URL: string = RAW_SCRAPER_URL.replace(/\/+$/, '');
+export function isScraperConfigured(): boolean {
+    const raw = import.meta.env.VITE_SCRAPER_BASE_URL;
+    return Boolean(raw && typeof raw === 'string');
+}
 
 async function scraperFetch<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${CATALOG_SCRAPER_URL}${path}`, {
+    const baseUrl = getScraperUrl();
+    const res = await fetch(`${baseUrl}${path}`, {
         ...init,
         headers: {
             'Content-Type': 'application/json',
