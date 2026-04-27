@@ -268,19 +268,22 @@ export type AdminStats = z.infer<typeof AdminStatsSchema>;
 
 export const OemRecordSchema = z.object({
     id: z.number(),
-    oem: z.string(),
-    brand: z.string(),
-    part_category: z.string(),
-    part_description: z.string(),
-    model: z.string(),
+    oem: z.string().default(''),
+    brand: z.string().default(''),
+    // Backend column names may have shifted: accept legacy `category` alias too
+    part_category: z.string().default(''),
+    part_description: z.string().default(''),
+    model: z.string().default(''),
     model_code: z.string().nullish(),
     year_from: z.number().nullish(),
     year_to: z.number().nullish(),
     engine: z.string().nullish(),
-    confidence: z.number(),
-    sources: z.string(),
-    created_at: z.string(),
-});
+    confidence: z.number().default(0),
+    // Production rows have null/missing sources — keep it forgiving so the
+    // table renders instead of crashing in `sources.split(',')` callers.
+    sources: z.string().nullish(),
+    created_at: z.string().default(''),
+}).passthrough();
 export type OemRecord = z.infer<typeof OemRecordSchema>;
 
 export const OemRecordsResponseSchema = z.object({

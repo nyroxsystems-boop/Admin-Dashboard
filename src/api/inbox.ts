@@ -25,11 +25,24 @@ export type InboxPage = z.infer<typeof InboxPageSchema>;
 
 export async function listInboxMessages(query: InboxQuery = {}): Promise<InboxPage> {
     const params = new URLSearchParams();
+    // Default to the shared inbox — personal inboxes need a per-admin IMAP
+    // password to be configured first, and hitting that path without
+    // setup returns 400/500. The shared mailbox uses the STRATO_PASSWORD
+    // env var so it's the correct default for the dashboard's UI.
+    params.set('mailbox', query.mailbox || 'shared');
     if (query.limit) params.set('limit', String(query.limit));
     if (query.cursor) params.set('offset', query.cursor); // backend uses offset
     if (query.unreadOnly) params.set('unread', '1');
     const qs = params.toString();
-    const raw = await apiFetch<unknown>(`/api/inbox/emails${qs ? `?${qs}` : ''}`);
+
+    let raw: unknown;
+    try {
+        raw = await apiFetch<unknown>(`/api/inbox/emails?${qs}`);
+    } catch {
+        // Backend IMAP errors should not blank the whole inbox view.
+        // Surface as empty list; the InboxView shows an EmptyState.
+        return { messages: [], cursor: null, hasMore: false };
+    }
 
     // Be tolerant: backend may return [] or {emails: []} or {items: []}.
     let arr: unknown[] = [];

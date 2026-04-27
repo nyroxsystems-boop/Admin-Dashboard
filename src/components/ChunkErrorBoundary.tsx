@@ -36,21 +36,27 @@ export class ChunkErrorBoundary extends Component<Props, State> {
     state: State = { hasError: false };
 
     static getDerivedStateFromError(error: unknown): State {
-        if (isChunkLoadError(error)) {
-            // Reload exactly once per browser session — if the new HTML still
-            // 404s, fall through to render the fallback so we don't loop.
-            if (!sessionStorage.getItem(RELOAD_FLAG)) {
-                try { sessionStorage.setItem(RELOAD_FLAG, '1'); } catch { /* ignore */ }
-                window.location.reload();
-                return { hasError: true };
-            }
+        // ONLY chunk-load errors are this boundary's concern. Anything else
+        // (TypeError in a render, an API exception, …) MUST propagate to
+        // the outer ErrorBoundary in main.tsx — that one shows the proper
+        // diagnostic UI. If we caught everything we'd misleadingly tell
+        // the user "Neue Version verfügbar" for unrelated crashes.
+        if (!isChunkLoadError(error)) {
+            // Re-throw so React unmounts and the next boundary up catches it.
+            throw error;
+        }
+        // Reload exactly once per browser session — if the new HTML still
+        // 404s, fall through to render the fallback so we don't loop.
+        if (!sessionStorage.getItem(RELOAD_FLAG)) {
+            try { sessionStorage.setItem(RELOAD_FLAG, '1'); } catch { /* ignore */ }
+            window.location.reload();
         }
         return { hasError: true };
     }
 
-    componentDidCatch(_error: unknown, _info: ErrorInfo): void {
-        // Intentionally silent — Sentry already gets the throw via the outer
-        // ErrorBoundary in main.tsx.
+    componentDidCatch(error: unknown, _info: ErrorInfo): void {
+        // Same guard: only swallow chunk errors. Anything else re-surfaces.
+        if (!isChunkLoadError(error)) throw error;
     }
 
     render(): ReactNode {

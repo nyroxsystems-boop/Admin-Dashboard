@@ -140,7 +140,8 @@ export default function RegistryView(): JSX.Element {
                                         {(e.confidence * 100).toFixed(0)}%
                                     </td>
                                     <td className="px-3 py-2 text-xs uppercase">
-                                        {e.sources.split(',')[0]?.trim() ?? '—'}
+                                        {/* sources may be null/missing/non-string in legacy rows */}
+                                        {(typeof e.sources === 'string' ? e.sources.split(',')[0]?.trim() : '') || '—'}
                                     </td>
                                     <td className="px-3 py-2 text-xs text-text-secondary">
                                         {formatDateTime(e.created_at)}
