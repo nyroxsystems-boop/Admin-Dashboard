@@ -27,10 +27,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    // Source maps off in production output. Set UPLOAD_SOURCEMAPS=1 if you
-    // want them generated for a Sentry-upload step (which should then delete
-    // the .map files before the dist/ ships).
-    sourcemap: process.env.UPLOAD_SOURCEMAPS === '1' ? 'hidden' : false,
+    // Source maps NEVER ship to production. The previous conditional
+    // (`UPLOAD_SOURCEMAPS === '1'`) was being toggled on by Railway's
+    // build env, so .map files were still landing on the CDN. If we
+    // ever need maps for a Sentry release, build them locally with
+    // `npm run build:sentry` (a separate script) and upload via
+    // `sentry-cli sourcemaps upload`, NOT via the production image.
+    sourcemap: false,
     minify: 'esbuild',
     chunkSizeWarningLimit: 850,
     rollupOptions: {
