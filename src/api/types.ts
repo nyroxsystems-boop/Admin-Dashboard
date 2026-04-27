@@ -16,10 +16,32 @@ import { z } from 'zod';
 //  Helper
 // ──────────────────────────────────────────────────────────────────────────
 
+/**
+ * Best-effort parse: tries the schema, but on failure logs a warning and
+ * returns the raw payload cast to the schema's inferred type. This is the
+ * pragmatic choice for an admin dashboard talking to a backend whose data
+ * predates the schema — a single unexpected enum value should not blank
+ * the whole dashboard. Hard validation belongs at the network boundary
+ * for fields that are actually security-critical (login response shape,
+ * etc.), and those callers should use parseApiResponseStrict() instead.
+ */
 export function parseApiResponse<S extends z.ZodTypeAny>(schema: S, data: unknown): z.infer<S> {
     const result = schema.safeParse(data);
+    if (result.success) return result.data as z.infer<S>;
+    const issues = result.error.issues
+        .map((i) => `${i.path.join('.') || '<root>'}: ${i.message}`)
+        .join('; ');
+    // eslint-disable-next-line no-console
+    console.warn(`[API] schema mismatch (continuing with raw data): ${issues}`);
+    return data as z.infer<S>;
+}
+
+/** Strict parse — throws on schema mismatch. Use only for security-critical
+ *  responses (login, /me) where bad data should fail loud. */
+export function parseApiResponseStrict<S extends z.ZodTypeAny>(schema: S, data: unknown): z.infer<S> {
+    const result = schema.safeParse(data);
     if (!result.success) {
-        const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+        const issues = result.error.issues.map((i) => `${i.path.join('.') || '<root>'}: ${i.message}`).join('; ');
         throw new Error(`API response validation failed: ${issues}`);
     }
     return result.data as z.infer<S>;
@@ -85,24 +107,43 @@ export type PasswordResetResponse = z.infer<typeof PasswordResetResponseSchema>;
 //  Tenant
 // ──────────────────────────────────────────────────────────────────────────
 
-export const TenantPaymentStatusSchema = z.enum(['paid', 'trial', 'overdue']);
-export const TenantOnboardingStatusSchema = z.enum(['pending', 'completed']);
+// Status enums kept as type hints for TypeScript callers, but the schemas
+// below accept any string the backend returns. Strict enums were rejecting
+// real production data (e.g. legacy `tenant_settings` rows with values
+// like "in_progress" or empty strings) and crashing the whole dashboard
+// via parseApiResponse → throw.
+export const TenantPaymentStatusSchema = z.string().nullish();
+export const TenantOnboardingStatusSchema = z.string().nullish();
+export type TenantPaymentStatus = 'paid' | 'trial' | 'overdue' | (string & {});
+export type TenantOnboardingStatus = 'pending' | 'completed' | (string & {});
 
 export const TenantSchema = z.object({
-    id: z.union([z.number(), z.string()]).transform((v) => Number(v)),
-    name: z.string(),
-    slug: z.string(),
+    // Backend returns either an InvenTree numeric pk or a merchant_id
+    // string (UUID-ish). UI everywhere treats id as number — for UUID-ish
+    // ids we hash to a stable positive integer instead of NaN, so React
+    // keys + Set<number> bookkeeping keep working.
+    id: z.union([z.number(), z.string()]).transform((v): number => {
+        if (typeof v === 'number') return v;
+        const n = Number(v);
+        if (Number.isFinite(n)) return n;
+        // Stable djb2-style hash → 32-bit positive int for non-numeric ids
+        let h = 5381;
+        for (let i = 0; i < v.length; i++) h = ((h * 33) ^ v.charCodeAt(i)) | 0;
+        return Math.abs(h);
+    }),
+    name: z.string().default(''),
+    slug: z.string().default(''),
     user_count: z.number().default(0),
     max_users: z.number().default(0),
     device_count: z.number().default(0),
     max_devices: z.number().default(0),
     is_active: z.boolean().default(true),
-    onboarding_status: TenantOnboardingStatusSchema.optional(),
-    payment_status: TenantPaymentStatusSchema.optional(),
+    onboarding_status: TenantOnboardingStatusSchema,
+    payment_status: TenantPaymentStatusSchema,
     whatsapp_number: z.string().nullish(),
     logo_url: z.string().nullish(),
     created_at: z.string().optional(),
-});
+}).passthrough();
 export type Tenant = z.infer<typeof TenantSchema>;
 
 export const TenantArraySchema = z.array(TenantSchema);
