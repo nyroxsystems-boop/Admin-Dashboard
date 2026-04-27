@@ -239,46 +239,73 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
 
     useEffect(() => {
         const init = async () => {
-            const session = loadSession();
-            if (!session) {
-                setIsLoading(false);
-                return;
-            }
-
-            // Hard expiry — kick (no /refresh endpoint to fall back on)
-            if (Date.now() >= session.expiresAt) {
-                handleForcedLogout();
-                setIsLoading(false);
-                return;
-            }
-
-            // Restore tenantId
-            const persistedTenant = localStorage.getItem(TENANT_KEY);
-            if (persistedTenant) setTenantId(Number(persistedTenant));
-            else if (typeof session.tenantId === 'number') setTenantId(session.tenantId);
-
-            // Restore in-memory token from the session blob, confirm with
-            // backend that the session is still valid (defends against
-            // revoked sessions / role changes mid-session).
-            setAccessToken(session.accessToken);
-            setUser(session.user);
-            scheduleHardLogout(session.expiresAt);
-            resetAuthExpired();
-
+            // ?reset=1 (or ?logout=1) lets a stuck user wipe local state without
+            // going into devtools. Useful when an old session blob from a
+            // previous deploy can't be parsed by the new schema.
             try {
-                const me = await apiGetMe();
-                setUser(me);
-                saveSession({ ...session, user: me });
-                errorTracker.setUser({
-                    id: String(me.id),
-                    email: me.email,
-                    role: typeof me.role === 'string' ? me.role : undefined,
-                });
+                const qs = new URLSearchParams(window.location.search);
+                if (qs.has('reset') || qs.has('logout')) {
+                    clearAllAuth();
+                    qs.delete('reset');
+                    qs.delete('logout');
+                    const clean = window.location.pathname + (qs.toString() ? `?${qs}` : '');
+                    window.history.replaceState({}, '', clean);
+                    setIsLoading(false);
+                    return;
+                }
             } catch {
-                handleForcedLogout();
+                /* ignore */
             }
 
-            setIsLoading(false);
+            // Boot is wrapped in a top-level try so any unexpected throw —
+            // corrupt localStorage, BroadcastChannel unavailable, schema drift —
+            // degrades to "logged out", never to a white screen.
+            try {
+                const session = loadSession();
+                if (!session) {
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Hard expiry — kick (no /refresh endpoint to fall back on)
+                if (Date.now() >= session.expiresAt) {
+                    handleForcedLogout();
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Restore tenantId
+                const persistedTenant = localStorage.getItem(TENANT_KEY);
+                if (persistedTenant) setTenantId(Number(persistedTenant));
+                else if (typeof session.tenantId === 'number') setTenantId(session.tenantId);
+
+                // Restore in-memory token from the session blob, confirm with
+                // backend that the session is still valid (defends against
+                // revoked sessions / role changes mid-session).
+                setAccessToken(session.accessToken);
+                setUser(session.user);
+                scheduleHardLogout(session.expiresAt);
+                resetAuthExpired();
+
+                try {
+                    const me = await apiGetMe();
+                    setUser(me);
+                    saveSession({ ...session, user: me });
+                    errorTracker.setUser({
+                        id: String(me.id),
+                        email: me.email,
+                        role: typeof me.role === 'string' ? me.role : undefined,
+                    });
+                } catch {
+                    handleForcedLogout();
+                }
+            } catch (bootErr) {
+                errorTracker.captureException(bootErr, { phase: 'auth-boot' });
+                // Last-ditch: nuke local state and fall back to logged-out.
+                try { clearAllAuth(); } catch { /* swallow */ }
+            } finally {
+                setIsLoading(false);
+            }
         };
         void init();
         // eslint-disable-next-line react-hooks/exhaustive-deps
