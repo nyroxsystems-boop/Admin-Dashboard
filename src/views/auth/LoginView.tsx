@@ -1,33 +1,32 @@
 /**
  * LoginView — Admin login (public, no AdminLayout).
  *
- * Cleanups vs. legacy:
- *   - login-input class replaced by Tailwind utilities with proper focus rings
- *   - Real-time email validation
- *   - Inline errors (not toast-only)
+ * The backend `/admin/login` endpoint accepts the same identifier field
+ * (`username` in the JSON payload) for both an admin username AND an
+ * email address — pick whichever the operator stored. We therefore do
+ * NOT enforce email-only validation; only "non-empty, trimmed, ≥3 chars".
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail } from 'lucide-react';
+import { Lock, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
-import { validateEmail } from '@/utils/validation/email';
 import { parseError } from '@/utils/error/parseError';
 
 export default function LoginView(): JSX.Element {
     const nav = useNavigate();
     const { login } = useAuth();
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const emailCheck = useMemo(() => validateEmail(email), [email]);
-    const canSubmit = emailCheck.valid && password.length > 0 && !busy;
+    const trimmed = identifier.trim();
+    const canSubmit = trimmed.length >= 3 && password.length > 0 && !busy;
 
     async function submit(e: React.FormEvent): Promise<void> {
         e.preventDefault();
@@ -35,7 +34,7 @@ export default function LoginView(): JSX.Element {
         setBusy(true);
         setError(null);
         try {
-            await login(email, password);
+            await login(trimmed, password);
             nav('/');
         } catch (err) {
             setError(parseError(err).message || 'Anmeldung fehlgeschlagen.');
@@ -62,26 +61,23 @@ export default function LoginView(): JSX.Element {
 
                 <form onSubmit={submit} className="space-y-4" noValidate>
                     <div className="space-y-2">
-                        <Label htmlFor="login-email">Email</Label>
+                        <Label htmlFor="login-id">Benutzername oder E-Mail</Label>
                         <div className="relative">
-                            <Mail className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                            <User className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                             <Input
-                                id="login-email"
-                                type="email"
-                                autoComplete="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                id="login-id"
+                                type="text"
+                                autoComplete="username"
+                                value={identifier}
+                                onChange={(e) => setIdentifier(e.target.value)}
                                 className="pl-9 focus-visible:ring-2 focus-visible:ring-accent-500/40"
-                                aria-invalid={email !== '' && !emailCheck.valid}
-                                aria-describedby="login-email-err"
+                                placeholder="admin oder admin@partsunion.de"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
                                 required
                             />
                         </div>
-                        {email && !emailCheck.valid && (
-                            <p id="login-email-err" className="text-xs text-danger">
-                                {emailCheck.errors[0]}
-                            </p>
-                        )}
                     </div>
 
                     <div className="space-y-2">
