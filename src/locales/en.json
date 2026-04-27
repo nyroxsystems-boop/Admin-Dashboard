@@ -1,0 +1,466 @@
+{
+    "app": {
+        "name": "Partsunion Admin",
+        "tagline": "Industrial Precision",
+        "version": "v2.0.0"
+    },
+    "auth": {
+        "login": "Sign in",
+        "loginTitle": "Admin Sign-in",
+        "loginSubtitle": "Secure administrative access",
+        "email": "Email",
+        "username": "Username",
+        "password": "Password",
+        "passwordConfirm": "Confirm password",
+        "forgotPassword": "Forgot password?",
+        "rememberMe": "Keep me signed in",
+        "submit": "Sign in",
+        "submitting": "Signing in…",
+        "logout": "Sign out",
+        "logoutConfirm": "Sign out now?",
+        "sessionExpired": "Session expired – please sign in again",
+        "invalidCredentials": "Invalid username or password",
+        "tooManyAttempts": "Too many attempts. Try again later.",
+        "twoFactorTitle": "Two-factor authentication",
+        "twoFactorDescription": "Enter your 6-digit code.",
+        "code": "Code",
+        "resetTitle": "Reset password",
+        "resetDescription": "We'll email you a reset link.",
+        "resetSubmit": "Send link",
+        "resetSent": "If an account exists, an email has been sent.",
+        "newPassword": "New password",
+        "newPasswordConfirm": "Confirm new password",
+        "passwordChanged": "Password changed successfully",
+        "mustChangePassword": "You must change your password on first sign-in."
+    },
+    "common": {
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "cancel": "Cancel",
+        "close": "Close",
+        "delete": "Delete",
+        "deleting": "Deleting…",
+        "edit": "Edit",
+        "create": "Create",
+        "search": "Search",
+        "searchPlaceholder": "Search…",
+        "filter": "Filter",
+        "filters": "Filters",
+        "clearFilters": "Clear filters",
+        "apply": "Apply",
+        "loading": "Loading…",
+        "loadMore": "Load more",
+        "refresh": "Refresh",
+        "retry": "Try again",
+        "back": "Back",
+        "next": "Next",
+        "previous": "Previous",
+        "confirm": "Confirm",
+        "yes": "Yes",
+        "no": "No",
+        "active": "Active",
+        "inactive": "Inactive",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "status": "Status",
+        "actions": "Actions",
+        "details": "Details",
+        "name": "Name",
+        "type": "Type",
+        "date": "Date",
+        "time": "Time",
+        "createdAt": "Created at",
+        "updatedAt": "Updated at",
+        "lastSeen": "Last seen",
+        "more": "More",
+        "less": "Less",
+        "showAll": "Show all",
+        "noData": "No data",
+        "noResults": "No results found",
+        "selected": "selected",
+        "selectAll": "Select all",
+        "deselectAll": "Deselect all",
+        "copy": "Copy",
+        "copied": "Copied",
+        "open": "Open",
+        "view": "View",
+        "export": "Export",
+        "import": "Import",
+        "upload": "Upload",
+        "download": "Download",
+        "send": "Send",
+        "send_": "Send out",
+        "submit": "Submit",
+        "settings": "Settings",
+        "help": "Help",
+        "language": "Language",
+        "theme": "Theme",
+        "darkMode": "Dark",
+        "lightMode": "Light",
+        "systemMode": "System",
+        "of": "of",
+        "page": "Page",
+        "perPage": "per page"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "tenants": "Tenants",
+        "admins": "Admins",
+        "audit": "Audit log",
+        "oem": "OEM database",
+        "oemRegistry": "OEM registry",
+        "oemLookup": "OEM lookup",
+        "oemBatch": "Batch test",
+        "oemErrors": "OEM errors",
+        "accuracy": "Accuracy",
+        "scraper": "Scraper",
+        "bot": "Bot test",
+        "inbox": "Inbox",
+        "orders": "Orders",
+        "maintenance": "Maintenance",
+        "emails": "Marketing email",
+        "settings": "Settings",
+        "profile": "Profile",
+        "logout": "Sign out"
+    },
+    "dashboard": {
+        "title": "Overview",
+        "subtitle": "Platform status at a glance",
+        "welcomeBack": "Welcome back, {{name}}",
+        "kpi": {
+            "tenants": "Tenants",
+            "tenantsActive": "Active tenants",
+            "users": "Users",
+            "devices": "Devices",
+            "orders": "Orders",
+            "ordersToday": "Orders today",
+            "revenue": "Revenue",
+            "revenueToday": "Revenue today",
+            "conversion": "Conversion",
+            "uptime": "Uptime",
+            "successRate": "Success rate",
+            "messages": "Messages"
+        },
+        "activity": "Activity",
+        "activityEmpty": "No activity yet.",
+        "recentTenants": "Recent tenants",
+        "systemHealth": "System health",
+        "quickActions": "Quick actions"
+    },
+    "tenants": {
+        "title": "Tenants",
+        "subtitle": "All tenants on the platform",
+        "create": "New tenant",
+        "createTitle": "Create tenant",
+        "edit": "Edit tenant",
+        "delete": "Delete tenant",
+        "deleteConfirm": "Really delete this tenant? This cannot be undone.",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "impersonate": "Sign in as tenant",
+        "search": "Search tenants…",
+        "empty": "No tenants yet.",
+        "fields": {
+            "name": "Tenant name",
+            "slug": "URL slug",
+            "email": "Email",
+            "website": "Website",
+            "phone": "Phone",
+            "whatsapp": "WhatsApp number",
+            "logo": "Logo URL",
+            "password": "Initial password"
+        },
+        "limits": {
+            "title": "Limits",
+            "users": "Max. users",
+            "devices": "Max. devices",
+            "save": "Save limits"
+        },
+        "tabs": {
+            "overview": "Overview",
+            "users": "Users",
+            "devices": "Devices",
+            "orders": "Orders",
+            "settings": "Settings",
+            "audit": "Audit"
+        },
+        "payment": {
+            "paid": "Paid",
+            "trial": "Trial",
+            "overdue": "Overdue"
+        },
+        "onboarding": {
+            "pending": "Onboarding pending",
+            "completed": "Onboarding complete"
+        },
+        "users": {
+            "add": "Add user",
+            "remove": "Remove user",
+            "removeConfirm": "Remove this user from the tenant?",
+            "role": "Role"
+        },
+        "devices": {
+            "remove": "Remove device",
+            "removeConfirm": "Sign this device out?"
+        },
+        "messages": {
+            "createSuccess": "Tenant created",
+            "updateSuccess": "Tenant updated",
+            "deleteSuccess": "Tenant deleted",
+            "activateSuccess": "Tenant activated",
+            "deactivateSuccess": "Tenant deactivated"
+        }
+    },
+    "admins": {
+        "title": "Administrators",
+        "subtitle": "People with administrative access",
+        "create": "New admin",
+        "delete": "Delete admin",
+        "deleteConfirm": "Really delete this admin?",
+        "fields": {
+            "username": "Username",
+            "email": "Email",
+            "role": "Role",
+            "password": "Password",
+            "lastLogin": "Last sign-in"
+        },
+        "roles": {
+            "SUPER_ADMIN": "Super admin",
+            "SUPPORT_ADMIN": "Support admin",
+            "READ_ONLY": "Read-only"
+        },
+        "messages": {
+            "createSuccess": "Admin created",
+            "deleteSuccess": "Admin deleted",
+            "passwordCopied": "Password copied to clipboard",
+            "passwordPersisted": "Save it now — it won't be shown again."
+        }
+    },
+    "audit": {
+        "title": "Audit log",
+        "subtitle": "Full activity history",
+        "exportCsv": "Export CSV",
+        "filters": {
+            "actionType": "Action type",
+            "admin": "Admin",
+            "entity": "Entity",
+            "from": "From",
+            "to": "To"
+        },
+        "fields": {
+            "admin": "Admin",
+            "action": "Action",
+            "entity": "Entity",
+            "details": "Details",
+            "ip": "IP address",
+            "timestamp": "Timestamp"
+        },
+        "empty": "No matching audit entries."
+    },
+    "oem": {
+        "registryTitle": "OEM registry",
+        "registrySubtitle": "Curated OEM records",
+        "lookupTitle": "OEM lookup",
+        "lookupSubtitle": "Test OEM resolution",
+        "batchTitle": "Batch test",
+        "errorsTitle": "Resolution errors",
+        "accuracyTitle": "Accuracy",
+        "fields": {
+            "oem": "OEM",
+            "brand": "Brand",
+            "model": "Model",
+            "modelCode": "Model code",
+            "category": "Category",
+            "description": "Description",
+            "yearFrom": "Year from",
+            "yearTo": "Year to",
+            "engine": "Engine",
+            "confidence": "Confidence",
+            "sources": "Sources"
+        },
+        "actions": {
+            "seedMassive": "Run massive seeder",
+            "seedRemaining": "Seed remaining brands",
+            "validate": "Run validator",
+            "validateAndFix": "Validate & fix",
+            "approve": "Approve",
+            "discard": "Discard"
+        },
+        "messages": {
+            "createSuccess": "OEM record created",
+            "updateSuccess": "Record updated",
+            "deleteSuccess": "Record deleted",
+            "seederStarted": "Seeder started (job {{jobId}})",
+            "validatorStarted": "Validator started"
+        },
+        "modes": {
+            "forward": "Forward (vehicle → OEM)",
+            "reverse": "Reverse (OEM → part)",
+            "batch": "Batch test",
+            "errors": "Errors",
+            "bulk": "Bulk scraper"
+        }
+    },
+    "scraper": {
+        "title": "Bulk scraper",
+        "subtitle": "Background PartsLink24 crawl",
+        "status": {
+            "running": "Running",
+            "paused": "Paused",
+            "idle": "Idle"
+        },
+        "actions": {
+            "start": "Start",
+            "pause": "Pause",
+            "resume": "Resume",
+            "cancel": "Cancel",
+            "cancelAll": "Cancel all",
+            "discover": "Discover via PL24",
+            "seedVins": "Seed VINs",
+            "exportToOem": "Export to OEM DB"
+        },
+        "vehicle": {
+            "vin": "VIN",
+            "brand": "Brand",
+            "model": "Model",
+            "modelCode": "Model code",
+            "yearFrom": "Year from",
+            "yearTo": "Year to",
+            "notes": "Notes"
+        }
+    },
+    "bot": {
+        "title": "Bot test",
+        "subtitle": "Trigger the WhatsApp pipeline",
+        "phone": "Phone number",
+        "message": "Message",
+        "media": "Media attachment",
+        "send": "Send",
+        "cancel": "Cancel run",
+        "messages": {
+            "sent": "Message queued in pipeline",
+            "cancelled": "Run cancelled"
+        }
+    },
+    "inbox": {
+        "title": "Inbox",
+        "subtitle": "Incoming messages",
+        "mailbox": "Mailbox",
+        "unread": "Unread",
+        "empty": "No messages in this mailbox.",
+        "markRead": "Mark as read",
+        "markUnread": "Mark as unread",
+        "reply": "Reply",
+        "replyPlaceholder": "Write a reply…",
+        "send": "Send"
+    },
+    "orders": {
+        "title": "Orders",
+        "subtitle": "All orders platform-wide",
+        "empty": "No orders yet.",
+        "fields": {
+            "customer": "Customer",
+            "contact": "Contact",
+            "part": "Part",
+            "oem": "OEM",
+            "vehicle": "Vehicle",
+            "status": "Status",
+            "merchant": "Merchant",
+            "notes": "Notes"
+        },
+        "status": {
+            "new": "New",
+            "in_progress": "In progress",
+            "awaiting_parts": "Awaiting parts",
+            "ready": "Ready",
+            "done": "Done",
+            "archived": "Archived",
+            "cancelled": "Cancelled"
+        }
+    },
+    "maintenance": {
+        "title": "Maintenance mode",
+        "subtitle": "Pause the platform for updates",
+        "enable": "Enable maintenance",
+        "disable": "Disable maintenance",
+        "message": "Maintenance notice",
+        "scheduledUntil": "Scheduled until",
+        "messages": {
+            "enabled": "Maintenance mode enabled",
+            "disabled": "Maintenance mode disabled"
+        }
+    },
+    "emails": {
+        "title": "Marketing email",
+        "subtitle": "Send mailings to tenants",
+        "generate": "Generate",
+        "improve": "Improve",
+        "subject": "Subject",
+        "preview": "Preview",
+        "html": "HTML",
+        "plain": "Plain text",
+        "recipients": "Recipients",
+        "recipientType": {
+            "active": "Active",
+            "trial": "Trial",
+            "cancelled": "Cancelled",
+            "all": "All"
+        },
+        "send": "Send",
+        "sent": "Sent: {{count}}",
+        "templates": "Templates",
+        "saveTemplate": "Save as template"
+    },
+    "errors": {
+        "generic": "Something went wrong.",
+        "network": "Network error – check your connection.",
+        "timeout": "Request timed out – the server is not responding.",
+        "notFound": "Entry not found.",
+        "forbiddenTitle": "Access denied",
+        "forbiddenDescription": "You don't have permission to view this area. Contact a super admin.",
+        "boundaryTitle": "Unexpected error",
+        "boundaryDescription": "We've been notified. You can retry or reload the page.",
+        "boundaryRetry": "Try again",
+        "boundaryReload": "Reload page",
+        "boundaryShowDetails": "Show technical details",
+        "boundaryHideDetails": "Hide details",
+        "validation": {
+            "required": "Required",
+            "emailInvalid": "Invalid email address",
+            "urlInvalid": "Invalid URL",
+            "phoneInvalid": "Invalid phone number",
+            "vinInvalid": "Invalid VIN (17 characters)",
+            "passwordTooShort": "At least 12 characters required",
+            "passwordNoUppercase": "At least one uppercase letter required",
+            "passwordNoLowercase": "At least one lowercase letter required",
+            "passwordNoNumber": "At least one digit required",
+            "passwordNoSymbol": "At least one symbol required",
+            "passwordsDontMatch": "Passwords do not match",
+            "slugInvalid": "Slug may only contain a–z, 0–9 and dashes",
+            "numberOutOfRange": "Value out of allowed range"
+        }
+    },
+    "validation": {
+        "passwordTooShort": "At least 12 characters required",
+        "passwordNoUppercase": "At least one uppercase letter required",
+        "passwordNoLowercase": "At least one lowercase letter required",
+        "emailInvalid": "Invalid email address"
+    },
+    "shortcuts": {
+        "title": "Keyboard shortcuts",
+        "openPalette": "Open command palette",
+        "toggleSidebar": "Toggle sidebar",
+        "newTenant": "New tenant",
+        "goDashboard": "Go to dashboard",
+        "showShortcuts": "Show this overlay"
+    },
+    "empty": {
+        "tenants": "No tenants yet — the first one starts everything.",
+        "admins": "You're alone. Invite more admins.",
+        "audit": "No audit entries match your filters.",
+        "orders": "It'll get busy once the first orders come in.",
+        "inbox": "Mailbox empty.",
+        "search": "No results for \"{{query}}\""
+    }
+}

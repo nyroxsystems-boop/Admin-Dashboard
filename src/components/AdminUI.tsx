@@ -3,7 +3,7 @@
  * ALL colors via CSS variables — no hardcoded HSL values
  */
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { X, ChevronRight, Smartphone, LogOut, Loader2 } from 'lucide-react';
 
 // ── Prop Interfaces ──

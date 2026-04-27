@@ -1,280 +1,123 @@
-# 👨‍💼 AutoTeile Admin Dashboard
+# Partsunion Admin Dashboard
 
-Administrationsbereich für das AutoTeile WAWI-System mit erweiterten Management-Funktionen.
+Internes Verwaltungs-Dashboard für Partsunion-Operatoren (Super-Admins, Support).
 
-## 🎯 Features
+## Features
 
-### **Benutzer-Verwaltung**
-- ✅ Benutzer anlegen, bearbeiten, löschen
-- ✅ Rollen-Management (Admin, Dealer, Staff)
-- ✅ Passwort-Reset
-- ✅ Session-Übersicht
-- ✅ Aktivitäts-Logs
+- Multi-Tenant-Verwaltung (CRUD, Limits, Devices, Audit-Trail)
+- OEM-Datenbank-Management (Registry, Lookup, Batch, Errors, Accuracy)
+- Bot-Testing & Monitoring
+- Inbox-Aggregation über alle Tenants
+- Order-Übersicht
+- Bulk-Scraper-Kontrolle
+- Wartungsmodus + System-Health
+- 7 Sprachen (de, en, fr, es, it, pl, tr)
+- Light/Dark-Mode, Keyboard-Shortcuts (Cmd+K Command Palette)
+- Sentry Error-Tracking, Audit-Log-CSV-Export
 
-### **System-Überwachung**
-- ✅ Dashboard mit Echtzeit-Statistiken
-- ✅ System-Health-Monitoring
-- ✅ Performance-Metriken
-- ✅ Error-Tracking
-- ✅ API-Nutzungsstatistiken
+## Stack
 
-### **Händler-Verwaltung**
-- ✅ Händler-Einstellungen konfigurieren
-- ✅ Shop-Auswahl verwalten
-- ✅ Margen-Konfiguration
-- ✅ Sprach-Einstellungen
-- ✅ Lieferanten-Management
+- React 18 + TypeScript (strict)
+- Vite 5
+- Tailwind 3 + Design-Tokens (Industrial Precision Dark-First)
+- Radix UI + cmdk
+- React Router v6, React Query
+- Framer Motion, Sonner Toasts
+- Zod für API-Schema-Validation
 
-### **Daten-Management**
-- ✅ Bestellungen-Übersicht
-- ✅ Angebote-Verwaltung
-- ✅ Kunden-Datenbank
-- ✅ Nachrichten-Historie
-- ✅ Export-Funktionen
+## Setup
 
-### **Einstellungen**
-- ✅ System-Konfiguration
-- ✅ API-Keys verwalten
-- ✅ Webhook-Konfiguration
-- ✅ E-Mail-Templates
-- ✅ Benachrichtigungen
+### Voraussetzungen
+- Node 20+
+- npm 10+
+- Backend `wws-service` erreichbar
+- Optional: `partslink24-scraper` Microservice
 
-## 🛠️ Tech Stack
-
-- **React 18.3.1** - UI Framework
-- **TypeScript 5.4.5** - Type Safety
-- **Material-UI 7.3.5** - Component Library
-- **Radix UI** - Accessible Primitives
-- **TailwindCSS 4.1.12** - Styling
-- **Recharts** - Analytics & Charts
-- **React Hook Form** - Form Management
-- **Axios** - HTTP Client
-
-## 🚀 Setup
-
-### Voraussetzungen:
-- Node.js 18+
-- npm oder yarn
-
-### Installation:
+### Installation
 
 ```bash
-# Repository klonen
-git clone https://github.com/nyroxsystems-boop/Autoteile-Admin-Dashboard.git
-cd Autoteile-Admin-Dashboard
-
-# Dependencies installieren
+cd Admin-Dashboard
 npm install
-
-# Development Server starten
-npm run dev
-
-# Production Build
-npm run build
+cp .env.example .env
+# .env editieren mit echten URLs
 ```
 
-## 📁 Struktur
+### Development
+
+```bash
+npm run dev          # Vite Dev-Server auf http://localhost:5174
+npm run typecheck    # TS strict check
+npm run lint         # ESLint
+npm test             # Vitest unit tests
+npm run test:e2e     # Playwright E2E (requires running dev server)
+```
+
+### Build
+
+```bash
+npm run build        # Production build -> dist/
+npm run preview      # Lokal Preview auf http://localhost:4173
+```
+
+## ENV Variables
+
+| Var | Required | Beschreibung |
+|---|---|---|
+| `VITE_API_BASE_URL` | yes | Backend WWS-Service URL (z.B. `https://api.partsunion.de`) |
+| `VITE_SCRAPER_BASE_URL` | yes | Partslink24-Scraper Microservice URL |
+| `VITE_SENTRY_DSN` | no | Sentry Error-Tracking (leer = disabled) |
+| `VITE_DEFAULT_LOCALE` | no | Default `de` |
+| `VITE_APP_VERSION` | no | Wird im UI angezeigt |
+
+**Wichtig:** Es gibt KEINEN Production-Fallback. Fehlt eine Required-ENV, wirft die App beim Start einen Fehler.
+
+## Architektur
 
 ```
 src/
-├── app/
-│   ├── views/
-│   │   ├── AdminDashboardView.tsx    # Haupt-Dashboard
-│   │   ├── SettingsView.tsx          # Einstellungen
-│   │   ├── StatusView.tsx            # System-Status
-│   │   └── ...
-│   ├── components/
-│   │   ├── UserManagement/           # User-Komponenten
-│   │   ├── SystemMonitoring/         # Monitoring
-│   │   └── ui/                       # UI-Komponenten
-│   ├── hooks/
-│   │   ├── useUsers.ts               # User-Hooks
-│   │   ├── useSystemStats.ts         # Stats-Hooks
-│   │   └── ...
-│   └── api/
-│       ├── users.ts                  # User-API
-│       ├── system.ts                 # System-API
-│       └── ...
-└── styles/
-    ├── index.css
-    └── theme.css
+├── api/              13 Domain-Files mit Zod-Schemas
+├── auth/             RBAC: SUPER_ADMIN | SUPPORT_ADMIN | READ_ONLY
+├── components/
+│   ├── ui/           Radix Primitives
+│   ├── ui-v2/        Premium Custom Components (StatusLED, MonoMetric, OEMNumber)
+│   ├── layout/       Sidebar, Topbar, CommandPalette
+│   └── feedback/     Skeleton (Shimmer), EmptyState, ErrorState, ConfirmDialog
+├── design-system/    tokens.ts + tokens.css
+├── hooks/            React Query Hooks (Domain + Foundation)
+├── i18n.tsx          Custom i18n (lazy-loaded locales)
+├── locales/          7 Sprachen
+├── routes/           Lazy-Routes mit Suspense + 404
+├── services/         Sentry + errorTracker
+├── styles/           premium-tokens.css + animations.css
+├── utils/            Validation, Format, Clipboard
+└── views/            Modulare Views (max 280 LOC)
 ```
 
-## 🔐 Authentifizierung
+## Deployment
 
-Das Admin-Dashboard verwendet Token-basierte Authentifizierung:
-
-```typescript
-// Login
-const response = await login({
-  email: 'admin@example.com',
-  password: 'password'
-});
-
-// API-Aufrufe mit Token
-const users = await apiFetch('/api/users', {
-  headers: {
-    'Authorization': `Token ${token}`
-  }
-});
-```
-
-## 📊 Admin-Funktionen
-
-### Benutzer-Management:
-
-```typescript
-// Benutzer erstellen
-const newUser = await createUser({
-  email: 'user@example.com',
-  username: 'username',
-  password: 'password',
-  role: 'staff'
-});
-
-// Benutzer aktualisieren
-await updateUser(userId, {
-  role: 'admin'
-});
-
-// Benutzer löschen
-await deleteUser(userId);
-```
-
-### System-Monitoring:
-
-```typescript
-// System-Status abrufen
-const status = await getSystemStatus();
-
-// Performance-Metriken
-const metrics = await getPerformanceMetrics();
-
-// Error-Logs
-const errors = await getErrorLogs();
-```
-
-## 🎨 UI-Komponenten
-
-### Dashboard-Karten:
-
-```tsx
-<DashboardCard
-  title="Benutzer"
-  value={userCount}
-  trend="+12%"
-  icon={<UserIcon />}
-/>
-```
-
-### Daten-Tabellen:
-
-```tsx
-<DataTable
-  columns={columns}
-  data={users}
-  onEdit={handleEdit}
-  onDelete={handleDelete}
-/>
-```
-
-### Formulare:
-
-```tsx
-<UserForm
-  onSubmit={handleSubmit}
-  initialValues={user}
-  mode="edit"
-/>
-```
-
-## 🔧 Konfiguration
-
-### Environment Variables:
-
-```env
-VITE_API_BASE_URL=http://localhost:3000
-VITE_WAWI_API_TOKEN=your_api_token
-VITE_ADMIN_EMAIL=admin@example.com
-```
-
-### Theme-Anpassung:
-
-```css
-:root {
-  --primary-color: #4f8bff;
-  --secondary-color: #10b981;
-  --background: #f8fbff;
-  --foreground: #0f172a;
-}
-```
-
-## 📈 Analytics
-
-Das Dashboard bietet umfassende Analytics:
-
-- **Benutzer-Aktivität** - Login-Statistiken, Session-Dauer
-- **System-Performance** - API-Response-Zeiten, Fehlerquoten
-- **Geschäfts-Metriken** - Bestellungen, Umsatz, Margen
-- **Trend-Analysen** - Zeitreihen-Diagramme
-
-## 🧪 Testing
+### Docker
 
 ```bash
-# Unit Tests
-npm run test
+docker build -t partsunion-admin-dashboard \
+  --build-arg VITE_API_BASE_URL=https://api.partsunion.de \
+  --build-arg VITE_SCRAPER_BASE_URL=https://scraper.partsunion.de .
 
-# E2E Tests
-npm run test:e2e
-
-# Coverage
-npm run test:coverage
+docker run -p 8080:80 partsunion-admin-dashboard
 ```
 
-## 🔗 API-Integration
+**Hinweis:** Vite ENV-Vars sind Build-Time. Für Runtime-Config siehe `docker-entrypoint.sh` Pattern.
 
-Das Admin-Dashboard kommuniziert mit dem Bot-Service:
+### Railway
 
-```
-Admin-Dashboard → API Client → Bot-Service → CRM Database
-```
+Service: `admin-dashboard`. Build-Command: `npm ci && npm run build`. Start-Command: `npx serve dist -s -l ${PORT}`.
 
-Alle API-Endpunkte sind dokumentiert in der [API-Dokumentation](../bot-service/README.md).
+## Keyboard Shortcuts
 
-## 🚀 Deployment
+- `Cmd+K` / `Ctrl+K` — Command Palette öffnen
+- `Cmd+\` / `Ctrl+\` — Sidebar collapse/expand
+- `?` — Shortcut-Übersicht (geplant)
+- `Escape` — Modals/Drawer schließen
 
-### Production Build:
+## Lizenz
 
-```bash
-npm run build
-```
-
-### Docker:
-
-```bash
-docker build -t autoteile-admin .
-docker run -p 3000:3000 autoteile-admin
-```
-
-## 🔒 Sicherheit
-
-- ✅ Token-basierte Authentifizierung
-- ✅ Role-based Access Control (RBAC)
-- ✅ Input-Validierung
-- ✅ XSS-Schutz
-- ✅ CSRF-Schutz
-- ✅ Secure Headers
-
-## 📖 Verwandte Repositories
-
-- [Autoteile-bot-service](https://github.com/nyroxsystems-boop/Autoteile-bot-service) - Backend API
-- [Autoteile-Dashboard](https://github.com/nyroxsystems-boop/Autoteile-Dashboard) - Händler-Dashboard
-- [Autoteile-CRM](https://github.com/nyroxsystems-boop/Autoteile-CRM) - CRM System
-
-## 📄 Lizenz
-
-Proprietary - Alle Rechte vorbehalten
-
-## 👥 Kontakt
-
-Nyrox Systems - https://github.com/nyroxsystems-boop
+Proprietary — Partsunion (c) 2026

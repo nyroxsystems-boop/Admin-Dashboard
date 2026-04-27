@@ -1,0 +1,252 @@
+/**
+ * Partsunion Design Tokens — CSS Variables (Admin Dashboard)
+ *
+ * Source of Truth: design-system/tokens.ts
+ * Default: Dark-Mode. Light-Mode via [data-theme="light"] auf :root oder <body>
+ * (oder via next-themes: class-Strategie auf <html>).
+ *
+ * Portiert aus User-Dashboard (Goldstandard).
+ */
+
+/* ──────────────────────────────────────────────────────── */
+/* DARK (Default) — "Industrial Precision"                   */
+/* ──────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="dark"],
+.dark {
+    /* Neutrals */
+    --bg-canvas: #0A0B0D;
+    --bg-surface: #111418;
+    --bg-elevated: #1A1E24;
+    --border: #252A31;
+    --border-strong: #3A4049;
+
+    --text-primary: #E8ECF1;
+    --text-secondary: #9AA3AD;
+    --text-muted: #5E6670;
+
+    /* Accent — Deep Signal Blue */
+    --accent-50: #EFF6FF;
+    --accent-200: #BFDBFE;
+    --accent-400: #3B82F6;
+    --accent-500: #1D6FE8;
+    --accent-600: #1554B8;
+    --accent-700: #0E3F8F;
+    --accent-glow: rgba(29, 111, 232, 0.18);
+
+    /* Semantic */
+    --success: #4ADE80;
+    --success-muted: rgba(74, 222, 128, 0.12);
+    --warning: #F5A524;
+    --warning-muted: rgba(245, 165, 36, 0.12);
+    --danger: #F87171;
+    --danger-muted: rgba(248, 113, 113, 0.12);
+    --info: #60A5FA;
+    --info-muted: rgba(96, 165, 250, 0.12);
+
+    /* Shadows */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.6);
+    --shadow-glow-primary: 0 0 12px rgba(29, 111, 232, 0.4);
+    --shadow-glow-success: 0 0 8px rgba(74, 222, 128, 0.6);
+    --shadow-glow-warning: 0 0 8px rgba(245, 165, 36, 0.6);
+    --shadow-glow-danger: 0 0 8px rgba(248, 113, 113, 0.6);
+    --shadow-glow-accent: 0 0 12px rgba(29, 111, 232, 0.4);
+
+    /* Charts */
+    --chart-1: 217 83% 52%;
+    --chart-2: 142 71% 55%;
+    --chart-3: 37 91% 55%;
+    --chart-4: 262 80% 70%;
+    --chart-5: 220 9% 46%;
+
+    /* Radius */
+    --radius: 8px;
+
+    /* Legacy-Kompatibilität (Shadcn/Radix HSL-Werte) */
+    --background: 220 10% 5%;
+    --foreground: 220 15% 93%;
+    --card: 220 10% 8%;
+    --card-foreground: 220 15% 93%;
+    --popover: 220 10% 10%;
+    --popover-foreground: 220 15% 93%;
+    --primary: 217 83% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 8% 16%;
+    --secondary-foreground: 220 15% 93%;
+    --muted: 220 8% 16%;
+    --muted-foreground: 220 9% 65%;
+    --accent: 217 83% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 87% 72%;
+    --destructive-foreground: 0 0% 100%;
+    --success-foreground: 0 0% 100%;
+    --warning-foreground: 0 0% 100%;
+    --info-foreground: 0 0% 100%;
+    --input: 220 10% 17%;
+    --ring: 217 83% 52%;
+    --sidebar-background: 220 10% 6%;
+    --sidebar-foreground: 220 15% 85%;
+    --sidebar-primary: 217 83% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 8% 14%;
+    --sidebar-accent-foreground: 220 15% 93%;
+    --sidebar-border: 220 10% 14%;
+    --sidebar-ring: 217 83% 52%;
+
+    /* Legacy admin tokens — stay HSL for hsl(var(--token)) consumers */
+    --brand: 221 83% 53%;
+    --brand-hover: 221 83% 46%;
+    --brand-light: 221 50% 15%;
+    --brand-muted: 221 40% 12%;
+    --brand-glow: 221 83% 53%;
+    --warn: 36 80% 50%;
+    --warn-light: 36 60% 12%;
+    --danger-light: 0 50% 12%;
+    --info-light: 210 40% 14%;
+    --success-light: 160 50% 12%;
+    --surface-1: 225 14% 10%;
+    --surface-2: 225 14% 13%;
+    --surface-3: 225 14% 16%;
+    --surface-overlay: 0 0% 0%;
+    --stat-1: 221 83% 63%;
+    --stat-2: 160 60% 42%;
+    --stat-3: 36 85% 55%;
+    --stat-4: 280 60% 55%;
+    --stat-5: 210 20% 95%;
+}
+
+/* ──────────────────────────────────────────────────────── */
+/* LIGHT — Optional, Dark ist Default                       */
+/* ──────────────────────────────────────────────────────── */
+
+[data-theme="light"],
+:root.light,
+html.light {
+    --bg-canvas: #FAFBFC;
+    --bg-surface: #FFFFFF;
+    --bg-elevated: #F5F6F8;
+    --border: #E4E7EB;
+    --border-strong: #CBD2D9;
+
+    --text-primary: #1F2933;
+    --text-secondary: #52606D;
+    --text-muted: #7B8794;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
+    --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.2);
+
+    /* Legacy HSL */
+    --background: 0 0% 98%;
+    --foreground: 220 15% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 12%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 15% 12%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --input: 220 13% 91%;
+
+    --brand: 221 83% 53%;
+    --brand-hover: 221 83% 46%;
+    --brand-light: 221 83% 96%;
+    --brand-muted: 221 50% 92%;
+    --brand-glow: 221 83% 53%;
+    --warn-light: 36 70% 94%;
+    --danger-light: 0 60% 95%;
+    --info-light: 210 50% 95%;
+    --success-light: 160 50% 94%;
+    --surface-1: 0 0% 100%;
+    --surface-2: 220 14% 97%;
+    --surface-3: 220 14% 94%;
+    --surface-overlay: 220 15% 12%;
+    --stat-1: 221 83% 53%;
+    --stat-2: 160 60% 40%;
+    --stat-3: 36 80% 50%;
+    --stat-4: 280 60% 55%;
+    --stat-5: 220 15% 12%;
+}
+
+/* ──────────────────────────────────────────────────────── */
+/* BASE TYPOGRAPHY                                           */
+/* ──────────────────────────────────────────────────────── */
+
+html {
+    font-family: "Inter Text", "Inter", system-ui, sans-serif;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-display {
+    font-family: "Inter Display", "Inter", system-ui, sans-serif;
+    letter-spacing: -0.01em;
+}
+
+.font-mono,
+code,
+kbd,
+samp {
+    font-family: "IBM Plex Mono", "JetBrains Mono", "SF Mono", monospace;
+    font-feature-settings: "zero", "ss01";
+}
+
+.label-technical {
+    font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────────────── */
+/* FOCUS RING                                                */
+/* ──────────────────────────────────────────────────────── */
+
+*:focus-visible {
+    outline: 2px solid var(--accent-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* ──────────────────────────────────────────────────────── */
+/* SCROLLBAR                                                 */
+/* ──────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-canvas);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}

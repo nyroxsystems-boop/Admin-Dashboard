@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="23" failures="0" errors="0" time="0.042583598">
+    <testsuite name="src/test/utils.test.ts" timestamp="2026-04-27T12:05:21.596Z" hostname="Alexanders-MBP" tests="7" failures="0" errors="0" skipped="0" time="0.019200881">
+        <testcase classname="src/test/utils.test.ts" name="validateEmail &gt; accepts a valid email" time="0.00321419">
+        </testcase>
+        <testcase classname="src/test/utils.test.ts" name="validateEmail &gt; rejects an empty input" time="0.00823832">
+        </testcase>
+        <testcase classname="src/test/utils.test.ts" name="validateEmail &gt; rejects a value without @" time="0.001266291">
+        </testcase>
+        <testcase classname="src/test/utils.test.ts" name="nameToSlug &gt; lowercases simple names with spaces" time="0.001338091">
+        </testcase>
+        <testcase classname="src/test/utils.test.ts" name="nameToSlug &gt; strips umlauts to their base letter" time="0.001043013">
+        </testcase>
+        <testcase classname="src/test/utils.test.ts" name="validatePassword &gt; rejects a short password" time="0.000606508">
+        </testcase>
+        <testcase classname="src/test/utils.test.ts" name="validatePassword &gt; accepts a strong password" time="0.000310943">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/types/roles.test.ts" timestamp="2026-04-27T12:05:21.628Z" hostname="Alexanders-MBP" tests="16" failures="0" errors="0" skipped="0" time="0.023382717">
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; superadmin can manage admin users" time="0.003721079">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; superadmin can create tenants" time="0.000359006">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; superadmin can access maintenance settings" time="0.000301014">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; admin can create tenants" time="0.000302775">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; admin cannot manage admin users" time="0.000292343">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; admin cannot deactivate tenants" time="0.000269772">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; admin cannot access maintenance settings" time="0.011864106">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; viewer can view tenants" time="0.000382552">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; viewer can view audit logs" time="0.000327968">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; viewer cannot manage admin users" time="0.000459641">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; viewer cannot create tenants" time="0.000239602">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; viewer cannot edit users" time="0.000200273">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasPermission &gt; undefined role has no permissions" time="0.000181071">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasAnyPermission &gt; returns true when at least one permission matches" time="0.00029781">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasAnyPermission &gt; returns false when no permissions match" time="0.000207822">
+        </testcase>
+        <testcase classname="src/types/roles.test.ts" name="RBAC — hasAnyPermission &gt; returns false for undefined role" time="0.00018059">
+        </testcase>
+    </testsuite>
+</testsuites>

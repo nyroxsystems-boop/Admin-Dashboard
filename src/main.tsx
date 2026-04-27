@@ -1,112 +1,66 @@
 /**
- * Admin Dashboard Entry Point
- * With authentication routing
+ * Admin Dashboard — Entry Point
+ *
+ * Provider order (outer → inner):
+ *   StrictMode
+ *     ThemeProvider (next-themes)         — Light/Dark + persist
+ *       BrowserRouter                     — URL state, bookmarkable views
+ *         ErrorBoundary                   — Sentry-ready fallback
+ *           I18nProvider                  — locale loading + t()
+ *             <App />                     — owns QueryClient + AuthProvider + Routes
+ *             <Toaster />                 — Sonner global toast stack
+ *
+ * Wired here:
+ *   - initSentry() runs first; no-op if VITE_SENTRY_DSN is missing.
+ *
+ * Note: QueryClientProvider and AuthProvider live INSIDE <App /> (see App.tsx),
+ * because AuthProvider needs useNavigate (so it must be under BrowserRouter)
+ * but it's also coupled to the route tree it guards via ProtectedRoute.
  */
 
-import { StrictMode, useState, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
-import { Toaster } from 'sonner'
-import './index.css'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { ThemeProvider } from 'next-themes';
+import { BrowserRouter } from 'react-router-dom';
+import { Toaster } from 'sonner';
 
-import { AuthProvider, useAuth } from './context/AuthContext'
-import { AdminDashboardView } from './views/AdminDashboardView'
-import { LoginView } from './views/LoginView'
-import { PasswordResetView } from './views/PasswordResetView'
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { I18nProvider } from './i18n';
+import { initSentry } from './services/sentry';
+import App from './App';
+import './index.css';
 
-type View = 'login' | 'reset' | 'dashboard';
+// Init Sentry before React mounts so boot-time errors are captured.
+initSentry();
 
-function AppRouter() {
-    const { isAuthenticated, isLoading, user } = useAuth();
-    const [view, setView] = useState<View>('login');
-    const [resetToken, setResetToken] = useState<string | undefined>();
-
-    // Check URL for password reset token
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-        if (token) {
-            setResetToken(token);
-            setView('reset');
-        }
-    }, []);
-
-    // Redirect based on auth state
-    useEffect(() => {
-        if (!isLoading) {
-            if (isAuthenticated) {
-                // Clear URL params after login
-                window.history.replaceState({}, '', window.location.pathname);
-                setView('dashboard');
-            } else if (view === 'dashboard') {
-                setView('login');
-            }
-        }
-    }, [isAuthenticated, isLoading, view]);
-
-    // Show loading state
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                    <span className="text-white/60 text-sm">Wird geladen...</span>
-                </div>
-            </div>
-        );
-    }
-
-    // Password reset flow
-    if (view === 'reset') {
-        return (
-            <PasswordResetView
-                onBack={() => {
-                    setResetToken(undefined);
-                    setView('login');
-                    window.history.replaceState({}, '', window.location.pathname);
-                }}
-                resetToken={resetToken}
-            />
-        );
-    }
-
-    // Not authenticated - show login
-    if (!isAuthenticated || view === 'login') {
-        return (
-            <LoginView
-                onForgotPassword={() => setView('reset')}
-            />
-        );
-    }
-
-    // Authenticated - show dashboard (password change is in Settings)
-    return <AdminDashboardView />;
+const rootEl = document.getElementById('root');
+if (!rootEl) {
+    throw new Error('Root element #root not found in index.html');
 }
 
-function App() {
-    return (
-        <AuthProvider>
-            <Toaster
-                position="top-right"
-                toastOptions={{
-                    style: {
-                        background: 'rgba(30, 41, 59, 0.95)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        color: '#fff',
-                        backdropFilter: 'blur(16px)',
-                    },
-                }}
-            />
-            <AppRouter />
-        </AuthProvider>
-    );
-}
-
-import { ErrorBoundary } from './components/ErrorBoundary'
-
-createRoot(document.getElementById('root')!).render(
+createRoot(rootEl).render(
     <StrictMode>
-        <ErrorBoundary>
-            <App />
-        </ErrorBoundary>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+            <BrowserRouter>
+                <ErrorBoundary>
+                    <I18nProvider>
+                        <App />
+                        <Toaster
+                            position="top-right"
+                            theme="dark"
+                            richColors
+                            closeButton
+                            toastOptions={{
+                                style: {
+                                    background: 'var(--bg-elevated)',
+                                    border: '1px solid var(--border)',
+                                    color: 'var(--text-primary)',
+                                },
+                            }}
+                        />
+                    </I18nProvider>
+                </ErrorBoundary>
+            </BrowserRouter>
+        </ThemeProvider>
     </StrictMode>
-)
+);

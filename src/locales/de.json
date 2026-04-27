@@ -1,0 +1,466 @@
+{
+    "app": {
+        "name": "Partsunion Admin",
+        "tagline": "Industrial Precision",
+        "version": "v2.0.0"
+    },
+    "auth": {
+        "login": "Anmelden",
+        "loginTitle": "Admin-Anmeldung",
+        "loginSubtitle": "Sicherer Zugang zur Verwaltung",
+        "email": "E-Mail",
+        "username": "Benutzername",
+        "password": "Passwort",
+        "passwordConfirm": "Passwort bestätigen",
+        "forgotPassword": "Passwort vergessen?",
+        "rememberMe": "Angemeldet bleiben",
+        "submit": "Anmelden",
+        "submitting": "Wird angemeldet…",
+        "logout": "Abmelden",
+        "logoutConfirm": "Wirklich abmelden?",
+        "sessionExpired": "Sitzung abgelaufen – bitte erneut anmelden",
+        "invalidCredentials": "Benutzername oder Passwort ungültig",
+        "tooManyAttempts": "Zu viele Versuche. Bitte später erneut versuchen.",
+        "twoFactorTitle": "Zwei-Faktor-Authentifizierung",
+        "twoFactorDescription": "Bitte gib deinen 6-stelligen Code ein.",
+        "code": "Code",
+        "resetTitle": "Passwort zurücksetzen",
+        "resetDescription": "Wir senden dir einen Link an deine E-Mail.",
+        "resetSubmit": "Link senden",
+        "resetSent": "Falls ein Konto existiert, wurde eine E-Mail versendet.",
+        "newPassword": "Neues Passwort",
+        "newPasswordConfirm": "Neues Passwort bestätigen",
+        "passwordChanged": "Passwort erfolgreich geändert",
+        "mustChangePassword": "Bitte ändere dein Passwort beim ersten Login."
+    },
+    "common": {
+        "save": "Speichern",
+        "saving": "Wird gespeichert…",
+        "saved": "Gespeichert",
+        "cancel": "Abbrechen",
+        "close": "Schließen",
+        "delete": "Löschen",
+        "deleting": "Wird gelöscht…",
+        "edit": "Bearbeiten",
+        "create": "Erstellen",
+        "search": "Suchen",
+        "searchPlaceholder": "Suchen…",
+        "filter": "Filter",
+        "filters": "Filter",
+        "clearFilters": "Filter zurücksetzen",
+        "apply": "Anwenden",
+        "loading": "Lädt…",
+        "loadMore": "Mehr laden",
+        "refresh": "Aktualisieren",
+        "retry": "Erneut versuchen",
+        "back": "Zurück",
+        "next": "Weiter",
+        "previous": "Zurück",
+        "confirm": "Bestätigen",
+        "yes": "Ja",
+        "no": "Nein",
+        "active": "Aktiv",
+        "inactive": "Inaktiv",
+        "enabled": "Aktiviert",
+        "disabled": "Deaktiviert",
+        "status": "Status",
+        "actions": "Aktionen",
+        "details": "Details",
+        "name": "Name",
+        "type": "Typ",
+        "date": "Datum",
+        "time": "Uhrzeit",
+        "createdAt": "Erstellt am",
+        "updatedAt": "Aktualisiert am",
+        "lastSeen": "Zuletzt aktiv",
+        "more": "Mehr",
+        "less": "Weniger",
+        "showAll": "Alle anzeigen",
+        "noData": "Keine Daten vorhanden",
+        "noResults": "Keine Ergebnisse gefunden",
+        "selected": "ausgewählt",
+        "selectAll": "Alle auswählen",
+        "deselectAll": "Auswahl aufheben",
+        "copy": "Kopieren",
+        "copied": "Kopiert",
+        "open": "Öffnen",
+        "view": "Anzeigen",
+        "export": "Exportieren",
+        "import": "Importieren",
+        "upload": "Hochladen",
+        "download": "Herunterladen",
+        "send": "Senden",
+        "send_": "Versenden",
+        "submit": "Absenden",
+        "settings": "Einstellungen",
+        "help": "Hilfe",
+        "language": "Sprache",
+        "theme": "Theme",
+        "darkMode": "Dunkel",
+        "lightMode": "Hell",
+        "systemMode": "System",
+        "of": "von",
+        "page": "Seite",
+        "perPage": "pro Seite"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "tenants": "Mandanten",
+        "admins": "Administratoren",
+        "audit": "Audit-Log",
+        "oem": "OEM-Datenbank",
+        "oemRegistry": "OEM-Registry",
+        "oemLookup": "OEM-Lookup",
+        "oemBatch": "Batch-Test",
+        "oemErrors": "OEM-Fehler",
+        "accuracy": "Genauigkeit",
+        "scraper": "Scraper",
+        "bot": "Bot-Test",
+        "inbox": "Inbox",
+        "orders": "Aufträge",
+        "maintenance": "Wartung",
+        "emails": "Marketing-Mails",
+        "settings": "Einstellungen",
+        "profile": "Profil",
+        "logout": "Abmelden"
+    },
+    "dashboard": {
+        "title": "Übersicht",
+        "subtitle": "Plattform-Status auf einen Blick",
+        "welcomeBack": "Willkommen zurück, {{name}}",
+        "kpi": {
+            "tenants": "Mandanten",
+            "tenantsActive": "Aktive Mandanten",
+            "users": "Nutzer",
+            "devices": "Geräte",
+            "orders": "Aufträge",
+            "ordersToday": "Aufträge heute",
+            "revenue": "Umsatz",
+            "revenueToday": "Umsatz heute",
+            "conversion": "Konversion",
+            "uptime": "Verfügbarkeit",
+            "successRate": "Erfolgsquote",
+            "messages": "Nachrichten"
+        },
+        "activity": "Aktivitäten",
+        "activityEmpty": "Noch keine Aktivität.",
+        "recentTenants": "Zuletzt besuchte Mandanten",
+        "systemHealth": "System-Status",
+        "quickActions": "Schnellaktionen"
+    },
+    "tenants": {
+        "title": "Mandanten",
+        "subtitle": "Alle Mandanten auf der Plattform",
+        "create": "Neuer Mandant",
+        "createTitle": "Mandant anlegen",
+        "edit": "Mandant bearbeiten",
+        "delete": "Mandant löschen",
+        "deleteConfirm": "Diesen Mandanten wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "activate": "Aktivieren",
+        "deactivate": "Deaktivieren",
+        "impersonate": "Als Mandant anmelden",
+        "search": "Mandanten suchen…",
+        "empty": "Noch keine Mandanten angelegt.",
+        "fields": {
+            "name": "Mandantenname",
+            "slug": "URL-Slug",
+            "email": "E-Mail",
+            "website": "Webseite",
+            "phone": "Telefon",
+            "whatsapp": "WhatsApp-Nummer",
+            "logo": "Logo-URL",
+            "password": "Initiales Passwort"
+        },
+        "limits": {
+            "title": "Limits",
+            "users": "Max. Nutzer",
+            "devices": "Max. Geräte",
+            "save": "Limits speichern"
+        },
+        "tabs": {
+            "overview": "Übersicht",
+            "users": "Nutzer",
+            "devices": "Geräte",
+            "orders": "Aufträge",
+            "settings": "Einstellungen",
+            "audit": "Audit"
+        },
+        "payment": {
+            "paid": "Bezahlt",
+            "trial": "Testphase",
+            "overdue": "Überfällig"
+        },
+        "onboarding": {
+            "pending": "Onboarding offen",
+            "completed": "Onboarding abgeschlossen"
+        },
+        "users": {
+            "add": "Nutzer hinzufügen",
+            "remove": "Nutzer entfernen",
+            "removeConfirm": "Nutzer wirklich aus diesem Mandanten entfernen?",
+            "role": "Rolle"
+        },
+        "devices": {
+            "remove": "Gerät entfernen",
+            "removeConfirm": "Gerät wirklich abmelden?"
+        },
+        "messages": {
+            "createSuccess": "Mandant erstellt",
+            "updateSuccess": "Mandant aktualisiert",
+            "deleteSuccess": "Mandant gelöscht",
+            "activateSuccess": "Mandant aktiviert",
+            "deactivateSuccess": "Mandant deaktiviert"
+        }
+    },
+    "admins": {
+        "title": "Administratoren",
+        "subtitle": "Personen mit Verwaltungszugang",
+        "create": "Admin anlegen",
+        "delete": "Admin löschen",
+        "deleteConfirm": "Diesen Admin wirklich löschen?",
+        "fields": {
+            "username": "Benutzername",
+            "email": "E-Mail",
+            "role": "Rolle",
+            "password": "Passwort",
+            "lastLogin": "Letzter Login"
+        },
+        "roles": {
+            "SUPER_ADMIN": "Super-Admin",
+            "SUPPORT_ADMIN": "Support-Admin",
+            "READ_ONLY": "Nur lesen"
+        },
+        "messages": {
+            "createSuccess": "Admin erstellt",
+            "deleteSuccess": "Admin gelöscht",
+            "passwordCopied": "Passwort in Zwischenablage kopiert",
+            "passwordPersisted": "Bitte sicher speichern – wird nicht erneut angezeigt."
+        }
+    },
+    "audit": {
+        "title": "Audit-Log",
+        "subtitle": "Vollständige Aktivitätshistorie",
+        "exportCsv": "CSV exportieren",
+        "filters": {
+            "actionType": "Aktionstyp",
+            "admin": "Admin",
+            "entity": "Entität",
+            "from": "Von",
+            "to": "Bis"
+        },
+        "fields": {
+            "admin": "Admin",
+            "action": "Aktion",
+            "entity": "Entität",
+            "details": "Details",
+            "ip": "IP-Adresse",
+            "timestamp": "Zeitstempel"
+        },
+        "empty": "Keine passenden Audit-Einträge."
+    },
+    "oem": {
+        "registryTitle": "OEM-Registry",
+        "registrySubtitle": "Verwaltete OEM-Datensätze",
+        "lookupTitle": "OEM-Lookup",
+        "lookupSubtitle": "OEM-Auflösung testen",
+        "batchTitle": "Batch-Test",
+        "errorsTitle": "Fehlerhafte Auflösungen",
+        "accuracyTitle": "Genauigkeit",
+        "fields": {
+            "oem": "OEM",
+            "brand": "Marke",
+            "model": "Modell",
+            "modelCode": "Modell-Code",
+            "category": "Kategorie",
+            "description": "Beschreibung",
+            "yearFrom": "Jahr von",
+            "yearTo": "Jahr bis",
+            "engine": "Motor",
+            "confidence": "Vertrauen",
+            "sources": "Quellen"
+        },
+        "actions": {
+            "seedMassive": "Massive Seeder starten",
+            "seedRemaining": "Restliche Marken seeden",
+            "validate": "Validator starten",
+            "validateAndFix": "Validieren & korrigieren",
+            "approve": "Übernehmen",
+            "discard": "Verwerfen"
+        },
+        "messages": {
+            "createSuccess": "OEM-Datensatz angelegt",
+            "updateSuccess": "Datensatz aktualisiert",
+            "deleteSuccess": "Datensatz gelöscht",
+            "seederStarted": "Seeder gestartet (Job {{jobId}})",
+            "validatorStarted": "Validator gestartet"
+        },
+        "modes": {
+            "forward": "Vorwärts (Fahrzeug → OEM)",
+            "reverse": "Rückwärts (OEM → Teil)",
+            "batch": "Batch-Test",
+            "errors": "Fehler",
+            "bulk": "Bulk-Scraper"
+        }
+    },
+    "scraper": {
+        "title": "Bulk-Scraper",
+        "subtitle": "PartsLink24-Crawl im Hintergrund",
+        "status": {
+            "running": "Läuft",
+            "paused": "Pausiert",
+            "idle": "Bereit"
+        },
+        "actions": {
+            "start": "Starten",
+            "pause": "Pausieren",
+            "resume": "Fortsetzen",
+            "cancel": "Abbrechen",
+            "cancelAll": "Alle abbrechen",
+            "discover": "PL24 entdecken",
+            "seedVins": "VINs seeden",
+            "exportToOem": "In OEM-DB exportieren"
+        },
+        "vehicle": {
+            "vin": "VIN",
+            "brand": "Marke",
+            "model": "Modell",
+            "modelCode": "Modell-Code",
+            "yearFrom": "Jahr von",
+            "yearTo": "Jahr bis",
+            "notes": "Notizen"
+        }
+    },
+    "bot": {
+        "title": "Bot-Test",
+        "subtitle": "WhatsApp-Pipeline manuell triggern",
+        "phone": "Telefonnummer",
+        "message": "Nachricht",
+        "media": "Medienanhang",
+        "send": "Senden",
+        "cancel": "Anfrage abbrechen",
+        "messages": {
+            "sent": "Nachricht in Pipeline eingereiht",
+            "cancelled": "Anfrage abgebrochen"
+        }
+    },
+    "inbox": {
+        "title": "Inbox",
+        "subtitle": "Eingehende Nachrichten",
+        "mailbox": "Postfach",
+        "unread": "Ungelesen",
+        "empty": "Keine Nachrichten in diesem Postfach.",
+        "markRead": "Als gelesen markieren",
+        "markUnread": "Als ungelesen markieren",
+        "reply": "Antworten",
+        "replyPlaceholder": "Antwort schreiben…",
+        "send": "Senden"
+    },
+    "orders": {
+        "title": "Aufträge",
+        "subtitle": "Alle Aufträge plattformweit",
+        "empty": "Keine Aufträge vorhanden.",
+        "fields": {
+            "customer": "Kunde",
+            "contact": "Kontakt",
+            "part": "Teil",
+            "oem": "OEM",
+            "vehicle": "Fahrzeug",
+            "status": "Status",
+            "merchant": "Händler",
+            "notes": "Notizen"
+        },
+        "status": {
+            "new": "Neu",
+            "in_progress": "In Bearbeitung",
+            "awaiting_parts": "Warten auf Teile",
+            "ready": "Bereit",
+            "done": "Erledigt",
+            "archived": "Archiviert",
+            "cancelled": "Abgebrochen"
+        }
+    },
+    "maintenance": {
+        "title": "Wartungsmodus",
+        "subtitle": "Plattform für Updates pausieren",
+        "enable": "Wartung aktivieren",
+        "disable": "Wartung deaktivieren",
+        "message": "Wartungs-Hinweis",
+        "scheduledUntil": "Geplant bis",
+        "messages": {
+            "enabled": "Wartungsmodus aktiviert",
+            "disabled": "Wartungsmodus beendet"
+        }
+    },
+    "emails": {
+        "title": "Marketing-Mails",
+        "subtitle": "Mailings an Mandanten verschicken",
+        "generate": "Generieren",
+        "improve": "Verbessern",
+        "subject": "Betreff",
+        "preview": "Vorschau",
+        "html": "HTML",
+        "plain": "Klartext",
+        "recipients": "Empfänger",
+        "recipientType": {
+            "active": "Aktive",
+            "trial": "Testphase",
+            "cancelled": "Gekündigt",
+            "all": "Alle"
+        },
+        "send": "Senden",
+        "sent": "Gesendet: {{count}}",
+        "templates": "Vorlagen",
+        "saveTemplate": "Als Vorlage speichern"
+    },
+    "errors": {
+        "generic": "Etwas ist schiefgelaufen.",
+        "network": "Netzwerkfehler – bitte Verbindung prüfen.",
+        "timeout": "Zeitüberschreitung – Server antwortet nicht.",
+        "notFound": "Eintrag nicht gefunden.",
+        "forbiddenTitle": "Kein Zugriff",
+        "forbiddenDescription": "Für diesen Bereich fehlen dir die nötigen Rechte. Bitte wende dich an einen Super-Admin.",
+        "boundaryTitle": "Unerwarteter Fehler",
+        "boundaryDescription": "Wir wurden informiert. Du kannst es erneut versuchen oder die Seite neu laden.",
+        "boundaryRetry": "Erneut versuchen",
+        "boundaryReload": "Seite neu laden",
+        "boundaryShowDetails": "Technische Details anzeigen",
+        "boundaryHideDetails": "Details ausblenden",
+        "validation": {
+            "required": "Pflichtfeld",
+            "emailInvalid": "Ungültige E-Mail-Adresse",
+            "urlInvalid": "Ungültige URL",
+            "phoneInvalid": "Ungültige Telefonnummer",
+            "vinInvalid": "Ungültige VIN (17 Zeichen)",
+            "passwordTooShort": "Mindestens 12 Zeichen erforderlich",
+            "passwordNoUppercase": "Mindestens ein Großbuchstabe erforderlich",
+            "passwordNoLowercase": "Mindestens ein Kleinbuchstabe erforderlich",
+            "passwordNoNumber": "Mindestens eine Ziffer erforderlich",
+            "passwordNoSymbol": "Mindestens ein Sonderzeichen erforderlich",
+            "passwordsDontMatch": "Passwörter stimmen nicht überein",
+            "slugInvalid": "Slug darf nur a–z, 0–9 und Bindestriche enthalten",
+            "numberOutOfRange": "Wert außerhalb des erlaubten Bereichs"
+        }
+    },
+    "validation": {
+        "passwordTooShort": "Mindestens 12 Zeichen erforderlich",
+        "passwordNoUppercase": "Mindestens ein Großbuchstabe erforderlich",
+        "passwordNoLowercase": "Mindestens ein Kleinbuchstabe erforderlich",
+        "emailInvalid": "Ungültige E-Mail-Adresse"
+    },
+    "shortcuts": {
+        "title": "Tastenkürzel",
+        "openPalette": "Befehlspalette öffnen",
+        "toggleSidebar": "Seitenleiste umschalten",
+        "newTenant": "Neuer Mandant",
+        "goDashboard": "Zur Übersicht",
+        "showShortcuts": "Diese Übersicht anzeigen"
+    },
+    "empty": {
+        "tenants": "Noch keine Mandanten — der erste startet alles.",
+        "admins": "Du bist allein. Lade weitere Admins ein.",
+        "audit": "Keine Audit-Einträge im aktuellen Filter.",
+        "orders": "Hier wird's lebhaft, sobald die ersten Aufträge eingehen.",
+        "inbox": "Postfach leer.",
+        "search": "Keine Treffer für „{{query}}\""
+    }
+}

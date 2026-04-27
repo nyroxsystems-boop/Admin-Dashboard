@@ -1,8 +1,16 @@
 /**
- * ErrorBoundary for Admin Dashboard
- * Catches unhandled React errors and shows a recovery UI.
+ * ErrorBoundary for the Admin Dashboard.
+ *
+ * Improvements over the legacy version:
+ *  - Pipes errors through `errorTracker` (Sentry-aware).
+ *  - Bilingual fallback (de/en) chosen via `document.documentElement.lang`,
+ *    so it renders even if I18nProvider hasn't mounted yet.
+ *  - Soft retry button (resets error state) instead of `window.location.reload()`.
+ *  - Toggleable "technical details" disclosure for advanced users.
  */
-import React, { Component, type ReactNode, type ErrorInfo } from 'react';
+
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { errorTracker } from '../services/errorTracker';
 
 interface Props {
     children: ReactNode;
@@ -12,84 +20,160 @@ interface Props {
 interface State {
     hasError: boolean;
     error: Error | null;
+    showDetails: boolean;
+}
+
+interface FallbackStrings {
+    title: string;
+    description: string;
+    retry: string;
+    reload: string;
+    showDetails: string;
+    hideDetails: string;
+}
+
+const STRINGS: Record<'de' | 'en', FallbackStrings> = {
+    de: {
+        title: 'Unerwarteter Fehler',
+        description:
+            'Wir wurden informiert. Du kannst es erneut versuchen oder die Seite neu laden.',
+        retry: 'Erneut versuchen',
+        reload: 'Seite neu laden',
+        showDetails: 'Technische Details anzeigen',
+        hideDetails: 'Details ausblenden',
+    },
+    en: {
+        title: 'Unexpected error',
+        description: "We've been notified. You can retry or reload the page.",
+        retry: 'Try again',
+        reload: 'Reload page',
+        showDetails: 'Show technical details',
+        hideDetails: 'Hide details',
+    },
+};
+
+function pickStrings(): FallbackStrings {
+    if (typeof document !== 'undefined') {
+        const lang = (document.documentElement.lang || 'de').slice(0, 2).toLowerCase();
+        if (lang === 'en') return STRINGS.en;
+    }
+    return STRINGS.de;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
     constructor(props: Props) {
         super(props);
-        this.state = { hasError: false, error: null };
+        this.state = { hasError: false, error: null, showDetails: false };
     }
 
-    static getDerivedStateFromError(error: Error): State {
+    static getDerivedStateFromError(error: Error): Partial<State> {
         return { hasError: true, error };
     }
 
-    componentDidCatch(error: Error, info: ErrorInfo) {
-        console.error('[ErrorBoundary] Unhandled error:', error, info.componentStack);
+    componentDidCatch(error: Error, info: ErrorInfo): void {
+        errorTracker.captureException(error, {
+            componentStack: info.componentStack,
+            source: 'ErrorBoundary',
+        });
     }
 
-    render() {
-        if (this.state.hasError) {
-            if (this.props.fallback) return this.props.fallback;
-            return (
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '100vh',
-                    padding: '2rem',
-                    fontFamily: 'system-ui, sans-serif',
-                    background: '#0a0a0a',
-                    color: '#e5e5e5',
-                }}>
-                    <div style={{
-                        maxWidth: '480px',
-                        textAlign: 'center',
-                        padding: '2.5rem',
-                        borderRadius: '16px',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(255,255,255,0.03)',
-                    }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-                            Unerwarteter Fehler
-                        </h2>
-                        <p style={{ color: '#888', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-                            Etwas ist schiefgelaufen. Bitte laden Sie die Seite neu.
-                        </p>
-                        <pre style={{
-                            fontSize: '0.75rem',
-                            color: '#666',
-                            background: 'rgba(255,255,255,0.05)',
-                            padding: '1rem',
-                            borderRadius: '8px',
-                            overflow: 'auto',
-                            maxHeight: '120px',
-                            textAlign: 'left',
-                            marginBottom: '1.5rem',
-                        }}>
-                            {this.state.error?.message || 'Unknown error'}
-                        </pre>
+    private handleRetry = (): void => {
+        this.setState({ hasError: false, error: null, showDetails: false });
+    };
+
+    private handleReload = (): void => {
+        window.location.reload();
+    };
+
+    private toggleDetails = (): void => {
+        this.setState((s) => ({ showDetails: !s.showDetails }));
+    };
+
+    render(): ReactNode {
+        if (!this.state.hasError) return this.props.children;
+        if (this.props.fallback) return this.props.fallback;
+
+        const t = pickStrings();
+        const { error, showDetails } = this.state;
+
+        return (
+            <div
+                role="alert"
+                className="min-h-screen flex items-center justify-center px-6"
+                style={{ background: 'var(--bg-canvas, #0A0B0D)', color: 'var(--text-primary, #e5e5e5)' }}
+            >
+                <div
+                    className="max-w-lg w-full text-center px-8 py-10"
+                    style={{
+                        background: 'var(--bg-surface, #111418)',
+                        border: '1px solid var(--border, rgba(255,255,255,0.08))',
+                        borderRadius: 16,
+                    }}
+                >
+                    <div
+                        aria-hidden="true"
+                        className="text-xs uppercase tracking-widest font-mono mb-3"
+                        style={{ color: 'var(--text-muted, #6B7280)' }}
+                    >
+                        runtime / unhandled
+                    </div>
+                    <h1 className="text-xl font-semibold mb-3">{t.title}</h1>
+                    <p
+                        className="text-sm leading-relaxed mb-6"
+                        style={{ color: 'var(--text-secondary, #9CA3AF)' }}
+                    >
+                        {t.description}
+                    </p>
+
+                    <div className="flex flex-col sm:flex-row gap-2 justify-center">
                         <button
-                            onClick={() => window.location.reload()}
+                            type="button"
+                            onClick={this.handleRetry}
+                            className="px-5 py-2.5 rounded-md text-sm font-medium"
+                            style={{ background: 'var(--accent-500, #1D6FE8)', color: '#fff' }}
+                        >
+                            {t.retry}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={this.handleReload}
+                            className="px-5 py-2.5 rounded-md text-sm font-medium"
                             style={{
-                                padding: '0.75rem 2rem',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: '#3b82f6',
-                                color: '#fff',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                fontSize: '0.875rem',
+                                background: 'transparent',
+                                color: 'var(--text-secondary, #9CA3AF)',
+                                border: '1px solid var(--border, rgba(255,255,255,0.12))',
                             }}
                         >
-                            Seite neu laden
+                            {t.reload}
                         </button>
                     </div>
-                </div>
-            );
-        }
 
-        return this.props.children;
+                    <div className="mt-6">
+                        <button
+                            type="button"
+                            onClick={this.toggleDetails}
+                            className="text-xs underline-offset-2 hover:underline"
+                            style={{ color: 'var(--text-muted, #6B7280)' }}
+                            aria-expanded={showDetails}
+                        >
+                            {showDetails ? t.hideDetails : t.showDetails}
+                        </button>
+
+                        {showDetails && error && (
+                            <pre
+                                className="text-left text-xs mt-3 p-3 rounded overflow-auto max-h-48"
+                                style={{
+                                    background: 'rgba(255,255,255,0.04)',
+                                    color: 'var(--text-secondary, #9CA3AF)',
+                                }}
+                            >
+                                {error.name}: {error.message}
+                                {error.stack ? `\n\n${error.stack}` : ''}
+                            </pre>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
     }
 }
