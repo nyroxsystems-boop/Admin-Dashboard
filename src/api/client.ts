@@ -161,9 +161,14 @@ function fireAuthExpired(endpoint: string): void {
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('auth:expired', { detail: { endpoint } }));
     }
-    queueMicrotask(() => {
-        _authExpiredFired = false;
-    });
+    // Latch stays set until a successful login resets it. Without the latch,
+    // 8 parallel 401 fetches would each fire `auth:expired`, each navigate
+    // replaces history → Chrome's 100-replaceState/10s SecurityError.
+}
+
+/** Call after a successful login to re-arm fireAuthExpired. */
+export function resetAuthExpired(): void {
+    _authExpiredFired = false;
 }
 
 // ──────────────────────────────────────────────────────────────────────────

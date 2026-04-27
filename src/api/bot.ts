@@ -12,26 +12,26 @@ export interface BotTestPayload {
 }
 
 export async function sendBotTestMessage(payload: BotTestPayload): Promise<BotTestResponse> {
-    const raw = await apiFetch<unknown>('/api/bot-testing/send', {
+    // Backend route is /chat (not /send). Body shape: { from, message, mediaUrl? }.
+    const raw = await apiFetch<unknown>('/api/bot-testing/chat', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+            from: payload.phone,
+            message: payload.message,
+            mediaUrl: payload.mediaUrl,
+        }),
     });
     return parseApiResponse(BotTestResponseSchema, raw);
 }
 
-export async function uploadBotTestMedia(file: File): Promise<{ url: string }> {
-    const form = new FormData();
-    form.append('file', file);
-    return apiFetch<{ url: string }>('/api/bot-testing/upload', {
-        method: 'POST',
-        body: form,
-        headers: {
-            // Strip Content-Type so the browser sets the multipart boundary.
-            'Content-Type': '',
-        },
-    });
+export async function uploadBotTestMedia(_file: File): Promise<{ url: string }> {
+    // No /upload endpoint in the bot-testing router. Caller should pass a
+    // pre-uploaded URL (or use a future /upload route once added).
+    throw new Error('Direkter Upload nicht unterstützt — bitte URL einer hochgeladenen Datei verwenden.');
 }
 
-export async function cancelBotTestRun(runId: string): Promise<{ success: boolean }> {
-    return apiFetch(`/api/bot-testing/runs/${runId}/cancel`, { method: 'POST' });
+export async function cancelBotTestRun(_runId: string): Promise<{ success: boolean }> {
+    // The bot-testing router exposes /reset (clear session) but no per-run cancel.
+    await apiFetch('/api/bot-testing/reset', { method: 'POST' });
+    return { success: true };
 }

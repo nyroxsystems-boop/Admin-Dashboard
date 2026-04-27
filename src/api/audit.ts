@@ -2,8 +2,8 @@
  * Audit Log API — cursor pagination, filters, CSV export.
  */
 
-import { apiFetch, apiFetchBlob } from './client';
-import { AuditLogPageSchema, AuditLogSchema, parseApiResponse, type AuditLog, type AuditLogPage } from './types';
+import { apiFetch } from './client';
+import { AuditLogPageSchema, AuditLogSchema, type AuditLog, type AuditLogPage } from './types';
 import { z } from 'zod';
 
 export interface AuditLogQuery {
@@ -17,8 +17,12 @@ export interface AuditLogQuery {
 }
 
 export async function getActivityLog(limit = 50): Promise<AuditLog[]> {
-    const raw = await apiFetch<unknown>(`/api/admin/activity-log?limit=${limit}`);
-    const parsed = z.array(AuditLogSchema).safeParse(raw);
+    // Backend has /audit-log, not /activity-log.
+    const raw = await apiFetch<unknown>(`/api/admin/audit-log?limit=${limit}`);
+    const arr = Array.isArray(raw)
+        ? raw
+        : (raw as { logs?: unknown[] })?.logs ?? [];
+    const parsed = z.array(AuditLogSchema).safeParse(arr);
     return parsed.success ? parsed.data : [];
 }
 
@@ -34,16 +38,33 @@ export async function getAuditLog(query: AuditLogQuery = {}): Promise<AuditLogPa
 
     const qs = params.toString();
     const raw = await apiFetch<unknown>(`/api/admin/audit-log${qs ? `?${qs}` : ''}`);
-    // Backend may return either { logs } or { logs, cursor, hasMore }.
-    return parseApiResponse(AuditLogPageSchema, raw);
+    // Backend may return either { logs } or { logs, cursor, hasMore } or
+    // a bare array. Normalize to the schema's expected shape.
+    const normalized = Array.isArray(raw) ? { logs: raw } : raw;
+    const parsed = AuditLogPageSchema.safeParse(normalized);
+    if (parsed.success) return parsed.data;
+    return { logs: [], cursor: null, hasMore: false };
 }
 
 export async function exportAuditLogCsv(query: AuditLogQuery = {}): Promise<Blob> {
-    const params = new URLSearchParams();
-    if (query.actionType) params.set('action_type', query.actionType);
-    if (query.adminUsername) params.set('admin', query.adminUsername);
-    if (query.from) params.set('from', query.from);
-    if (query.to) params.set('to', query.to);
-    params.set('format', 'csv');
-    return apiFetchBlob(`/api/admin/audit-log/export?${params.toString()}`);
+    // Backend has no dedicated export route — synthesize CSV client-side
+    // by paging through the regular audit-log endpoint.
+    const limit = query.limit ?? 1000;
+    const page = await getAuditLog({ ...query, limit });
+    const rows = page.logs;
+
+    const headers = ['id', 'created_at', 'admin_user', 'action_type', 'entity_type', 'entity_id', 'ip_address'];
+    const escape = (v: unknown): string => {
+        const s = v == null ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv =
+        headers.join(',') +
+        '\n' +
+        rows
+            .map((r: Record<string, unknown>) =>
+                headers.map((h) => escape(r[h])).join(',')
+            )
+            .join('\n');
+    return new Blob([csv], { type: 'text/csv;charset=utf-8' });
 }

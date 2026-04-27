@@ -38,15 +38,13 @@ export async function getAdminMe(): Promise<Admin> {
     return parseApiResponse(AdminSchema, raw);
 }
 
+/**
+ * @deprecated The bot-service backend does NOT implement /admin-auth/refresh.
+ * Admin sessions live 24h; on expiry the user must re-login. This export
+ * exists only for backwards compatibility — calling it throws.
+ */
 export async function refreshAccessToken(): Promise<{ access: string; expiresIn?: number }> {
-    const raw = await apiFetch<{ access: string; accessToken?: string; expiresIn?: number; expires_in?: number }>(
-        '/api/admin-auth/refresh',
-        { method: 'POST', body: JSON.stringify({}) }
-    );
-    const access = raw.access ?? raw.accessToken;
-    if (!access) throw new Error('Refresh response missing access token');
-    setAccessToken(access);
-    return { access, expiresIn: raw.expiresIn ?? raw.expires_in };
+    throw new Error('Admin sessions cannot be refreshed; please re-login.');
 }
 
 export async function requestPasswordReset(username: string): Promise<PasswordResetResponse> {

@@ -203,13 +203,31 @@ export const OemErrorEntrySchema = z.object({
 export type OemErrorEntry = z.infer<typeof OemErrorEntrySchema>;
 
 export async function listOemErrors(): Promise<OemErrorEntry[]> {
-    const raw = await apiFetch<unknown>('/api/admin/oem-errors');
-    const parsed = z.array(OemErrorEntrySchema).safeParse(raw);
-    return parsed.success ? parsed.data : [];
+    // The bot-service has no dedicated /oem-errors endpoint. We surface the
+    // same data via the OEM resolutions log (rejected / unresolved entries).
+    // If even that 404s, fall back to an empty list so the UI degrades to
+    // an EmptyState rather than crashing.
+    try {
+        const raw = await apiFetch<unknown>('/api/admin/oem/resolutions');
+        const arr = Array.isArray(raw)
+            ? raw
+            : (raw as { items?: unknown[]; data?: unknown[] })?.items
+              ?? (raw as { data?: unknown[] })?.data
+              ?? [];
+        const parsed = z.array(OemErrorEntrySchema).safeParse(arr);
+        return parsed.success ? parsed.data : [];
+    } catch {
+        return [];
+    }
 }
 
 export async function resolveOemError(id: string | number): Promise<{ success: boolean }> {
-    return apiFetch(`/api/admin/oem-errors/${id}/resolve`, { method: 'POST' });
+    // Backend route is /api/admin/oem/feedback/:id (POST).
+    await apiFetch(`/api/admin/oem/feedback/${id}`, {
+        method: 'POST',
+        body: JSON.stringify({ resolved: true }),
+    });
+    return { success: true };
 }
 
 // ── Accuracy ───────────────────────────────────────────────────────────────
@@ -230,6 +248,10 @@ export interface AccuracyStats {
 }
 
 export async function fetchAccuracyStats(): Promise<AccuracyStats> {
-    const res = await apiFetch<{ data: AccuracyStats }>('/api/v1/admin/accuracy/stats');
-    return res.data;
+    // Backend route: /api/admin/oem/accuracy (no /v1, no /stats subpath).
+    const res = await apiFetch<{ data?: AccuracyStats } & Partial<AccuracyStats>>(
+        '/api/admin/oem/accuracy'
+    );
+    // Some backend variants wrap in `{ data }`, others return flat.
+    return (res.data ?? (res as AccuracyStats));
 }

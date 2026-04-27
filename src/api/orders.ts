@@ -7,9 +7,18 @@ import { OrderSchema, parseApiResponse, type Order, type OrderStatus } from './t
 import { z } from 'zod';
 
 export async function listAllOrders(): Promise<Order[]> {
-    const raw = await apiFetch<unknown>('/api/admin/orders');
-    const parsed = z.array(OrderSchema).safeParse(raw);
-    return parsed.success ? parsed.data : [];
+    // Backend mounts orders at /api/orders (NOT /api/admin/orders).
+    // Endpoint may return either a bare array or { items: Order[] }.
+    const raw = await apiFetch<unknown>('/api/orders');
+    if (Array.isArray(raw)) {
+        const parsed = z.array(OrderSchema).safeParse(raw);
+        return parsed.success ? parsed.data : [];
+    }
+    if (raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown[] }).items)) {
+        const parsed = z.array(OrderSchema).safeParse((raw as { items: unknown[] }).items);
+        return parsed.success ? parsed.data : [];
+    }
+    return [];
 }
 
 export async function getOrder(orderId: string): Promise<Order> {

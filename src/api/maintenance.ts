@@ -1,21 +1,25 @@
 /**
- * Maintenance Mode API — toggle global service banner / read-only mode.
+ * Maintenance Mode API.
+ *
+ * The bot-service backend currently does NOT expose a maintenance-mode
+ * endpoint. We surface a static "disabled" state so the UI degrades to a
+ * read-only banner; mutation throws a helpful error.
  */
 
-import { apiFetch } from './client';
-import { MaintenanceStateSchema, parseApiResponse, type MaintenanceState } from './types';
+import { type MaintenanceState } from './types';
 
 export async function getMaintenanceState(): Promise<MaintenanceState> {
-    const raw = await apiFetch<unknown>('/api/admin/maintenance');
-    return parseApiResponse(MaintenanceStateSchema, raw);
+    return Promise.resolve({
+        enabled: false,
+        message: undefined,
+        scheduled_until: null,
+    });
 }
 
 export async function setMaintenanceState(
-    state: { enabled: boolean; message?: string; scheduled_until?: string | null }
+    _state: { enabled: boolean; message?: string; scheduled_until?: string | null }
 ): Promise<MaintenanceState> {
-    const raw = await apiFetch<unknown>('/api/admin/maintenance', {
-        method: 'PUT',
-        body: JSON.stringify(state),
-    });
-    return parseApiResponse(MaintenanceStateSchema, raw);
+    throw new Error(
+        'Wartungsmodus wird vom Backend (whatsapp-bot service) noch nicht unterstützt.'
+    );
 }

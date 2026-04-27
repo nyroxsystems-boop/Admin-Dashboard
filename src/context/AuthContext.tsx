@@ -2,16 +2,17 @@
  * Admin Auth Context — single source of truth for admin authentication.
  *
  * Token storage:
- *   - access token: in-memory only (XSS-safe)
+ *   - access token: localStorage (inside the session blob, so it survives
+ *     a hard reload — the bot-service backend has NO refresh endpoint, so
+ *     in-memory-only would force re-login on every refresh)
  *   - session blob: localStorage key `pu.admin.session`
- *     { user, expiresAt, tenantId? }
- *   - refresh token: httpOnly cookie set by the backend
+ *     { user, accessToken, expiresAt, tenantId? }
  *
  * Lifecycle:
- *   - Pre-Expiry Auto-Refresh (5 min before `expiresAt`)
- *   - Auto-Logout on refresh failure when expiresAt is in the past
+ *   - Sessions live 24h server-side. We do NOT call /refresh (the bot-service
+ *     does not implement it). Instead, hard logout 60s before expiry.
  *   - Cross-tab logout sync via BroadcastChannel
- *   - Listens for `auth:expired` event from `api/client.ts`
+ *   - Listens for `auth:expired` event from `api/client.ts` (one-shot, latched)
  */
 
 import {
@@ -28,10 +29,9 @@ import { useNavigate } from 'react-router-dom';
 import {
     adminLogin as apiAdminLogin,
     adminLogout as apiAdminLogout,
-    refreshAccessToken as apiRefresh,
     getAdminMe as apiGetMe,
 } from '../api/auth';
-import { setAccessToken, clearAuth, getAuthToken } from '../api/client';
+import { setAccessToken, clearAuth, resetAuthExpired } from '../api/client';
 import type { Admin, AdminRole } from '../api/types';
 import { errorTracker } from '../services/errorTracker';
 
@@ -41,6 +41,7 @@ import { errorTracker } from '../services/errorTracker';
 
 interface Session {
     user: Admin;
+    accessToken: string;
     expiresAt: number; // epoch ms
     tenantId?: number | null;
 }
@@ -66,8 +67,7 @@ interface AuthContextValue extends AuthState {
 
 const SESSION_KEY = 'pu.admin.session';
 const TENANT_KEY = 'pu.admin.tenantId';
-const REFRESH_BUFFER_MS = 5 * 60 * 1000; // refresh 5 min before expiry
-const DEFAULT_EXPIRY_SEC = 60 * 60 * 8; // 8h default if backend omits expiresIn
+const DEFAULT_EXPIRY_SEC = 24 * 60 * 60; // bot-service issues 24h sessions
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -81,6 +81,7 @@ function loadSession(): Session | null {
         if (!raw) return null;
         const parsed = JSON.parse(raw) as Session;
         if (!parsed?.user || typeof parsed.expiresAt !== 'number') return null;
+        if (typeof parsed.accessToken !== 'string' || !parsed.accessToken) return null;
         return parsed;
     } catch {
         return null;
@@ -125,77 +126,36 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     const [isLoading, setIsLoading] = useState(true);
 
     const navigate = useNavigate();
-    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const refreshInFlightRef = useRef(false);
-
-    // Forward refs let callbacks reference each other without circular
-    // declaration order. Each callback reads the current implementation
-    // through the ref at call-time.
-    const performRefreshRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
+    const expiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const handleForcedLogoutRef = useRef<() => void>(() => {});
 
     // ── Forced Logout ────────────────────────────────────────────────────
 
     const handleForcedLogout = useCallback(() => {
-        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        if (expiryTimerRef.current) clearTimeout(expiryTimerRef.current);
         clearAllAuth();
         setUser(null);
         setTenantId(null);
         errorTracker.setUser(null);
     }, []);
 
-    // ── Refresh scheduler ────────────────────────────────────────────────
+    // ── Hard-expiry scheduler (no /refresh — bot-service has none) ───────
 
-    const scheduleRefresh = useCallback((expiresAt: number) => {
-        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-        const delay = Math.max(0, expiresAt - Date.now() - REFRESH_BUFFER_MS);
-        refreshTimerRef.current = setTimeout(() => {
-            void performRefreshRef.current();
+    const scheduleHardLogout = useCallback((expiresAt: number) => {
+        if (expiryTimerRef.current) clearTimeout(expiryTimerRef.current);
+        // Log the user out 60s before the server-side session would die
+        // so they don't see mysterious 401s in the middle of an action.
+        const delay = Math.max(0, expiresAt - Date.now() - 60_000);
+        expiryTimerRef.current = setTimeout(() => {
+            handleForcedLogoutRef.current();
         }, delay);
     }, []);
 
-    const performRefresh = useCallback(async (): Promise<boolean> => {
-        if (refreshInFlightRef.current) return false;
-        refreshInFlightRef.current = true;
-        try {
-            const { expiresIn } = await apiRefresh();
-            const newExpiresAt = Date.now() + (expiresIn ?? DEFAULT_EXPIRY_SEC) * 1000;
-            const current = loadSession();
-            if (current) {
-                const next: Session = { ...current, expiresAt: newExpiresAt };
-                saveSession(next);
-                scheduleRefresh(newExpiresAt);
-            }
-            return true;
-        } catch (err) {
-            errorTracker.captureMessage('Admin token refresh failed', 'warning', {
-                error: err instanceof Error ? err.message : String(err),
-            });
-            // Only force logout if we are actually past expiry — refresh
-            // hiccups while the access token is still valid should not kick
-            // the user out of the chair.
-            const current = loadSession();
-            if (!current || Date.now() >= current.expiresAt) {
-                handleForcedLogoutRef.current();
-            } else {
-                if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-                refreshTimerRef.current = setTimeout(
-                    () => void performRefreshRef.current(),
-                    60_000
-                );
-            }
-            return false;
-        } finally {
-            refreshInFlightRef.current = false;
-        }
-    }, [scheduleRefresh]);
-
-    // Keep the forward refs in sync — done in an effect so we don't write
-    // to refs during render.
+    // Keep the forced-logout ref in sync — done in an effect so we don't
+    // write to refs during render.
     useEffect(() => {
-        performRefreshRef.current = performRefresh;
         handleForcedLogoutRef.current = handleForcedLogout;
-    }, [performRefresh, handleForcedLogout]);
+    }, [handleForcedLogout]);
 
     // ── Public Methods ───────────────────────────────────────────────────
 
@@ -206,12 +166,22 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
             const expiresAt = Date.now() + expiresIn * 1000;
 
             setAccessToken(res.access);
-            const session: Session = { user: res.user, expiresAt, tenantId: null };
+            // Persist the token in the session blob so it survives a hard
+            // reload — the bot-service backend has no /refresh endpoint.
+            const session: Session = {
+                user: res.user,
+                accessToken: res.access,
+                expiresAt,
+                tenantId: null,
+            };
             saveSession(session);
 
             setUser(res.user);
             setTenantId(null);
-            scheduleRefresh(expiresAt);
+            scheduleHardLogout(expiresAt);
+            // Re-arm the auth-expired latch so a new 401 in this session
+            // can fire the navigate-to-/login flow exactly once.
+            resetAuthExpired();
 
             errorTracker.setUser({
                 id: String(res.user.id),
@@ -219,7 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
                 role: typeof res.user.role === 'string' ? res.user.role : undefined,
             });
         },
-        [scheduleRefresh]
+        [scheduleHardLogout]
     );
 
     const logout = useCallback(async (): Promise<void> => {
@@ -235,8 +205,9 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     }, [handleForcedLogout, navigate]);
 
     const refresh = useCallback(async (): Promise<void> => {
-        await performRefresh();
-        // Re-fetch profile so role/permission changes propagate
+        // No /refresh endpoint — just re-fetch profile so role/permission
+        // changes propagate. If /me 401s, the auth:expired event handles
+        // logout via the latch.
         try {
             const me = await apiGetMe();
             setUser(me);
@@ -247,7 +218,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
                 error: err instanceof Error ? err.message : String(err),
             });
         }
-    }, [performRefresh]);
+    }, []);
 
     const setImpersonatedTenant = useCallback((id: number | null) => {
         setTenantId(id);
@@ -274,32 +245,26 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
                 return;
             }
 
+            // Hard expiry — kick (no /refresh endpoint to fall back on)
+            if (Date.now() >= session.expiresAt) {
+                handleForcedLogout();
+                setIsLoading(false);
+                return;
+            }
+
             // Restore tenantId
             const persistedTenant = localStorage.getItem(TENANT_KEY);
             if (persistedTenant) setTenantId(Number(persistedTenant));
             else if (typeof session.tenantId === 'number') setTenantId(session.tenantId);
 
-            // Hard expiry — refresh or kick
-            if (Date.now() >= session.expiresAt) {
-                const ok = await performRefresh();
-                if (!ok) {
-                    setIsLoading(false);
-                    return;
-                }
-            }
-
+            // Restore in-memory token from the session blob, confirm with
+            // backend that the session is still valid (defends against
+            // revoked sessions / role changes mid-session).
+            setAccessToken(session.accessToken);
             setUser(session.user);
-            scheduleRefresh(session.expiresAt);
+            scheduleHardLogout(session.expiresAt);
+            resetAuthExpired();
 
-            // Token is in-memory only — refresh once on boot to recover it
-            // via the httpOnly refresh cookie (cookie + setAccessToken happen
-            // inside performRefresh).
-            if (!getAuthToken()) {
-                await performRefresh();
-            }
-
-            // Confirm with backend that the session is still valid (defends
-            // against revoked sessions / role changes mid-session).
             try {
                 const me = await apiGetMe();
                 setUser(me);
@@ -362,7 +327,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
 
     useEffect(() => {
         return () => {
-            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+            if (expiryTimerRef.current) clearTimeout(expiryTimerRef.current);
         };
     }, []);
 

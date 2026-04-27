@@ -1,5 +1,10 @@
 /**
- * Admin User CRUD — list, update, delete admin accounts.
+ * Admin User CRUD.
+ *
+ * The bot-service exposes ONLY: GET /list-admins, PUT /update-email,
+ * POST /change-password, POST /reset-password.
+ * Create / Delete / Role-change endpoints don't exist server-side, so the
+ * corresponding mutations throw a helpful error and the UI degrades.
  */
 
 import { apiFetch } from './client';
@@ -17,30 +22,28 @@ export async function updateAdminEmail(adminId: number | string, email: string):
     });
 }
 
-export async function createAdmin(data: {
+export async function createAdmin(_data: {
     username: string;
     email: string;
     password: string;
     role?: 'SUPER_ADMIN' | 'SUPPORT_ADMIN' | 'READ_ONLY';
 }): Promise<{ success: boolean; admin?: Admin }> {
-    return apiFetch<{ success: boolean; admin?: Admin }>('/api/admin-auth/create-admin', {
-        method: 'POST',
-        body: JSON.stringify(data),
-    });
+    throw new Error(
+        'Admin-Anlegen wird vom Backend noch nicht unterstützt. Bitte direkt in der admin_users-Tabelle anlegen.'
+    );
 }
 
-export async function deleteAdmin(adminId: number | string): Promise<{ success: boolean }> {
-    return apiFetch<{ success: boolean }>(`/api/admin-auth/admins/${adminId}`, {
-        method: 'DELETE',
-    });
+export async function deleteAdmin(_adminId: number | string): Promise<{ success: boolean }> {
+    throw new Error(
+        'Admin-Löschen wird vom Backend noch nicht unterstützt.'
+    );
 }
 
 export async function setAdminRole(
-    adminId: number | string,
-    role: 'SUPER_ADMIN' | 'SUPPORT_ADMIN' | 'READ_ONLY'
+    _adminId: number | string,
+    _role: 'SUPER_ADMIN' | 'SUPPORT_ADMIN' | 'READ_ONLY'
 ): Promise<{ success: boolean }> {
-    return apiFetch<{ success: boolean }>(`/api/admin-auth/admins/${adminId}/role`, {
-        method: 'PATCH',
-        body: JSON.stringify({ role }),
-    });
+    throw new Error(
+        'Rollen-Änderung wird vom Backend noch nicht unterstützt.'
+    );
 }
