@@ -20,7 +20,7 @@
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider } from 'next-themes';
+import { ThemeProvider, useTheme } from 'next-themes';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
@@ -32,6 +32,30 @@ import './index.css';
 
 // Init Sentry before React mounts so boot-time errors are captured.
 initSentry();
+
+/**
+ * ThemedToaster — Sonner Toaster that follows the active next-themes theme.
+ *
+ * Lives inside <ThemeProvider> so `useTheme()` resolves correctly.
+ */
+function ThemedToaster(): JSX.Element {
+    const { resolvedTheme } = useTheme();
+    return (
+        <Toaster
+            position="top-right"
+            theme={(resolvedTheme as 'light' | 'dark') ?? 'dark'}
+            richColors
+            closeButton
+            toastOptions={{
+                style: {
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                },
+            }}
+        />
+    );
+}
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {
@@ -45,19 +69,7 @@ createRoot(rootEl).render(
                 <ErrorBoundary>
                     <I18nProvider>
                         <App />
-                        <Toaster
-                            position="top-right"
-                            theme="dark"
-                            richColors
-                            closeButton
-                            toastOptions={{
-                                style: {
-                                    background: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border)',
-                                    color: 'var(--text-primary)',
-                                },
-                            }}
-                        />
+                        <ThemedToaster />
                     </I18nProvider>
                 </ErrorBoundary>
             </BrowserRouter>

@@ -101,6 +101,10 @@ const MAX_RETRIES = 3;
 const RETRY_DELAYS_MS = [100, 200, 400];
 const REQUEST_TIMEOUT_MS = 30_000;
 
+// Strict JWT shape: three non-empty base64url segments. Avoids edge cases
+// where corrupted or malformed tokens flip the auth header.
+const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+
 /** In-flight cache for GET-Deduplication. Key = METHOD + URL + body-hash. */
 const inFlightCache = new Map<string, Promise<unknown>>();
 
@@ -131,7 +135,7 @@ function buildHeaders(extra?: HeadersInit): Record<string, string> {
     // JWT / service tokens and would 403. JWTs (3-segment dot-separated)
     // still go via Bearer.
     if (token) {
-        const looksLikeJwt = token.split('.').length === 3;
+        const looksLikeJwt = JWT_RE.test(token);
         headers.Authorization = looksLikeJwt ? `Bearer ${token}` : `Token ${token}`;
     }
 
@@ -146,8 +150,14 @@ function buildHeaders(extra?: HeadersInit): Record<string, string> {
 
 function buildDedupKey(endpoint: string, options: RequestInit): string {
     const method = (options.method ?? 'GET').toUpperCase();
-    const body = typeof options.body === 'string' ? options.body : '';
-    return `${method} ${endpoint}::${body}`;
+    let bodyKey = '';
+    if (typeof options.body === 'string') {
+        bodyKey = options.body;
+    } else if (options.body) {
+        // FormData / Blob / etc — non-deduplicatable, use a unique marker
+        bodyKey = `__nonstring_${Date.now()}_${Math.random()}`;
+    }
+    return `${method} ${endpoint}::${bodyKey}`;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -256,6 +266,23 @@ async function executeRequest<T>(endpoint: string, options: ApiFetchOptions): Pr
             throw new ApiError('Sitzung abgelaufen – bitte erneut anmelden', 401, endpoint);
         }
 
+        // 403 — Permission denied (NOT auth failure, don't trigger forced logout)
+        if (response.status === 403) {
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('permission:denied', {
+                    detail: { endpoint, method }
+                }));
+            }
+            let detail = 'Forbidden';
+            try {
+                const j = await response.json();
+                detail = (j as { error?: string; detail?: string })?.error
+                    ?? (j as { detail?: string })?.detail
+                    ?? detail;
+            } catch { /* not json */ }
+            throw new ApiError(detail, 403, endpoint);
+        }
+
         // 4xx (other) — never retry
         if (!response.ok) {
             const body = await response.json().catch(() => ({}));
@@ -316,7 +343,28 @@ export async function apiFetchBlob(endpoint: string, options: RequestInit = {}):
     const headers = buildHeaders(options.headers);
     delete (headers as Record<string, string>)['Content-Type'];
 
-    const res = await fetch(url, { ...options, headers, credentials: 'include' });
+    const controller = new AbortController();
+    // Blobs sind für Exports — größeres Timeout als Standard-API (60s vs 30s)
+    const BLOB_TIMEOUT_MS = 60_000;
+    const timeoutId = setTimeout(() => controller.abort(), BLOB_TIMEOUT_MS);
+
+    let res: Response;
+    try {
+        res = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'include',
+            signal: options.signal ?? controller.signal,
+        });
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof DOMException && err.name === 'AbortError') {
+            throw new ApiError(`Download timeout after ${BLOB_TIMEOUT_MS / 1000}s: ${endpoint}`, 408, endpoint);
+        }
+        throw err;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 
     if (res.status === 401) {
         fireAuthExpired(endpoint);
@@ -325,19 +373,20 @@ export async function apiFetchBlob(endpoint: string, options: RequestInit = {}):
     if (!res.ok) {
         let detail = `HTTP ${res.status}`;
         try {
-            const ct = res.headers.get('content-type') ?? '';
-            if (ct.includes('application/json')) {
-                const body = await res.json();
-                detail = body?.message ?? body?.error ?? detail;
-            }
-        } catch {
-            /* ignore */
-        }
+            const j = await res.json();
+            detail = (j as { error?: string; detail?: string; message?: string })?.error
+                ?? (j as { detail?: string })?.detail
+                ?? (j as { message?: string })?.message
+                ?? detail;
+        } catch { /* response is not JSON */ }
         throw new ApiError(detail, res.status, endpoint);
     }
-    const blob = await res.blob();
-    if (blob.size === 0) {
-        throw new ApiError('Server returned empty response', 200, endpoint);
+
+    // Content-Type sanity check — Cloudflare error pages send HTML even with 200 sometimes
+    const contentType = res.headers.get('content-type') ?? '';
+    if (contentType.includes('text/html')) {
+        throw new ApiError('Server returned HTML instead of binary content (likely an error page)', 502, endpoint);
     }
-    return blob;
+
+    return await res.blob();
 }

@@ -76,6 +76,7 @@ export function ConfirmDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isBusy}
+            autoFocus
           >
             {cancelLabel}
           </Button>

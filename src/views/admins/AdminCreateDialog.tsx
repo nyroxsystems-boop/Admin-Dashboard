@@ -3,7 +3,7 @@
  *
  * Email-Templates: feature deferred (no API surface yet).
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,6 +38,7 @@ export default function AdminCreateDialog({
     const [role, setRole] = useState<AdminRole>('SUPPORT_ADMIN');
     const [generatedPw, setGeneratedPw] = useState(() => generateSecurePassword());
     const [busy, setBusy] = useState(false);
+    const submittingRef = useRef(false);
     const createMut = useCreateAdmin();
 
     const emailCheck = useMemo(() => validateEmail(email), [email]);
@@ -45,6 +46,8 @@ export default function AdminCreateDialog({
     const canSubmit = username.trim().length > 0 && emailCheck.valid && pwCheck.valid;
 
     async function submit(): Promise<void> {
+        if (submittingRef.current) return; // double-click / double-fire guard
+        submittingRef.current = true;
         setBusy(true);
         try {
             await createMut.mutateAsync({
@@ -63,6 +66,7 @@ export default function AdminCreateDialog({
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Anlegen fehlgeschlagen.');
         } finally {
+            submittingRef.current = false;
             setBusy(false);
         }
     }
@@ -134,8 +138,15 @@ export default function AdminCreateDialog({
                                 Neu
                             </Button>
                         </div>
-                        {!pwCheck.valid && (
-                            <p className="text-xs text-danger">{pwCheck.errors[0]}</p>
+                        {!pwCheck.valid && pwCheck.errors.length > 0 && (
+                            <ul
+                                className="text-xs text-danger mt-1 space-y-0.5"
+                                role="alert"
+                            >
+                                {pwCheck.errors.map((e, i) => (
+                                    <li key={i}>{e}</li>
+                                ))}
+                            </ul>
                         )}
                     </div>
                 </div>

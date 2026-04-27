@@ -29,6 +29,14 @@ import type { OemRecord, OemRecordsResponse } from '@/api/types';
 
 const REGISTRY_KEY = ['admin', 'oem', 'registry'] as const;
 
+function stableStringify(obj: unknown): string {
+    if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+    if (Array.isArray(obj)) return '[' + obj.map(stableStringify).join(',') + ']';
+    const o = obj as Record<string, unknown>;
+    const keys = Object.keys(o).sort();
+    return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(o[k])).join(',') + '}';
+}
+
 export function useOemRegistry(filter: OemSearchParams = {}): {
     data: OemRecordsResponse | null;
     entries: OemRecord[];
@@ -37,7 +45,7 @@ export function useOemRegistry(filter: OemSearchParams = {}): {
     refetch: () => void;
 } {
     const q = useQuery({
-        queryKey: [...REGISTRY_KEY, filter] as const,
+        queryKey: [...REGISTRY_KEY, stableStringify(filter)] as const,
         queryFn: () => getOemRecords(filter),
         staleTime: 30_000,
         gcTime: 5 * 60_000,

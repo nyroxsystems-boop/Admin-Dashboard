@@ -9,7 +9,7 @@
  *
  * Auto-saves wizard state to localStorage so a closed tab doesn't lose progress.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
@@ -54,6 +54,7 @@ export default function TenantWizard(): JSX.Element {
     const nav = useNavigate();
     const [state, setState] = useLocalStorage<WizardState>('admin.tenantWizard.draft', INITIAL);
     const [submitting, setSubmitting] = useState(false);
+    const submittingRef = useRef(false);
     const createMut = useCreateTenant();
 
     const isDirty = state.name !== '' || state.adminEmail !== '';
@@ -86,6 +87,8 @@ export default function TenantWizard(): JSX.Element {
     }
 
     async function submit(): Promise<void> {
+        if (submittingRef.current) return; // double-click / double-fire guard
+        submittingRef.current = true;
         setSubmitting(true);
         try {
             await createMut.mutateAsync({
@@ -102,6 +105,7 @@ export default function TenantWizard(): JSX.Element {
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Anlegen fehlgeschlagen.');
         } finally {
+            submittingRef.current = false;
             setSubmitting(false);
         }
     }

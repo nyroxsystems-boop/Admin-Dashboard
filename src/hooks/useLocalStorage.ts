@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 
 /**
  * useLocalStorage — typed localStorage hook with cross-tab sync.
@@ -29,8 +30,19 @@ export function useLocalStorage<T>(
                 try {
                     window.localStorage.setItem(key, JSON.stringify(next));
                     window.dispatchEvent(new StorageEvent('storage', { key }));
-                } catch {
-                    // ignore quota / serialization errors
+                } catch (err) {
+                    if (
+                        err instanceof DOMException &&
+                        (err.name === 'QuotaExceededError' ||
+                            // Firefox legacy
+                            err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                            err.code === 22)
+                    ) {
+                        toast.error('Browser-Speicher voll. Auto-Save deaktiviert.', {
+                            id: `localStorage-quota-${key}`,
+                        });
+                    }
+                    // otherwise silently swallow — kein crash
                 }
                 return next;
             });

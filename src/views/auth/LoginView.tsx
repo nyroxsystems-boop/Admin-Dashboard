@@ -6,8 +6,8 @@
  * email address — pick whichever the operator stored. We therefore do
  * NOT enforce email-only validation; only "non-empty, trimmed, ≥3 chars".
  */
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -15,10 +15,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
+import { resetAuthExpired } from '@/api/client';
 import { parseError } from '@/utils/error/parseError';
 
 export default function LoginView(): JSX.Element {
     const nav = useNavigate();
+    const [params] = useSearchParams();
     const { login } = useAuth();
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
@@ -28,6 +30,12 @@ export default function LoginView(): JSX.Element {
     const trimmed = identifier.trim();
     const canSubmit = trimmed.length >= 3 && password.length > 0 && !busy;
 
+    useEffect(() => {
+        // Re-arm the auth-expired latch when user reaches the login page,
+        // so future 401s after re-auth can fire navigate exactly once.
+        resetAuthExpired();
+    }, []);
+
     async function submit(e: React.FormEvent): Promise<void> {
         e.preventDefault();
         if (!canSubmit) return;
@@ -35,7 +43,20 @@ export default function LoginView(): JSX.Element {
         setError(null);
         try {
             await login(trimmed, password);
-            nav('/');
+            const redirectParam = params.get('redirect');
+            let redirect = '/';
+            if (redirectParam) {
+                try {
+                    const decoded = decodeURIComponent(redirectParam);
+                    // Sicherheits-Check: nur same-origin path, kein vollständiger URL
+                    if (decoded.startsWith('/') && !decoded.startsWith('//')) {
+                        redirect = decoded;
+                    }
+                } catch {
+                    // malformed → fallback /
+                }
+            }
+            nav(redirect, { replace: true });
         } catch (err) {
             setError(parseError(err).message || 'Anmeldung fehlgeschlagen.');
         } finally {

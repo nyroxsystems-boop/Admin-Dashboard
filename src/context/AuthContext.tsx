@@ -34,6 +34,7 @@ import {
 import { setAccessToken, clearAuth, resetAuthExpired } from '../api/client';
 import type { Admin, AdminRole } from '../api/types';
 import { errorTracker } from '../services/errorTracker';
+import { encryptToken, decryptToken, clearStorageKey } from '../services/secureStorage';
 
 // ──────────────────────────────────────────────────────────────────────────
 //  Types
@@ -105,6 +106,7 @@ function clearAllAuth(): void {
         /* ignore */
     }
     clearAuth();
+    clearStorageKey();
     try {
         new BroadcastChannel('pu.admin.auth').postMessage({ type: 'logout' });
     } catch {
@@ -168,9 +170,13 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
             setAccessToken(res.access);
             // Persist the token in the session blob so it survives a hard
             // reload — the bot-service backend has no /refresh endpoint.
+            // Token is encrypted-at-rest with a key bound to this tab's
+            // sessionStorage so a passive XSS read of localStorage alone
+            // is not enough to steal the bearer.
+            const encryptedToken = await encryptToken(res.access);
             const session: Session = {
                 user: res.user,
-                accessToken: res.access,
+                accessToken: encryptedToken,
                 expiresAt,
                 tenantId: null,
             };
@@ -193,15 +199,15 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     );
 
     const logout = useCallback(async (): Promise<void> => {
-        try {
-            await apiAdminLogout();
-        } catch (err) {
+        // Local cleanup first — never block UI on a slow server
+        handleForcedLogout();
+        navigate('/login', { replace: true });
+        // Fire-and-forget the API call (best-effort server-side cleanup)
+        void apiAdminLogout().catch((err) => {
             errorTracker.captureMessage('Admin logout API failed (non-fatal)', 'warning', {
                 error: err instanceof Error ? err.message : String(err),
             });
-        }
-        handleForcedLogout();
-        navigate('/login', { replace: true });
+        });
     }, [handleForcedLogout, navigate]);
 
     const refresh = useCallback(async (): Promise<void> => {
@@ -244,7 +250,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
             // previous deploy can't be parsed by the new schema.
             try {
                 const qs = new URLSearchParams(window.location.search);
-                if (qs.has('reset') || qs.has('logout')) {
+                if (qs.get('reset') === '1' || qs.get('logout') === '1') {
                     clearAllAuth();
                     qs.delete('reset');
                     qs.delete('logout');
@@ -282,7 +288,15 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
                 // Restore in-memory token from the session blob, confirm with
                 // backend that the session is still valid (defends against
                 // revoked sessions / role changes mid-session).
-                setAccessToken(session.accessToken);
+                // Decrypt the persisted token; if decryption fails (key gone,
+                // legacy plaintext blob, tampering), force a clean logout.
+                const plaintext = await decryptToken(session.accessToken);
+                if (!plaintext) {
+                    handleForcedLogout();
+                    setIsLoading(false);
+                    return;
+                }
+                setAccessToken(plaintext);
                 setUser(session.user);
                 scheduleHardLogout(session.expiresAt);
                 resetAuthExpired();

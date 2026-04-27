@@ -27,8 +27,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    // Hidden sourcemaps: emitted but NOT referenced via //# sourceMappingURL
-    sourcemap: 'hidden',
+    // Source maps off in production output. Set UPLOAD_SOURCEMAPS=1 if you
+    // want them generated for a Sentry-upload step (which should then delete
+    // the .map files before the dist/ ships).
+    sourcemap: process.env.UPLOAD_SOURCEMAPS === '1' ? 'hidden' : false,
     minify: 'esbuild',
     chunkSizeWarningLimit: 850,
     rollupOptions: {
@@ -40,16 +42,10 @@ export default defineConfig({
           'vendor-icons': ['lucide-react'],
           // UI utilities — sonner toasts, dompurify
           'vendor-ui': ['sonner', 'dompurify'],
-          // Charts — only loaded on dashboards/reports
-          'vendor-charts': ['recharts'],
           // Animations — broadly used but big
           'vendor-motion': ['framer-motion'],
-          // Carousels — only on a few views
-          'vendor-embla': ['embla-carousel-react'],
-          // Forms — widely used
-          'vendor-forms': ['react-hook-form'],
-          // Date utils — fairly stable
-          'vendor-date': ['date-fns'],
+          // React Query — server state cache
+          'vendor-query': ['@tanstack/react-query'],
         },
       },
     },
