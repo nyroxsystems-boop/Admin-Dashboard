@@ -25,6 +25,7 @@ const LookupView = lazy(() => import('@/views/oem/LookupView'));
 const BatchTestView = lazy(() => import('@/views/oem/BatchTestView'));
 const ErrorReviewView = lazy(() => import('@/views/oem/ErrorReviewView'));
 const AccuracyView = lazy(() => import('@/views/oem/AccuracyView'));
+const OemFinderView = lazy(() => import('@/views/operations/OemFinderView'));
 
 const BotTestingView = lazy(() => import('@/views/operations/BotTestingView'));
 const InboxView = lazy(() => import('@/views/operations/InboxView'));
@@ -72,6 +73,7 @@ export function AdminRoutes(): JSX.Element {
                 <Route path="oem/batch" element={withSuspense(<BatchTestView />)} />
                 <Route path="oem/errors" element={withSuspense(<ErrorReviewView />)} />
                 <Route path="oem/accuracy" element={withSuspense(<AccuracyView />)} />
+                <Route path="oem-finder" element={withSuspense(<OemFinderView />)} />
 
                 <Route path="bot/testing" element={withSuspense(<BotTestingView />)} />
                 <Route path="inbox" element={withSuspense(<InboxView />)} />

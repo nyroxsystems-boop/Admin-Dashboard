@@ -76,6 +76,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/oem/batch', label: 'Batch Test', icon: TestTubes },
       { to: '/oem/errors', label: 'Errors', icon: AlertCircle },
       { to: '/oem/accuracy', label: 'Accuracy', icon: Target },
+      { to: '/oem-finder', label: 'YQ OEM-Finder', icon: Search },
     ],
   },
   {
