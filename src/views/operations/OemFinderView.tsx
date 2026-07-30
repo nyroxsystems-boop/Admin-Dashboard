@@ -246,7 +246,7 @@ export default function OemFinderView(): JSX.Element {
             <header className="mb-6 flex items-center justify-between gap-4 flex-wrap">
                 <div>
                     <h1 className="text-2xl font-display font-semibold tracking-tight text-text-primary">OEM-Finder</h1>
-                    <p className="text-sm text-text-secondary mt-1">Fahrzeugschein → vorhandene OCR → VIN-Fahrzeug in YQ → native OE-Nummer. Mit transparentem Testverlauf statt geratenem Treffer.</p>
+                    <p className="text-sm text-text-secondary mt-1">YQ Universal v1 · Fahrzeugschein → vorhandene OCR → VIN-Fahrzeug → native OE-Nummer. Mit transparentem Testverlauf statt geratenem Treffer.</p>
                 </div>
                 <div className="inline-flex rounded-lg border border-border overflow-hidden">
                     <button onClick={() => setMode('find')} className={`px-4 py-2 text-sm font-medium ${mode === 'find' ? 'bg-accent-500 text-white' : 'bg-surface text-text-secondary hover:bg-elevated'}`}>Suche</button>
