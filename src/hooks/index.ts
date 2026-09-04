@@ -13,7 +13,6 @@ export {
     useCreateTenant,
     useUpdateTenant,
     useUpdateTenantLimits,
-    useDeleteTenant,
     useDeactivateTenant,
     useActivateTenant,
     useTenantDevices,
@@ -25,16 +24,11 @@ export {
     type TenantDeviceRow,
 } from './useTenants';
 
-// ── Admins ─────────────────────────────────────────────────────────────────
+// ── Admins (read + self-service email only) ──────────────────────────────────
 export {
     useAdmins,
-    useCreateAdmin,
     useUpdateAdminEmail,
-    useSetAdminRole,
-    useDeleteAdmin,
-    type CreateAdminInput,
     type UpdateAdminEmailInput,
-    type SetAdminRoleInput,
 } from './useAdmins';
 
 // ── Audit ──────────────────────────────────────────────────────────────────
@@ -81,7 +75,6 @@ export {
 export {
     useBotTesting,
     useSendBotTestMessage,
-    useUploadBotMedia,
     useCancelBotTestRun,
     type BotTestResult,
 } from './useBotTesting';
@@ -91,6 +84,7 @@ export {
     useInbox,
     useMailboxes,
     useMarkInboxRead,
+    useSendInboxEmail,
     useReplyInbox,
     type InboxItem,
     type MarkInboxReadInput,
@@ -108,16 +102,6 @@ export {
     type UpdateOrderInput,
 } from './useOrders';
 
-// ── Scraper ────────────────────────────────────────────────────────────────
-export {
-    useScraper,
-    useScraperHealth,
-    useScraperLookup,
-    type ScraperJob,
-    type ScraperHealth,
-    type ScraperLookupInput,
-} from './useScraper';
-
 // ── Dashboard / Health ─────────────────────────────────────────────────────
 export {
     useDashboardMetrics,
@@ -125,7 +109,7 @@ export {
 } from './useDashboardMetrics';
 export { useSystemHealth } from './useSystemHealth';
 
-// ── Notifications & Impersonation (stubs awaiting API) ─────────────────────
+// ── Notifications (SSE) & Impersonation (JWT) ─────────────────────────────
 export {
     useNotifications,
     type NotificationItem,

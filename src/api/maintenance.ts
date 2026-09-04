@@ -1,25 +1,32 @@
 /**
  * Maintenance Mode API.
  *
- * The bot-service backend currently does NOT expose a maintenance-mode
- * endpoint. We surface a static "disabled" state so the UI degrades to a
- * read-only banner; mutation throws a helpful error.
+ * Wired to the bot-service backend:
+ *   GET  /api/dashboard/admin/maintenance  → { enabled }
+ *   PUT  /api/dashboard/admin/maintenance  → { success, enabled }
+ *
+ * The backend persists a single global boolean (merchant_settings 'admin'
+ * → maintenanceMode). It does NOT store a free-text message or a scheduled
+ * end time, so the UI exposes only the on/off toggle. When enabled, tenant
+ * users see a maintenance banner in the User-Dashboard (MaintenanceBanner).
  */
 
+import { apiFetch } from './client';
 import { type MaintenanceState } from './types';
 
+const ENDPOINT = '/api/dashboard/admin/maintenance';
+
 export async function getMaintenanceState(): Promise<MaintenanceState> {
-    return Promise.resolve({
-        enabled: false,
-        message: undefined,
-        scheduled_until: null,
-    });
+    const res = await apiFetch<{ enabled?: boolean }>(ENDPOINT);
+    return { enabled: !!res?.enabled };
 }
 
 export async function setMaintenanceState(
-    _state: { enabled: boolean; message?: string; scheduled_until?: string | null }
+    state: { enabled: boolean }
 ): Promise<MaintenanceState> {
-    throw new Error(
-        'Wartungsmodus wird vom Backend (whatsapp-bot service) noch nicht unterstützt.'
-    );
+    const res = await apiFetch<{ success?: boolean; enabled?: boolean }>(ENDPOINT, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled: state.enabled }),
+    });
+    return { enabled: !!res?.enabled };
 }

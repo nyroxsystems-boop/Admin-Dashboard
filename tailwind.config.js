@@ -1,12 +1,15 @@
+const plugin = require("tailwindcss/plugin");
 /** @type {import('tailwindcss').Config} */
 
 /**
  * Tailwind Config — Admin Dashboard
  *
- * Aligned with User-Dashboard design system. Uses CSS variables from index.css
- * for full light/dark mode support via next-themes class strategy.
+ * Aligned with User-Dashboard design system (Phase 0). Alle Farb-Tokens sind
+ * HSL-Tripel in design-system/tokens.css (Single Source) und werden hier als
+ * hsl(var(--x) / <alpha-value>) gemappt — Opacity-Modifier (bg-canvas/50)
+ * funktionieren dadurch überall. Admin ist bewusst dark-only.
  *
- * Brand: Partsunion Blue (#2563eb / HSL 221 83% 53%)
+ * Brand: Partsunion Blue (accent-500 in tokens.css = 216 82% 51%)
  */
 export default {
     darkMode: ["class", '[data-theme="dark"]'],
@@ -14,9 +17,15 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['DM Sans', 'Inter', 'system-ui', 'sans-serif'],
-                display: ['DM Sans', 'Inter Display', 'system-ui', 'sans-serif'],
-                mono: ['JetBrains Mono', 'IBM Plex Mono', 'SF Mono', 'monospace'],
+                // Aus dem Redesign vom 2026-07-30. Alle drei via @fontsource in
+                // main.tsx geladen — selbst gehostet, kein CDN (DSGVO).
+                //
+                // Die Aufteilung ist Absicht: Space Grotesk hat auffaellige
+                // Ziffern und eine engere Laufweite, das traegt Ueberschriften.
+                // Als Textschrift waere sie unruhig — dafuer Manrope.
+                sans: ['Manrope Variable', 'Manrope', 'system-ui', 'sans-serif'],
+                display: ['Space Grotesk Variable', 'Space Grotesk', 'system-ui', 'sans-serif'],
+                mono: ['JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', 'monospace'],
             },
             fontSize: {
                 'label': ['0.75rem', { letterSpacing: '0.08em', fontWeight: '500' }],
@@ -30,36 +39,51 @@ export default {
                 sm: 'calc(var(--radius) - 4px)',
             },
             colors: {
-                // Adaptive design tokens (CSS vars from index.css)
-                canvas: 'var(--bg-canvas)',
-                surface: 'var(--bg-surface)',
-                elevated: 'var(--bg-elevated)',
-                'border-subtle': 'var(--border)',
-                'border-strong': 'var(--border-strong)',
-                'text-primary': 'var(--text-primary)',
-                'text-secondary': 'var(--text-secondary)',
-                'text-muted': 'var(--text-muted)',
+                // v2 — Partsunion Industrial Precision. Alle Tokens sind
+                // HSL-Tripel (tokens.css, Single Source) → <alpha-value>
+                // macht Opacity-Modifier (bg-canvas/50) überall nutzbar.
+                // Auflage: Grundfarbe kippt zwischen Hell und Dunkel, die
+                // Deckung steht an der Verwendungsstelle (bg-overlay/[0.045]).
+                // Siehe den Kommentar in tokens.css.
+                overlay: 'rgb(var(--overlay) / <alpha-value>)',
+                // Schrift auf vollflächiger Statusfarbe — kippt mit dem Modus.
+                // Siehe tokens.css, dort steht die Rechnung dahinter.
+                'auf-ton': 'hsl(var(--auf-ton) / <alpha-value>)',
+                canvas: 'hsl(var(--bg-canvas) / <alpha-value>)',
+                surface: 'hsl(var(--bg-surface) / <alpha-value>)',
+                elevated: {
+                    DEFAULT: 'hsl(var(--bg-elevated) / <alpha-value>)',
+                    hover: 'hsl(var(--bg-elevated-hover) / <alpha-value>)',
+                },
+                'border-subtle': 'hsl(var(--border) / <alpha-value>)',
+                'border-strong': 'hsl(var(--border-strong) / <alpha-value>)',
+                'text-primary': 'hsl(var(--text-primary) / <alpha-value>)',
+                'text-secondary': 'hsl(var(--text-secondary) / <alpha-value>)',
+                // Neue Stufen aus dem Redesign. tertiary fuer Beschriftungen,
+                // faint fuer die kleinen Mono-Versalien der Gruppenmarken.
+                'text-tertiary': 'hsl(var(--text-tertiary) / <alpha-value>)',
+                'text-muted': 'hsl(var(--text-muted) / <alpha-value>)',
+                'text-faint': 'hsl(var(--text-faint) / <alpha-value>)',
+                'status-success': 'hsl(var(--success) / <alpha-value>)',
+                'status-success-muted': 'hsl(var(--success) / 0.12)',
+                'status-warning': 'hsl(var(--warning) / <alpha-value>)',
+                'status-warning-muted': 'hsl(var(--warning) / 0.12)',
+                'status-danger': 'hsl(var(--danger) / <alpha-value>)',
+                'status-danger-muted': 'hsl(var(--danger) / 0.12)',
+                'status-info': 'hsl(var(--info) / <alpha-value>)',
+                'status-info-muted': 'hsl(var(--info) / 0.12)',
 
-                // Semantic status
-                'status-success': 'var(--success)',
-                'status-success-muted': 'var(--success-muted)',
-                'status-warning': 'var(--warning)',
-                'status-warning-muted': 'var(--warning-muted)',
-                'status-danger': 'var(--danger)',
-                'status-danger-muted': 'var(--danger-muted)',
-                'status-info': 'var(--info)',
-                'status-info-muted': 'var(--info-muted)',
-
-                // Accent scale (Partsunion Blue)
+                // v2-Accent: Deep Signal Blue (scale 50/200/400/500/600/700)
+                // Legacy `accent` (DEFAULT/foreground) koexistiert bis Phase 2.
                 accent: {
-                    DEFAULT: 'hsl(var(--accent))',
-                    foreground: 'hsl(var(--accent-foreground))',
-                    50: 'var(--accent-50)',
-                    200: 'var(--accent-200)',
-                    400: 'var(--accent-400)',
-                    500: 'var(--accent-500)',
-                    600: 'var(--accent-600)',
-                    700: 'var(--accent-700)',
+                    DEFAULT: 'hsl(var(--accent) / <alpha-value>)',
+                    foreground: 'hsl(var(--accent-foreground) / <alpha-value>)',
+                    50: 'hsl(var(--accent-50) / <alpha-value>)',
+                    200: 'hsl(var(--accent-200) / <alpha-value>)',
+                    400: 'hsl(var(--accent-400) / <alpha-value>)',
+                    500: 'hsl(var(--accent-500) / <alpha-value>)',
+                    600: 'hsl(var(--accent-600) / <alpha-value>)',
+                    700: 'hsl(var(--accent-700) / <alpha-value>)',
                 },
 
                 // Core semantic (shadcn/Radix compatible)
@@ -76,6 +100,8 @@ export default {
                 primary: {
                     DEFAULT: 'hsl(var(--primary))',
                     foreground: 'hsl(var(--primary-foreground))',
+                    // P0.7: backs `bg-primary-hover` used by the default button.
+                    hover: 'hsl(var(--primary-hover))',
                 },
                 secondary: {
                     DEFAULT: 'hsl(var(--secondary))',
@@ -90,23 +116,27 @@ export default {
                     foreground: 'hsl(var(--destructive-foreground))',
                 },
                 success: {
-                    DEFAULT: 'hsl(var(--success))',
-                    foreground: 'hsl(var(--success-foreground))',
-                    muted: 'hsl(var(--success-muted))',
+                    DEFAULT: 'hsl(var(--success) / <alpha-value>)',
+                    foreground: 'hsl(var(--success-foreground) / <alpha-value>)',
+                    muted: 'hsl(var(--success) / 0.12)',
                 },
                 warning: {
-                    DEFAULT: 'hsl(var(--warning))',
-                    foreground: 'hsl(var(--warning-foreground))',
-                    muted: 'hsl(var(--warning-muted))',
+                    DEFAULT: 'hsl(var(--warning) / <alpha-value>)',
+                    foreground: 'hsl(var(--warning-foreground) / <alpha-value>)',
+                    muted: 'hsl(var(--warning) / 0.12)',
                 },
                 info: {
-                    DEFAULT: 'hsl(var(--info))',
-                    foreground: 'hsl(var(--info-foreground))',
-                    muted: 'hsl(var(--info-muted))',
+                    DEFAULT: 'hsl(var(--info) / <alpha-value>)',
+                    foreground: 'hsl(var(--info-foreground) / <alpha-value>)',
+                    muted: 'hsl(var(--info) / 0.12)',
                 },
-                border: 'hsl(var(--border))',
-                input: 'hsl(var(--input))',
-                ring: 'hsl(var(--ring))',
+                danger: {
+                    DEFAULT: 'hsl(var(--danger) / <alpha-value>)',
+                    muted: 'hsl(var(--danger) / 0.12)',
+                },
+                border: 'hsl(var(--border) / <alpha-value>)',
+                input: 'hsl(var(--input) / <alpha-value>)',
+                ring: 'hsl(var(--ring) / <alpha-value>)',
                 chart: {
                     '1': 'hsl(var(--chart-1))',
                     '2': 'hsl(var(--chart-2))',
@@ -181,8 +211,9 @@ export default {
                     '50%': { opacity: '0.7' },
                 },
                 'glow-pulse': {
-                    '0%, 100%': { boxShadow: '0 0 8px rgba(37, 99, 235, 0.2)' },
-                    '50%': { boxShadow: '0 0 20px rgba(37, 99, 235, 0.4)' },
+                    // P5.2: tokenisiert auf den Accent (war hardcodiert 221 83% 53%).
+                    '0%, 100%': { boxShadow: '0 0 8px hsl(var(--accent-500) / 0.2)' },
+                    '50%': { boxShadow: '0 0 20px hsl(var(--accent-500) / 0.4)' },
                 },
                 shimmer: {
                     from: { transform: 'translateX(-100%)' },
@@ -215,5 +246,26 @@ export default {
             },
         },
     },
-    plugins: [require("tailwindcss-animate")],
+    plugins: [
+        require("tailwindcss-animate"),
+        /**
+         * `hell:` — greift NUR im Hellmodus.
+         *
+         * Gebraucht fuer die wenigen Stellen, die feste Tailwind-Farben nutzen
+         * statt unserer Token: Kalender-Terminarten, Statusfelder im Kalender.
+         * Deren Toene (violet-300, emerald-300 …) sind konstant und kippen
+         * nicht mit dem Modus. Auf dunklem Grund sind sie hell und lesbar, auf
+         * hellem Grund liegen sie als blasse Schrift auf einer blassen Toenung
+         * DERSELBEN Farbe — praktisch unsichtbar.
+         *
+         * Mit dieser Variante bleibt der dunkle Modus unveraendert und nur der
+         * helle bekommt einen dunkleren Ton. Das ist weniger eingreifend, als
+         * die Farbigkeit ueberall auf Token umzustellen — die Terminarten
+         * SOLLEN sich in der Farbe unterscheiden, und dafuer reichen unsere
+         * vier Statusfarben nicht.
+         */
+        plugin(({ addVariant }) => {
+            addVariant('hell', ['&:is(.light *)', '&:is([data-theme="light"] *)']);
+        }),
+    ],
 }

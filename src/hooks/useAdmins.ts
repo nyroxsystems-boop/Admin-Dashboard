@@ -1,13 +1,12 @@
 /**
- * useAdmins — admin user CRUD via real API.
+ * useAdmins — admin user list + self-service email update.
  *
- * Differences from previous stub shape:
- *   - Admin uses `username` (was `name`)
- *   - role is optional (server may omit)
- *   - No `twoFactorEnabled`, no `lastLoginAt` (use `last_login_at` from API)
- *   - createAdmin requires { username, email, password } (and optional role)
- *   - Email updates go through useUpdateAdminEmail (PUT)
- *   - Role updates go through useSetAdminRole (PATCH)
+ * The backend exposes only GET /list-admins and PUT /update-email (self-only),
+ * so there are no create / delete / role-change hooks here. New admins are
+ * provisioned server-side directly in the admin_users table.
+ *
+ * Admin shape from the API: { id, username, email, full_name?, created_at }.
+ * There is no `role` or `last_login_at` in the list response.
  */
 
 import {
@@ -16,14 +15,8 @@ import {
     useQueryClient,
     type UseMutationResult,
 } from '@tanstack/react-query';
-import {
-    listAdmins,
-    createAdmin,
-    updateAdminEmail,
-    setAdminRole,
-    deleteAdmin,
-} from '@/api/admins';
-import type { Admin, AdminRole } from '@/api/types';
+import { listAdmins, updateAdminEmail } from '@/api/admins';
+import type { Admin } from '@/api/types';
 
 const ADMINS_KEY = ['admin', 'admins'] as const;
 const READ_OPTIONS = { staleTime: 30_000, gcTime: 5 * 60_000 } as const;
@@ -50,27 +43,6 @@ export function useAdmins(): {
     };
 }
 
-export interface CreateAdminInput {
-    username: string;
-    email: string;
-    password: string;
-    role?: AdminRole;
-}
-
-export function useCreateAdmin(): UseMutationResult<
-    { success: boolean; admin?: Admin },
-    Error,
-    CreateAdminInput
-> {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: (input) => createAdmin(input),
-        onSuccess: () => {
-            void qc.invalidateQueries({ queryKey: ADMINS_KEY });
-        },
-    });
-}
-
 export interface UpdateAdminEmailInput {
     id: number | string;
     email: string;
@@ -84,39 +56,6 @@ export function useUpdateAdminEmail(): UseMutationResult<
     const qc = useQueryClient();
     return useMutation({
         mutationFn: ({ id, email }) => updateAdminEmail(id, email),
-        onSuccess: () => {
-            void qc.invalidateQueries({ queryKey: ADMINS_KEY });
-        },
-    });
-}
-
-export interface SetAdminRoleInput {
-    id: number | string;
-    role: AdminRole;
-}
-
-export function useSetAdminRole(): UseMutationResult<
-    { success: boolean },
-    Error,
-    SetAdminRoleInput
-> {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, role }) => setAdminRole(id, role),
-        onSuccess: () => {
-            void qc.invalidateQueries({ queryKey: ADMINS_KEY });
-        },
-    });
-}
-
-export function useDeleteAdmin(): UseMutationResult<
-    { success: boolean },
-    Error,
-    number | string
-> {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: (id) => deleteAdmin(id),
         onSuccess: () => {
             void qc.invalidateQueries({ queryKey: ADMINS_KEY });
         },

@@ -55,7 +55,6 @@ export function useDashboardMetrics(): {
         queryKey: ['admin', 'dashboard', 'metrics'] as const,
         queryFn: () => getAdminStats(),
         staleTime: 30_000,
-        gcTime: 5 * 60_000,
     });
     return {
         metrics: q.data ? adapt(q.data) : null,

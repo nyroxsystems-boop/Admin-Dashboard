@@ -1,3 +1,17 @@
 node_modules/
 dist/
 .env
+
+# Bildproben des Redesigns (erzeugt von src/test/redesignAbbild.test.tsx)
+dist-probe/
+
+# Von vitest bei JEDEM Lauf neu geschrieben (JUnit-Bericht).
+# Versioniert erzeugte er bei jedem Testlauf eine Scheinaenderung und
+# landete dadurch in fremden Commits.
+test-results.xml
+
+# macOS-Metadateien. tar auf dem Mac legt zu jeder Datei eine "._name" an;
+# im Migrationsordner hat eine davon am 2026-08-06 die API lahmgelegt, weil
+# der Migrationslaeufer sie als SQL anzuwenden versuchte.
+._*
+.DS_Store

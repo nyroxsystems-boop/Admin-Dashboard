@@ -25,13 +25,20 @@ import {
     type ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 import {
     adminLogin as apiAdminLogin,
     adminLogout as apiAdminLogout,
     getAdminMe as apiGetMe,
 } from '../api/auth';
-import { setAccessToken, clearAuth, resetAuthExpired } from '../api/client';
+import {
+    setAccessToken,
+    clearAuth,
+    resetAuthExpired,
+    isApiError,
+    getAuthorizationValue,
+} from '../api/client';
 import type { Admin, AdminRole } from '../api/types';
 import { errorTracker } from '../services/errorTracker';
 import { encryptToken, decryptToken, clearStorageKey } from '../services/secureStorage';
@@ -42,7 +49,15 @@ import { encryptToken, decryptToken, clearStorageKey } from '../services/secureS
 
 interface Session {
     user: Admin;
-    accessToken: string;
+    /**
+     * Verschlüsseltes Sitzungstoken — FEHLT bei Cookie-Sitzungen.
+     *
+     * Seit das Backend das Token nur noch als httpOnly-Cookie ausliefert,
+     * gibt es hier meistens nichts zu speichern. Das ist kein Mangel, sondern
+     * der sicherere Fall: was nicht im localStorage liegt, kann ein
+     * eingeschleustes Skript auch nicht auslesen.
+     */
+    accessToken?: string;
     expiresAt: number; // epoch ms
     tenantId?: number | null;
 }
@@ -60,6 +75,9 @@ interface AuthContextValue extends AuthState {
     logout: () => Promise<void>;
     refresh: () => Promise<void>;
     setImpersonatedTenant: (tenantId: number | null) => void;
+    /** Nach erfolgreichem Pflicht-Passwortwechsel: Flag im User + Session-Blob
+     *  auf false setzen, damit der /change-password-Guard nicht erneut greift. */
+    markPasswordChanged: () => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -82,7 +100,10 @@ function loadSession(): Session | null {
         if (!raw) return null;
         const parsed = JSON.parse(raw) as Session;
         if (!parsed?.user || typeof parsed.expiresAt !== 'number') return null;
-        if (typeof parsed.accessToken !== 'string' || !parsed.accessToken) return null;
+        /* Kein Token ist ein GÜLTIGER Zustand: bei einer Cookie-Sitzung liegt
+           das Token ausschliesslich im httpOnly-Cookie. Hier stand vorher eine
+           Pflichtprüfung — sie hätte jede Cookie-Sitzung beim Neuladen
+           verworfen und den Nutzer stillschweigend ausgeloggt. */
         return parsed;
     } catch {
         return null;
@@ -97,6 +118,19 @@ function saveSession(session: Session): void {
     }
 }
 
+/**
+ * /admin-auth/me liefert `must_change_password` nicht garantiert mit (Feld ist
+ * im Schema optional). Damit der Pflicht-Wechsel-Guard einen frisch geseedeten
+ * Admin nicht durch ein /me-Refresh "verliert", wird das Flag aus dem
+ * vorherigen User-Objekt konserviert, wenn der Server es weglässt.
+ */
+function mergeMustChangePassword(next: Admin, prev: Admin | null | undefined): Admin {
+    if (next.must_change_password === undefined && prev?.must_change_password !== undefined) {
+        return { ...next, must_change_password: prev.must_change_password };
+    }
+    return next;
+}
+
 function clearAllAuth(): void {
     try {
         localStorage.removeItem(SESSION_KEY);
@@ -107,6 +141,18 @@ function clearAllAuth(): void {
     }
     clearAuth();
     clearStorageKey();
+}
+
+/**
+ * Notify OTHER tabs to log out. Deliberately SEPARATE from clearAllAuth():
+ * the cross-tab BroadcastChannel listener calls handleForcedLogout() →
+ * clearAllAuth(). If clearAllAuth() itself broadcast, a *received* 'logout'
+ * would re-broadcast, and the navigate('/login') in the listener would loop
+ * until the browser kills it with "history.replaceState() more than 100 times
+ * per 10 seconds" (exactly the bug this fixes). Only the INITIATING tab
+ * broadcasts; receivers clean up locally and stay silent.
+ */
+function broadcastLogout(): void {
     try {
         new BroadcastChannel('pu.admin.auth').postMessage({ type: 'logout' });
     } catch {
@@ -128,6 +174,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     const [isLoading, setIsLoading] = useState(true);
 
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const expiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const handleForcedLogoutRef = useRef<() => void>(() => {});
 
@@ -136,10 +183,14 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     const handleForcedLogout = useCallback(() => {
         if (expiryTimerRef.current) clearTimeout(expiryTimerRef.current);
         clearAllAuth();
+        // React Query survives route changes. Clear all server state before a
+        // different admin can log in, otherwise cached cross-tenant data from
+        // the previous session can flash in the next session.
+        queryClient.clear();
         setUser(null);
         setTenantId(null);
         errorTracker.setUser(null);
-    }, []);
+    }, [queryClient]);
 
     // ── Hard-expiry scheduler (no /refresh — bot-service has none) ───────
 
@@ -167,16 +218,28 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
             const expiresIn = res.expiresIn ?? res.expires_in ?? DEFAULT_EXPIRY_SEC;
             const expiresAt = Date.now() + expiresIn * 1000;
 
-            setAccessToken(res.access);
-            // Persist the token in the session blob so it survives a hard
-            // reload — the bot-service backend has no /refresh endpoint.
-            // Token is encrypted-at-rest with a key bound to this tab's
-            // sessionStorage so a passive XSS read of localStorage alone
-            // is not enough to steal the bearer.
-            const encryptedToken = await encryptToken(res.access);
+            queryClient.clear();
+
+            /**
+             * Zwei Betriebsarten, je nachdem was das Backend liefert.
+             *
+             * COOKIE (Produktion): die Antwort enthält kein `access`. Das
+             * Sitzungstoken steckt im httpOnly-Cookie `admin_session`, das der
+             * Browser bei jeder Anfrage mitschickt — `apiFetch` sendet dafür
+             * `credentials: 'include'`. Es gibt hier nichts zu speichern, und
+             * das ist der sicherere Fall: was nicht im localStorage liegt,
+             * kann ein eingeschleustes Skript nicht auslesen.
+             *
+             * BEARER (Entwicklung, oder mit ADMIN_ALLOW_LEGACY_TOKEN_RESPONSE):
+             * das Token kommt im Körper und wird wie bisher verschlüsselt
+             * abgelegt, damit es ein hartes Neuladen überlebt — einen
+             * /refresh-Endpunkt gibt es nicht.
+             */
+            setAccessToken(res.access ?? null);
+            const encryptedToken = res.access ? await encryptToken(res.access) : undefined;
             const session: Session = {
                 user: res.user,
-                accessToken: encryptedToken,
+                ...(encryptedToken ? { accessToken: encryptedToken } : {}),
                 expiresAt,
                 tenantId: null,
             };
@@ -195,15 +258,19 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
                 role: typeof res.user.role === 'string' ? res.user.role : undefined,
             });
         },
-        [scheduleHardLogout]
+        [queryClient, scheduleHardLogout]
     );
 
     const logout = useCallback(async (): Promise<void> => {
-        // Local cleanup first — never block UI on a slow server
+        // Capture the authenticated header before local cleanup. Previously the
+        // token was cleared first, so /logout was always sent anonymously and
+        // the server-side admin session remained valid.
+        const authorization = getAuthorizationValue();
         handleForcedLogout();
+        broadcastLogout(); // tell other tabs (initiating tab only — see broadcastLogout)
         navigate('/login', { replace: true });
         // Fire-and-forget the API call (best-effort server-side cleanup)
-        void apiAdminLogout().catch((err) => {
+        void apiAdminLogout(authorization).catch((err) => {
             errorTracker.captureMessage('Admin logout API failed (non-fatal)', 'warning', {
                 error: err instanceof Error ? err.message : String(err),
             });
@@ -215,13 +282,25 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         // changes propagate. If /me 401s, the auth:expired event handles
         // logout via the latch.
         try {
-            const me = await apiGetMe();
-            setUser(me);
+            const raw = await apiGetMe();
             const current = loadSession();
+            const me = mergeMustChangePassword(raw, current?.user);
+            setUser(me);
             if (current) saveSession({ ...current, user: me });
         } catch (err) {
             errorTracker.captureMessage('Admin /me refresh failed', 'warning', {
                 error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }, []);
+
+    const markPasswordChanged = useCallback(() => {
+        setUser((prev) => (prev ? { ...prev, must_change_password: false } : prev));
+        const current = loadSession();
+        if (current) {
+            saveSession({
+                ...current,
+                user: { ...current.user, must_change_password: false },
             });
         }
     }, []);
@@ -285,34 +364,71 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
                 if (persistedTenant) setTenantId(Number(persistedTenant));
                 else if (typeof session.tenantId === 'number') setTenantId(session.tenantId);
 
-                // Restore in-memory token from the session blob, confirm with
-                // backend that the session is still valid (defends against
-                // revoked sessions / role changes mid-session).
-                // Decrypt the persisted token; if decryption fails (key gone,
-                // legacy plaintext blob, tampering), force a clean logout.
-                const plaintext = await decryptToken(session.accessToken);
-                if (!plaintext) {
-                    handleForcedLogout();
-                    setIsLoading(false);
-                    return;
+                /**
+                 * Token wiederherstellen — falls überhaupt eines da ist.
+                 *
+                 * Bei einer Cookie-Sitzung ist `accessToken` nicht gesetzt;
+                 * die Anmeldung trägt dann allein über das httpOnly-Cookie.
+                 * Hier stand vorher eine unbedingte Entschlüsselung mit
+                 * Zwangsabmeldung im Fehlerfall — die hätte jede
+                 * Cookie-Sitzung beim Neuladen der Seite verworfen.
+                 *
+                 * Ist ein Token da, gilt die alte Regel unverändert: lässt es
+                 * sich nicht entschlüsseln (Schlüssel weg, alter Klartext,
+                 * Manipulation), wird sauber abgemeldet statt geraten.
+                 */
+                if (session.accessToken) {
+                    const plaintext = await decryptToken(session.accessToken);
+                    if (!plaintext) {
+                        handleForcedLogout();
+                        setIsLoading(false);
+                        return;
+                    }
+                    setAccessToken(plaintext);
+                } else {
+                    setAccessToken(null);
                 }
-                setAccessToken(plaintext);
                 setUser(session.user);
                 scheduleHardLogout(session.expiresAt);
                 resetAuthExpired();
 
-                try {
-                    const me = await apiGetMe();
-                    setUser(me);
-                    saveSession({ ...session, user: me });
-                    errorTracker.setUser({
-                        id: String(me.id),
-                        email: me.email,
-                        role: typeof me.role === 'string' ? me.role : undefined,
-                    });
-                } catch {
-                    handleForcedLogout();
-                }
+                /**
+                 * ─── Die Oberflaeche wartet NICHT auf /me ─────────────────
+                 *
+                 * Hier stand ein `await apiGetMe()` VOR dem Ende des Boots.
+                 * Der Nutzer war zu dem Zeitpunkt laengst aus der lokalen
+                 * Sitzung wiederhergestellt — trotzdem stand die ganze
+                 * Anwendung hinter dem bildschirmfuellenden "Authenticating",
+                 * bis die Antwort da war. In der Netzwerkansicht des Nutzers:
+                 * 939 ms, weil die allererste Anfrage den Verbindungsaufbau
+                 * bezahlt.
+                 *
+                 * Und dieser Weg laeuft nicht nur beim Anmelden: NACH JEDEM
+                 * DEPLOY laedt die Seite einmal hart neu (ChunkErrorBoundary,
+                 * alte Code-Stuecke sind weg). Jede Auslieferung bescherte dem
+                 * offenen Tab also eine Sekunde Vollbild-Spinner — das ist ein
+                 * grosser Teil der "der Knopf ist immer noch langsam"-Runden.
+                 *
+                 * Jetzt prueft /me im HINTERGRUND. Faellt die Pruefung durch,
+                 * wird genauso abgemeldet wie vorher — nur eben ohne dass die
+                 * gueltige Mehrheit der Sitzungen darauf wartet. Ein
+                 * unguelitges Token scheitert ohnehin an der ersten echten
+                 * Abfrage; hier laeuft nichts ungeprueft weiter.
+                 */
+                void (async () => {
+                    try {
+                        const me = mergeMustChangePassword(await apiGetMe(), session.user);
+                        setUser(me);
+                        saveSession({ ...session, user: me });
+                        errorTracker.setUser({
+                            id: String(me.id),
+                            email: me.email,
+                            role: typeof me.role === 'string' ? me.role : undefined,
+                        });
+                    } catch {
+                        handleForcedLogout();
+                    }
+                })();
             } catch (bootErr) {
                 errorTracker.captureException(bootErr, { phase: 'auth-boot' });
                 // Last-ditch: nuke local state and fall back to logged-out.
@@ -330,11 +446,49 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     useEffect(() => {
         const onExpired = () => {
             handleForcedLogout();
+            broadcastLogout(); // initiating tab only; receivers stay silent (no loop)
             navigate('/login', { replace: true });
         };
         window.addEventListener('auth:expired', onExpired);
         return () => window.removeEventListener('auth:expired', onExpired);
     }, [handleForcedLogout, navigate]);
+
+    // ── Netz: serverseitiges PASSWORD_CHANGE_REQUIRED (403) abfangen ─────
+    //
+    // Die requireAdminPasswordChanged-Middleware beantwortet JEDEN
+    // /api/admin/*-Call mit 403 { error: 'PASSWORD_CHANGE_REQUIRED' },
+    // solange must_change_password=1. client.ts wirft dafür einen ApiError
+    // mit message='PASSWORD_CHANGE_REQUIRED'. Landet so ein Fehler uncaught
+    // als unhandledrejection, setzen wir das Flag lokal und leiten auf
+    // /change-password. (Vom View-Code gefangene Fehler erreichen dieses
+    // Netz nicht — der primäre Guard ist der Login-/Restore-Pfad.)
+
+    useEffect(() => {
+        const onRejection = (ev: PromiseRejectionEvent) => {
+            const reason: unknown = ev.reason;
+            if (
+                isApiError(reason) &&
+                reason.status === 403 &&
+                reason.message === 'PASSWORD_CHANGE_REQUIRED'
+            ) {
+                ev.preventDefault();
+                setUser((prev) => {
+                    if (!prev || prev.must_change_password === true) return prev;
+                    return { ...prev, must_change_password: true };
+                });
+                const current = loadSession();
+                if (current) {
+                    saveSession({
+                        ...current,
+                        user: { ...current.user, must_change_password: true },
+                    });
+                }
+                navigate('/change-password', { replace: true });
+            }
+        };
+        window.addEventListener('unhandledrejection', onRejection);
+        return () => window.removeEventListener('unhandledrejection', onRejection);
+    }, [navigate]);
 
     // ── Cross-tab logout sync ────────────────────────────────────────────
 
@@ -381,6 +535,7 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
         logout,
         refresh,
         setImpersonatedTenant,
+        markPasswordChanged,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

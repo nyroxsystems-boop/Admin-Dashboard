@@ -1,12 +1,35 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, __dirname, 'VITE_')
+  const apiBaseUrl = env.VITE_API_BASE_URL
+
+  // Vite normally exposes VITE_* values from .env files automatically. The
+  // previous explicit `define` read process.env instead, which silently
+  // replaced a valid .env.local value with an empty string and produced a
+  // bundle that crashed during boot. Validate the same value Vite will expose.
+  if (mode !== 'test') {
+    if (!apiBaseUrl) {
+      throw new Error('VITE_API_BASE_URL is required. Set it in .env.local or the build environment.')
+    }
+    let parsed: URL
+    try {
+      parsed = new URL(apiBaseUrl)
+    } catch {
+      throw new Error('VITE_API_BASE_URL must be an absolute http(s) URL.')
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('VITE_API_BASE_URL must use http or https.')
+    }
+  }
+
+  return {
   plugins: [
     react({
       jsxRuntime: 'automatic',
@@ -16,13 +39,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
-  },
-  // Explicitly embed environment variables in the build
-  // NOTE: Only non-secret config here! API tokens must NOT be in the bundle.
-  define: {
-    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
-      process.env.VITE_API_BASE_URL || ''
-    ),
   },
   build: {
     outDir: 'dist',
@@ -64,7 +80,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: process.env.VITE_API_BASE_URL || 'http://localhost:10000',
+        target: apiBaseUrl || 'http://localhost:10000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
@@ -80,5 +96,14 @@ export default defineConfig({
     exclude: ['e2e/**', 'node_modules/**'],
     css: true,
     reporters: ['default', ['junit', { outputFile: 'test-results.xml' }]],
+    // api/client.ts verweigert absichtlich den Start ohne diese Variable —
+    // kein stiller Rückfall auf eine Produktionsadresse. Im Test wird sie
+    // deshalb ausdrücklich gesetzt; der Wert wird nie aufgerufen, weil fetch
+    // in den Tests stillgelegt ist.
+    env: {
+      VITE_API_BASE_URL: 'http://test.local',
+      VITE_SCRAPER_BASE_URL: 'http://test.local',
+    },
   },
+  }
 })

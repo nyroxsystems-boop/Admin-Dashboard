@@ -30,25 +30,25 @@ export function ErrorState({
       role="alert"
       className={cn(
         'flex flex-col items-center justify-center text-center px-6 py-12 gap-3',
-        'border border-[color:var(--danger-muted,rgba(248,113,113,0.12))]',
-        'rounded-md bg-[color:var(--danger-muted,rgba(248,113,113,0.06))]',
+        'border border-status-danger-muted',
+        'rounded-md bg-status-danger-muted',
         className,
       )}
       {...rest}
     >
-      <div className="w-12 h-12 rounded-full bg-[color:var(--danger-muted,rgba(248,113,113,0.12))] flex items-center justify-center text-[color:var(--danger-500,#F87171)]">
+      <div className="w-12 h-12 rounded-full bg-status-danger-muted flex items-center justify-center text-status-danger">
         <AlertTriangle size={20} aria-hidden />
       </div>
       <div className="flex flex-col gap-1 max-w-md">
-        <h3 className="text-sm font-semibold text-[color:var(--text-primary,#E5E7EB)]">{title}</h3>
-        <p className="text-xs text-[color:var(--text-muted,#71717A)] leading-relaxed">{message}</p>
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+        <p className="text-xs text-text-muted leading-relaxed">{message}</p>
       </div>
       {detail && (
         <details className="text-left max-w-md w-full">
-          <summary className="text-[10px] font-mono uppercase tracking-wider text-[color:var(--text-muted,#71717A)] cursor-pointer">
+          <summary className="text-[10px] font-mono uppercase tracking-wider text-text-muted cursor-pointer">
             Details anzeigen
           </summary>
-          <pre className="mt-2 p-3 rounded-md bg-[color:var(--canvas,#0A0B0D)] border border-[color:var(--border,#252A31)] text-[10px] font-mono text-[color:var(--text-secondary,#A1A1AA)] whitespace-pre-wrap break-words">
+          <pre className="mt-2 p-3 rounded-md bg-canvas border border-border-subtle text-[10px] font-mono text-text-secondary whitespace-pre-wrap break-words">
             {detail}
           </pre>
         </details>

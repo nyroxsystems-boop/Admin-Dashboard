@@ -20,32 +20,33 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Command } from 'cmdk';
 import {
-  AlertCircle,
+  Activity,
   ArrowRight,
   Bot,
   Building2,
   Clock,
   Command as CommandIcon,
-  Database,
+  Headset,
   Inbox,
+  KeyRound,
   LayoutDashboard,
+  MessageSquareText,
+  NotebookPen,
   Plus,
   Power,
   ScrollText,
   Search,
   ShoppingCart,
-  Spline,
-  Target,
-  TerminalSquare,
-  TestTubes,
   Users,
+  Workflow,
   Wrench,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { triggerOemSeeder } from '@/api/oem';
 import { getMaintenanceState, setMaintenanceState } from '@/api/maintenance';
 import { parseError } from '@/api/client';
+import { usePermissions } from '@/auth/usePermissions';
+import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 
 const RECENT_KEY = 'pu.admin.recent';
 const MAX_RECENT = 5;
@@ -56,7 +57,7 @@ interface CmdItem {
   hint?: string;
   keywords?: string[];
   icon?: ReactNode;
-  group: 'Navigation' | 'Aktionen';
+  group: 'Navigation' | 'Aktionen' | 'Suchergebnisse';
   onSelect: () => void;
   disabled?: boolean;
 }
@@ -100,7 +101,10 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [recentIds, setRecentIds] = useState<string[]>(() => safeRead());
+  const { can, isSuperAdmin } = usePermissions();
+  const canCreateTenants = can('tenants.create');
 
   // Reset query on close
   useEffect(() => {
@@ -108,9 +112,22 @@ export function CommandPalette({
     if (!open) setSearch('');
   }, [open]);
 
+  // P1.5: Query entprellen, bevor die globale Backend-Suche feuert.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 200);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { results: searchResults } = useGlobalSearch(open ? debouncedSearch : '');
+
   // Global ⌘K / Ctrl+K
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (open && e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         if (open) onClose();
@@ -120,20 +137,6 @@ export function CommandPalette({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onOpen, onClose]);
-
-  const runSeeder = useCallback(async (): Promise<void> => {
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm('OEM-Seeder jetzt starten? Das kann mehrere Minuten dauern.')
-    ) {
-      return;
-    }
-    await toast.promise(triggerOemSeeder(), {
-      loading: 'OEM-Seeder läuft…',
-      success: (r) => `Seeder gestartet: ${r.message ?? r.jobId ?? 'OK'}`,
-      error: (e) => `Seeder-Fehler: ${parseError(e).message}`,
-    });
-  }, []);
 
   const toggleMaintenance = useCallback(async (): Promise<void> => {
     let current;
@@ -145,10 +148,7 @@ export function CommandPalette({
     }
     const next = !current.enabled;
     await toast.promise(
-      setMaintenanceState({
-        enabled: next,
-        message: next ? 'Wartungsmodus aktiv' : undefined,
-      }),
+      setMaintenanceState({ enabled: next }),
       {
         loading: 'Setze Wartungsmodus…',
         success: () => `Wartungsmodus: ${next ? 'AN' : 'AUS'}`,
@@ -174,54 +174,100 @@ export function CommandPalette({
 
     return [
       nav('/', 'Dashboard', <LayoutDashboard size={14} />, ['home', 'übersicht']),
-      nav('/tenants', 'Tenants', <Building2 size={14} />, ['kunden', 'mandanten']),
-      nav('/admins', 'Admins', <Users size={14} />),
-      nav('/audit', 'Audit Log', <ScrollText size={14} />, ['log', 'historie']),
-      nav('/oem/registry', 'OEM Registry', <Database size={14} />),
-      nav('/oem/lookup', 'OEM Lookup', <Search size={14} />),
-      nav('/oem/batch', 'OEM Batch Test', <TestTubes size={14} />),
-      nav('/oem/errors', 'OEM Errors', <AlertCircle size={14} />),
-      nav('/oem/accuracy', 'OEM Accuracy', <Target size={14} />),
-      nav('/bot/testing', 'Bot Testing', <Bot size={14} />),
-      nav('/inbox', 'Inbox', <Inbox size={14} />),
-      nav('/orders', 'Orders', <ShoppingCart size={14} />),
-      nav('/scraper', 'Bulk Scraper', <Spline size={14} />),
-      nav('/maintenance', 'Maintenance', <Wrench size={14} />),
+      nav('/tenants', 'Kunden', <Building2 size={14} />, ['kunden', 'mandanten', 'tenants', 'händler']),
+      nav('/access-requests', 'Zugänge beantragen', <KeyRound size={14} />, ['großhändler', 'tecdoc', 'zugang', 'zugänge', 'access', 'lieferant']),
+      nav('/calendar', 'Kalender', <LayoutDashboard size={14} />, ['termine', 'kalender']),
+      nav('/notizen', 'Notizen', <NotebookPen size={14} />, ['notizen', 'ideen', 'intern']),
+      nav('/feedback', 'Feedback', <MessageSquareText size={14} />, ['feedback', 'verbesserung', 'rückmeldung', 'nutzer']),
+      nav('/onboarding', 'Onboarding', <Building2 size={14} />, ['onboarding', 'einrichtung']),
+      nav('/mail', 'E-Mail', <Inbox size={14} />, ['mail', 'posteingang', 'inbox', 'nachrichten']),
+      nav('/oem-finder', 'OEM-Finder', <Workflow size={14} />, ['oem', 'teile', 'nummer']),
 
-      {
-        id: 'action:new-tenant',
-        label: 'Neuen Tenant anlegen',
-        hint: 'CREATE',
-        group: 'Aktionen',
-        icon: <Plus size={14} />,
-        keywords: ['add', 'create', 'mandant'],
-        onSelect: () => navigate('/tenants/new'),
-      },
-      {
-        id: 'action:run-seeder',
-        label: 'Seeder ausführen',
-        hint: 'OPS',
-        group: 'Aktionen',
-        icon: <TerminalSquare size={14} />,
-        keywords: ['db', 'seed', 'fixtures'],
-        onSelect: () => {
-          void runSeeder();
-        },
-      },
-      {
-        id: 'action:toggle-maintenance',
-        label: 'Maintenance-Modus umschalten',
-        hint: 'OPS',
-        group: 'Aktionen',
-        icon: <Power size={14} />,
-        keywords: ['wartung', 'downtime'],
-        onSelect: () => {
-          void toggleMaintenance();
-        },
-      },
+      // Einstellungen — die Bereiche sind einzeln auffindbar, damit man sie
+      // nicht erst über die Sammelseite suchen muss.
+      nav('/einstellungen', 'Einstellungen', <Wrench size={14} />, ['einstellungen', 'settings']),
+      nav('/einstellungen', 'Profil & Signatur', <Users size={14} />, ['signatur', 'profil', 'account']),
+      ...(isSuperAdmin ? [nav('/einstellungen/admins', 'Admins', <Users size={14} />)] : []),
+      ...(isSuperAdmin ? [nav('/einstellungen/postfaecher', 'Postfach-Rechte', <KeyRound size={14} />, ['postfach', 'rechte', 'broschüre'])] : []),
+      nav('/einstellungen/support', 'Support-Konsole', <Headset size={14} />, ['support', 'hilfe', 'händler', 'chats', 'probleme']),
+      nav('/einstellungen/audit', 'Audit-Log', <ScrollText size={14} />, ['log', 'historie']),
+      ...(isSuperAdmin ? [nav('/einstellungen/wartung', 'Wartung', <Wrench size={14} />, ['maintenance', 'wartung'])] : []),
+
+      // Nicht in der Seitenleiste, aber im Betrieb gebraucht — genau dafür ist
+      // eine Kommandopalette da. "Bestellungen" ist aus 12 Stellen der
+      // Anwendung verlinkt, war hier aber als englisches "Orders" beschriftet
+      // und damit über den deutschen Namen nicht auffindbar.
+      nav('/orders', 'Bestellungen', <ShoppingCart size={14} />, ['orders', 'bestellungen', 'auftraege', 'aufträge']),
+      nav('/oe-quality', 'OE-Qualität', <ShoppingCart size={14} />, ['oe', 'qualität']),
+
+      /**
+       * Entwicklerwerkzeuge — NUR im Entwicklungsbau.
+       *
+       * Bot-Test-Lab, E2E-Flow-Runner und Live-Simulation sind Werkzeuge zum
+       * Bauen, keine Arbeitsmittel im Betrieb. Nachgesehen: sie sind aus
+       * NULL anderen Stellen der Anwendung verlinkt — die Palette war ihr
+       * einziger Zugang, und dadurch standen sie im Suchfeld gleichwertig
+       * neben "Kunden" und "Kalender". "E2E-Flow-Runner" war sogar der erste
+       * Eintrag, den man beim Öffnen sah.
+       *
+       * Eine Suche zeigt, was man tun KANN. Steht dort etwas, das man nie
+       * anklicken soll, ist entweder der Eintrag falsch oder die Suche.
+       *
+       * Im Entwicklungsbau bleiben sie: dort sind sie genau das Arbeitsmittel,
+       * als das sie gedacht waren. Die Routen selbst bleiben unangetastet und
+       * sind über die Adresszeile weiterhin erreichbar.
+       */
+      ...(import.meta.env.DEV
+        ? [
+            nav('/bot/testing', 'Bot-Test-Lab', <Bot size={14} />, ['bot', 'test', 'simulator']),
+            nav('/testing/e2e-runner', 'E2E-Flow-Runner', <Workflow size={14} />, ['e2e', 'flow', 'pipeline', 'runner']),
+            nav('/testing/live-sim', 'Live-Simulation', <Activity size={14} />, ['sim', 'simulation', 'händler-tag', 'live']),
+          ]
+        : []),
+
+      ...(canCreateTenants
+        ? [{
+            id: 'action:new-tenant',
+            label: 'Neuen Kunden anlegen',
+            hint: 'CREATE',
+            group: 'Aktionen' as const,
+            icon: <Plus size={14} />,
+            keywords: ['add', 'create', 'mandant', 'kunde', 'tenant'],
+            onSelect: () => navigate('/tenants/new'),
+          }]
+        : []),
+      ...(isSuperAdmin
+        ? [{
+            id: 'action:toggle-maintenance',
+            label: 'Maintenance-Modus umschalten',
+            hint: 'OPS',
+            group: 'Aktionen' as const,
+            icon: <Power size={14} />,
+            keywords: ['wartung', 'downtime'],
+            onSelect: () => {
+              void toggleMaintenance();
+            },
+          }]
+        : []),
       ...extraItems,
     ];
-  }, [navigate, extraItems, runSeeder, toggleMaintenance]);
+  }, [navigate, extraItems, canCreateTenants, isSuperAdmin, toggleMaintenance]);
+
+  // P1.5: globale Suchtreffer als CmdItems. keywords:[search] sorgt dafür, dass
+  // cmdk sie NICHT wegfiltert (das Backend hat bereits gefiltert).
+  const searchItems = useMemo<CmdItem[]>(
+    () =>
+      searchResults.map((r) => ({
+        id: `search:${r.type}:${r.id}`,
+        label: r.label,
+        hint: r.type === 'tenant' ? 'HÄNDLER' : 'ORDER',
+        group: 'Suchergebnisse' as const,
+        icon: r.type === 'tenant' ? <Building2 size={14} /> : <ShoppingCart size={14} />,
+        keywords: [search],
+        onSelect: () => navigate(`/tenants/${r.tenantId}`),
+      })),
+    [searchResults, search, navigate],
+  );
 
   const recordRecent = useCallback((id: string) => {
     setRecentIds((prev) => {
@@ -272,35 +318,49 @@ export function CommandPalette({
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Befehlspalette"
         className={cn(
-          'w-[640px] max-w-[92vw] bg-[color:var(--surface,#111418)]',
-          'border border-[color:var(--border,#252A31)] rounded-md shadow-2xl overflow-hidden',
+          'w-[640px] max-w-[92vw] bg-surface',
+          'border border-border-subtle rounded-md shadow-2xl overflow-hidden',
         )}
       >
         <Command label="Command Palette" shouldFilter loop className="flex flex-col max-h-[60vh]">
-          <div className="flex items-center gap-2 px-4 h-12 border-b border-[color:var(--border,#252A31)]">
-            <Search size={16} className="text-[color:var(--text-muted,#71717A)] shrink-0" aria-hidden />
+          <div className="flex items-center gap-2 px-4 h-12 border-b border-border-subtle">
+            <Search size={16} className="text-text-muted shrink-0" aria-hidden />
             <Command.Input
               value={search}
               onValueChange={setSearch}
-              placeholder="Suche nach Aktion, Seite, Tenant…"
+              placeholder="Suche nach Aktion, Seite, Kunde…"
               autoFocus
-              className="flex-1 bg-transparent outline-none text-sm text-[color:var(--text-primary,#E5E7EB)] placeholder:text-[color:var(--text-muted,#71717A)]"
+              className="flex-1 bg-transparent outline-none text-sm text-text-primary placeholder:text-text-muted"
             />
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 font-mono text-[10px] text-[color:var(--text-muted,#71717A)] border border-[color:var(--border,#252A31)] rounded-sm px-1.5 py-0.5">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 font-mono text-[10px] text-text-muted border border-border-subtle rounded-sm px-1.5 py-0.5">
               <CommandIcon size={10} /> K
             </kbd>
           </div>
 
           <Command.List className="flex-1 overflow-y-auto py-2">
-            <Command.Empty className="px-4 py-8 text-center text-sm text-[color:var(--text-muted,#71717A)]">
+            <Command.Empty className="px-4 py-8 text-center text-sm text-text-muted">
               Keine Treffer.
             </Command.Empty>
+
+            {searchItems.length > 0 && (
+              <Command.Group
+                heading="Suchergebnisse"
+                className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-text-muted"
+              >
+                {searchItems.map((item) => (
+                  <Row key={item.id} item={item} onSelect={() => handleSelect(item)} />
+                ))}
+              </Command.Group>
+            )}
 
             {recentItems.length > 0 && (
               <Command.Group
                 heading="Zuletzt verwendet"
-                className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[color:var(--text-muted,#71717A)]"
+                className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-text-muted"
               >
                 {recentItems.map((item) => (
                   <Row key={`recent-${item.id}`} item={item} recent onSelect={() => handleSelect(item)} />
@@ -312,7 +372,7 @@ export function CommandPalette({
               <Command.Group
                 key={groupLabel}
                 heading={groupLabel}
-                className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[color:var(--text-muted,#71717A)]"
+                className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-text-muted"
               >
                 {groupItems.map((item) => (
                   <Row key={item.id} item={item} onSelect={() => handleSelect(item)} />
@@ -321,18 +381,18 @@ export function CommandPalette({
             ))}
           </Command.List>
 
-          <div className="flex items-center justify-between px-4 h-9 border-t border-[color:var(--border,#252A31)] text-[10px] text-[color:var(--text-muted,#71717A)]">
+          <div className="flex items-center justify-between px-4 h-9 border-t border-border-subtle text-[10px] text-text-muted">
             <span className="flex items-center gap-3">
               <span className="flex items-center gap-1">
-                <kbd className="font-mono border border-[color:var(--border,#252A31)] rounded-sm px-1">↑↓</kbd>
+                <kbd className="font-mono border border-border-subtle rounded-sm px-1">↑↓</kbd>
                 navigieren
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="font-mono border border-[color:var(--border,#252A31)] rounded-sm px-1">↵</kbd>
+                <kbd className="font-mono border border-border-subtle rounded-sm px-1">↵</kbd>
                 auswählen
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="font-mono border border-[color:var(--border,#252A31)] rounded-sm px-1">Esc</kbd>
+                <kbd className="font-mono border border-border-subtle rounded-sm px-1">Esc</kbd>
                 schließen
               </span>
             </span>
@@ -358,17 +418,17 @@ function Row({ item, onSelect, recent }: RowProps) {
       onSelect={onSelect}
       className={cn(
         'group flex items-center gap-3 px-4 py-2 cursor-pointer text-sm',
-        'text-[color:var(--text-secondary,#A1A1AA)]',
-        'aria-selected:bg-[color:var(--elevated,#1A1E24)] aria-selected:text-[color:var(--text-primary,#E5E7EB)]',
+        'text-text-secondary',
+        'aria-selected:bg-elevated aria-selected:text-text-primary',
         'data-[disabled]:opacity-40 data-[disabled]:cursor-not-allowed',
       )}
     >
-      <span className="flex items-center justify-center w-5 h-5 shrink-0 text-[color:var(--text-muted,#71717A)] group-aria-selected:text-[color:var(--accent-500,#1D6FE8)]">
+      <span className="flex items-center justify-center w-5 h-5 shrink-0 text-text-muted group-aria-selected:text-accent-500">
         {recent ? <Clock size={14} /> : item.icon ?? <ArrowRight size={14} />}
       </span>
       <span className="flex-1 min-w-0 truncate">{item.label}</span>
       {item.hint && (
-        <span className="font-mono text-[10px] text-[color:var(--text-muted,#71717A)] shrink-0 uppercase tracking-wider">
+        <span className="font-mono text-[10px] text-text-muted shrink-0 uppercase tracking-wider">
           {item.hint}
         </span>
       )}

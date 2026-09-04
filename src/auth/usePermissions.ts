@@ -23,12 +23,9 @@ export type Permission =
     | 'tenants.activate'
     | 'tenants.deactivate'
     | 'tenants.impersonate'
-    // Admins
+    // Admins (read-only + self-service email; no create/delete/role server endpoints)
     | 'admins.read'
-    | 'admins.create'
     | 'admins.update'
-    | 'admins.delete'
-    | 'admins.changeRole'
     // Audit
     | 'audit.read'
     | 'audit.export'

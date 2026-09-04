@@ -1,18 +1,17 @@
 /**
  * Admin Dashboard — Global Stylesheet
  *
- * Single Source of Truth: design-system/tokens.ts → tokens.css.
- * Keine hardcoded Farbwerte. Alle Surfaces über CSS-Variablen.
+ * Single Source of Truth: design-system/tokens.css (HSL-Tripel,
+ * konsumiert als hsl(var(--token))). Keine hardcoded Farbwerte.
  *
  * Layer-Reihenfolge:
- *   1. tokens.css            — Base CSS variables (dark/light cascade)
- *   2. premium-tokens.css    — Glassmorphism, gradients, status cascade
- *   3. animations.css        — Keyframes + utility classes
- *   4. tailwind base/components/utilities
+ *   1. tokens.css            — NUR Custom Properties (dark-only)
+ *   2. animations.css        — Keyframes + utility classes
+ *   3. tailwind base/components/utilities
+ *   4. Element-Basis-Styles (Typografie, Focus, Scrollbar) — unten
  */
 
 @import "./design-system/tokens.css";
-@import "./styles/premium-tokens.css";
 @import "./styles/animations.css";
 
 @tailwind base;
@@ -36,6 +35,12 @@
         letter-spacing: -0.01em;
     }
 
+    /* P5.2: Markierungs-Stil im Marken-Accent statt Browser-Default. */
+    ::selection {
+        background: hsl(var(--accent-500) / 0.3);
+        color: hsl(var(--text-primary));
+    }
+
     h1,
     h2,
     h3,
@@ -48,20 +53,65 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   THEME-AWARE GLASS SURFACES
+   SURFACE HELPERS
    ────────────────────────────────────────────────────────────── */
 
 @layer components {
-    .surface-glass {
-        background: var(--glass-bg);
-        backdrop-filter: blur(var(--glass-blur));
-        border: 1px solid var(--glass-border);
-    }
-
+    /* P0.7: dead `.surface-glass` removed — it referenced undefined
+       --glass-bg/--glass-blur/--glass-border (never in tokens.css) and was
+       unused anywhere in the app. */
     .surface-card {
         background: hsl(var(--card));
         border: 1px solid hsl(var(--border));
         border-radius: var(--radius);
+    }
+
+    /**
+     * Karte im Stil des Redesigns vom 2026-07-30.
+     *
+     * Der Entwurf benutzt für JEDE Karte dieselbe Behandlung: senkrechter
+     * Lichtverlauf von 4,5 % auf 1,2 % Weiss, 1 px Rand mit 7,5 % Weiss,
+     * 18 px Radius. Kein deckendes Grau — der Verlauf lässt die Karte auf dem
+     * Lichtschein der Seite liegen, statt ihn abzudecken.
+     *
+     * Bewusst als EINE Klasse und nicht als Klassenkette an jeder Stelle: die
+     * Werte kommen sonst an fünfzig Orten leicht abweichend vor, und beim
+     * nächsten Wechsel bleibt die Hälfte stehen. Genau das war eben bei den
+     * Schriften passiert.
+     *
+     * `.karte-klein` ist dasselbe mit 14 px Radius für Kacheln in Rastern.
+     */
+    .karte,
+    .karte-klein {
+        /**
+         * Fläche, Rand und Schatten kommen aus tokens.css — je Modus eigene
+         * Werte, nicht dieselbe Zahl mit gekippter Grundfarbe.
+         *
+         * Hier stand `rgb(var(--overlay) / 0.045)`. Im Dunkeln ist das 4,5 %
+         * Weiss auf Dunkel und damit genau der Entwurf. Im Hellen wurde daraus
+         * 4,5 % Schwarz auf fast-Weiss — die Karte war DUNKLER als der Grund
+         * und wirkte wie eine graue Folie statt wie eine gehobene Fläche.
+         *
+         * Helle Oberflächen bauen Tiefe andersherum: getönter Grund, weisse
+         * Karte, Abstand über den Schatten. Deshalb --karte-*.
+         */
+        background: linear-gradient(180deg, var(--karte-von), var(--karte-bis));
+        border: 1px solid var(--karte-rand);
+        box-shadow: var(--karte-schatten);
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .karte {
+        border-radius: 18px;
+    }
+
+    .karte-klein {
+        border-radius: 14px;
+    }
+
+    .karte:hover,
+    .karte-klein:hover {
+        border-color: var(--karte-rand-hover);
     }
 }
 
@@ -73,9 +123,9 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px var(--bg-elevated) inset !important;
-    -webkit-text-fill-color: var(--text-primary) !important;
-    caret-color: var(--text-primary) !important;
+    -webkit-box-shadow: 0 0 0 30px hsl(var(--bg-elevated)) inset !important;
+    -webkit-text-fill-color: hsl(var(--text-primary)) !important;
+    caret-color: hsl(var(--text-primary)) !important;
     transition: background-color 5000s ease-in-out 0s;
 }
 
@@ -88,4 +138,118 @@ html.theme-transition *,
 html.theme-transition *::before,
 html.theme-transition *::after {
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   BASE TYPOGRAPHY (aus tokens.css hierher gezogen — tokens.css
+   enthält seit Phase 0 NUR noch Custom Properties)
+   ────────────────────────────────────────────────────────────── */
+
+/**
+ * Schriften kommen aus EINER Quelle: tokens.css.
+ *
+ * Vorher standen die Familien hier ausgeschrieben ("Inter Variable",
+ * "IBM Plex Mono") UND als Variablen in tokens.css UND in tailwind.config.js.
+ * Beim Umstellen auf die Schriften des Redesigns blieben diese Stellen stehen,
+ * und weil `.font-display`/`.font-mono` hier ausserhalb von `@layer` deklariert
+ * sind, gewinnen sie gegen die Tailwind-Klassen gleichen Namens. Ergebnis: die
+ * Ueberschriften liefen weiter in Inter, das aber niemand mehr laedt — also in
+ * der Systemschrift. Am Bild nachgemessen: `font-family` der h1 war
+ * "Inter Variable", geladen war Space Grotesk.
+ *
+ * Deshalb hier nur noch `var(--font-…)`. Wer die Schrift wechseln will, aendert
+ * tokens.css — und sonst nichts.
+ */
+html {
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/**
+ * Grundflaeche mit zwei Lichtquellen — aus dem Redesign vom 2026-07-30.
+ *
+ * Links oben ein blauer, rechts oben ein gruener Schein. Beide sehr schwach
+ * (14 und 7 Prozent) und sehr gross; sie sind nicht als Farbe gedacht, sondern
+ * nehmen der Flaeche das Tote. Eine gleichmaessig schwarze Seite wirkt gedruckt,
+ * eine mit Lichtverlauf wirkt beleuchtet.
+ *
+ * `fixed`, damit der Schein beim Rollen an seiner Stelle bleibt — sonst wandert
+ * er mit dem Inhalt und der Eindruck einer Lichtquelle zerfaellt.
+ */
+body {
+    /* Die Deckung der beiden Lichtquellen steckt in --schein-1/-2: auf hellem
+       Grund wirkt derselbe Wert doppelt so stark und die Seite bekäme einen
+       Blaustich. Werte siehe tokens.css. */
+    background:
+        radial-gradient(1200px 620px at 12% -8%, hsl(var(--accent-500) / var(--schein-1)), transparent 62%),
+        radial-gradient(900px 520px at 96% 4%, hsl(var(--success) / var(--schein-2)), transparent 60%),
+        hsl(var(--bg-canvas));
+    background-attachment: fixed;
+    color: hsl(var(--text-primary));
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+}
+
+.font-mono,
+code,
+kbd,
+samp {
+    font-family: var(--font-mono);
+    /* `zero` = durchgestrichene Null. Bei Kundennummern, OE-Nummern und
+       Beträgen ist die Verwechslung 0/O real; JetBrains Mono bringt sie mit.
+       Die Inter-Stilsätze (ss01, cv11) sind absichtlich weg — sie bedeuten in
+       anderen Schriften etwas anderes oder nichts. */
+    font-feature-settings: "zero";
+}
+
+.label-technical {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   FOCUS RING
+   ────────────────────────────────────────────────────────────── */
+
+*:focus-visible {
+    outline: 2px solid hsl(var(--accent-500));
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   SCROLLBAR
+   ────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: hsl(var(--bg-canvas));
+}
+
+::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--text-muted));
 }

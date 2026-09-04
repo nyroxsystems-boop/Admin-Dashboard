@@ -2,12 +2,13 @@
  * Admin Auth API — login, logout, session, password management.
  */
 
-import { apiFetch, setAccessToken, clearAuth } from './client';
+import { apiFetch, setAccessToken } from './client';
 import {
     AdminSchema,
     LoginResponseSchema,
     PasswordResetResponseSchema,
     parseApiResponse,
+    parseApiResponseStrict,
     type Admin,
     type LoginResponse,
     type PasswordResetResponse,
@@ -18,24 +19,23 @@ export async function adminLogin(username: string, password: string): Promise<Lo
         method: 'POST',
         body: JSON.stringify({ username, password }),
     });
-    const parsed = parseApiResponse(LoginResponseSchema, raw);
+    const parsed = parseApiResponseStrict(LoginResponseSchema, raw);
     if (parsed.access) {
         setAccessToken(parsed.access);
     }
     return parsed;
 }
 
-export async function adminLogout(): Promise<void> {
-    try {
-        await apiFetch<unknown>('/api/admin-auth/logout', { method: 'POST' });
-    } finally {
-        clearAuth();
-    }
+export async function adminLogout(authorization?: string | null): Promise<void> {
+    await apiFetch<unknown>('/api/admin-auth/logout', {
+        method: 'POST',
+        ...(authorization ? { headers: { Authorization: authorization } } : {}),
+    });
 }
 
 export async function getAdminMe(): Promise<Admin> {
     const raw = await apiFetch<unknown>('/api/admin-auth/me');
-    return parseApiResponse(AdminSchema, raw);
+    return parseApiResponseStrict(AdminSchema, raw);
 }
 
 /**
@@ -79,4 +79,23 @@ export async function updateSignature(signature: string): Promise<{ success: boo
         method: 'PATCH',
         body: JSON.stringify({ signature }),
     });
+}
+
+export interface AdminProfile {
+    id: string;
+    username: string;
+    email: string;
+    full_name: string | null;
+    signature: string | null;
+    has_imap_setup?: boolean;
+    created_at?: string;
+    last_login?: string | null;
+}
+
+/**
+ * Vollständiges Admin-Profil inkl. Signatur (das schlanke /me liefert keine
+ * Signatur, /profile schon).
+ */
+export async function getAdminProfile(): Promise<AdminProfile> {
+    return apiFetch<AdminProfile>('/api/admin-auth/profile');
 }

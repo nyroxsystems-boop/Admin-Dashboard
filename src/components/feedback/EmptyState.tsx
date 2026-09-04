@@ -33,21 +33,21 @@ export function EmptyState({
       role="status"
       className={cn(
         'flex flex-col items-center justify-center text-center px-6 py-12 gap-3',
-        'border border-dashed border-[color:var(--border,#252A31)] rounded-md',
-        'bg-[color:var(--surface,#111418)]/50',
+        'border border-dashed border-border-subtle rounded-md',
+        'bg-surface/50',
         className,
       )}
       {...rest}
     >
       {Icon && (
-        <div className="w-12 h-12 rounded-full bg-[color:var(--elevated,#1A1E24)] flex items-center justify-center text-[color:var(--text-muted,#71717A)]">
+        <div className="w-12 h-12 rounded-full bg-elevated flex items-center justify-center text-text-muted">
           <Icon size={20} aria-hidden />
         </div>
       )}
       <div className="flex flex-col gap-1 max-w-sm">
-        <h3 className="text-sm font-semibold text-[color:var(--text-primary,#E5E7EB)]">{title}</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
         {description && (
-          <p className="text-xs text-[color:var(--text-muted,#71717A)] leading-relaxed">
+          <p className="text-xs text-text-muted leading-relaxed">
             {description}
           </p>
         )}

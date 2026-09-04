@@ -11,25 +11,22 @@
  * Adapted from User-Dashboard `layout/SidebarV2.tsx`.
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  AlertCircle,
-  Bot,
   Building2,
-  Database,
-  Inbox,
+  Calendar,
+  KeyRound,
   LayoutDashboard,
+  Mail,
+  MessageSquareText,
+  NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
-  ScrollText,
+  Rocket,
   Search,
-  ShoppingCart,
-  Spline,
-  Target,
-  TestTubes,
-  Users,
-  Wrench,
+  Send,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,6 +37,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { usePermissions } from '@/auth/usePermissions';
+import { useSystemHealth } from '@/hooks/useSystemHealth';
 
 const STORAGE_KEY = 'pu.admin.sidebar.collapsed.v1';
 
@@ -48,6 +47,8 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  /** Only shown to SUPER_ADMIN — route is also SUPER_ADMIN-guarded. */
+  superAdmin?: boolean;
 }
 
 interface NavSection {
@@ -56,38 +57,51 @@ interface NavSection {
   items: NavItem[];
 }
 
+/**
+ * Die Navigation trägt nur noch das Tagesgeschäft.
+ *
+ * Alles, was selten oder nur zur Verwaltung gebraucht wird — Admins, Audit-Log,
+ * Support-Konsole, Postfach-Rechte, Wartung — liegt unter /einstellungen.
+ * Eine Leiste mit dreizehn Einträgen ist keine Navigation mehr, sondern eine
+ * Liste, in der man sucht.
+ *
+ * Das Mailsystem steht bewusst NICHT hier: es läuft als eigenständige
+ * Vollbild-Anwendung unter /mail, außerhalb dieses Rahmens.
+ */
 const NAV_SECTIONS: NavSection[] = [
   {
     id: 'top',
     label: 'Übersicht',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-      { to: '/tenants', label: 'Tenants', icon: Building2 },
-      { to: '/admins', label: 'Admins', icon: Users },
-      { to: '/audit', label: 'Audit Log', icon: ScrollText },
+      { to: '/calendar', label: 'Kalender', icon: Calendar },
+      { to: '/notizen', label: 'Notizen', icon: NotebookPen },
+      { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
     ],
   },
   {
-    id: 'oem',
-    label: 'OEM',
+    id: 'kunden',
+    label: 'Kunden',
     items: [
-      { to: '/oem/registry', label: 'OEM Registry', icon: Database },
-      { to: '/oem/lookup', label: 'OEM Lookup', icon: Search },
-      { to: '/oem/batch', label: 'Batch Test', icon: TestTubes },
-      { to: '/oem/errors', label: 'Errors', icon: AlertCircle },
-      { to: '/oem/accuracy', label: 'Accuracy', icon: Target },
-      { to: '/oem-finder', label: 'YQ OEM-Finder', icon: Search },
+      { to: '/tenants', label: 'Kundenliste', icon: Building2 },
+      { to: '/onboarding', label: 'Onboarding', icon: Rocket },
+      { to: '/access-requests', label: 'Zugänge beantragen', icon: KeyRound },
     ],
   },
   {
-    id: 'ops',
-    label: 'Ops',
+    id: 'werkzeuge',
+    label: 'Werkzeuge',
     items: [
-      { to: '/bot/testing', label: 'Bot Testing', icon: Bot },
-      { to: '/inbox', label: 'Inbox', icon: Inbox },
-      { to: '/orders', label: 'Orders', icon: ShoppingCart },
-      { to: '/scraper', label: 'Bulk Scraper', icon: Spline },
-      { to: '/maintenance', label: 'Maintenance', icon: Wrench },
+      { to: '/mail', label: 'E-Mail', icon: Mail },
+      { to: '/oem-finder', label: 'OEM-Finder', icon: Search },
+      { to: '/outreach', label: 'Outreach', icon: Send },
+    ],
+  },
+  {
+    id: 'system',
+    label: 'System',
+    items: [
+      { to: '/einstellungen', label: 'Einstellungen', icon: Settings },
     ],
   },
 ];
@@ -148,9 +162,13 @@ export function AdminSidebar({
     <aside
       className={cn(
         'hidden md:flex flex-col h-screen sticky top-0 shrink-0',
-        'bg-[color:var(--surface,#111418)] border-r border-[color:var(--border,#252A31)]',
+        // Redesign: durchscheinende Verlaufsflaeche statt deckendem Grau. Die
+        // Leiste sitzt damit auf dem Lichtverlauf der Seite, statt ihn zu
+        // verdecken.
+        'border-r border-border-subtle',
+        'bg-gradient-to-b from-overlay/[0.028] to-overlay/[0.006]',
         'transition-[width] duration-200 ease-out',
-        collapsed ? 'w-14' : 'w-60',
+        collapsed ? 'w-16' : 'w-64',
         className,
       )}
       aria-label="Hauptnavigation"
@@ -167,7 +185,7 @@ export function AdminSidebar({
       <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
         <SheetContent
           side="left"
-          className="w-64 p-0 bg-[color:var(--surface,#111418)] border-r border-[color:var(--border,#252A31)]"
+          className="w-64 p-0 bg-surface border-r border-border-subtle"
         >
           <div className="flex flex-col h-full">
             <SidebarBrand collapsed={false} />
@@ -179,29 +197,45 @@ export function AdminSidebar({
   );
 }
 
+/**
+ * Markenblock nach dem Redesign: Verlaufsquadrat, daneben Name und
+ * "ADMIN CONSOLE" in Versalien.
+ *
+ * Im Quadrat steht UNSER Symbol, nicht das gezeichnete "P" des Entwurfs. Die
+ * Geometrie ist die des Entwurfs (32 px, 9 px Radius, Akzentverlauf), der
+ * Inhalt ist die echte Marke.
+ *
+ * Warum die weisse Ausstanzung und nicht das farbige Logo: das Markenblau
+ * (#2260cd) auf dem Akzentverlauf ergibt keinen Kontrast — Blau auf Blau. Auf
+ * farbigem Grund nimmt man die einfarbige Fassung, das ist bei jeder Marke so.
+ * Die Datei ist aus der Wortmarke freigestellt, nicht nachgezeichnet.
+ */
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
   return (
     <div
       className={cn(
-        'flex items-center h-14 px-3 border-b border-[color:var(--border,#252A31)] shrink-0',
-        collapsed && 'justify-center',
+        'flex shrink-0 items-center gap-2.5 px-4 pb-4 pt-5',
+        collapsed && 'justify-center px-0',
       )}
     >
-      <div
-        className="w-8 h-8 rounded-md bg-[color:var(--accent-500,#1D6FE8)] flex items-center justify-center text-white font-bold text-sm shrink-0"
-        aria-hidden
-      >
-        PU
-      </div>
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br from-accent-500 to-accent-700">
+        <img
+          src="/partsunion-symbol-weiss.png"
+          alt="Partsunion"
+          width={19}
+          height={19}
+          className="size-[19px]"
+        />
+      </span>
       {!collapsed && (
-        <div className="ml-2 flex flex-col leading-tight">
-          <span className="text-sm font-semibold text-[color:var(--text-primary,#E5E7EB)]">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate font-display text-sm font-bold tracking-[0.02em] text-text-primary">
             Partsunion
           </span>
-          <span className="text-[10px] uppercase tracking-wider text-[color:var(--text-muted,#71717A)]">
-            Admin
+          <span className="font-mono text-[9px] font-semibold tracking-[0.18em] text-accent-500">
+            ADMIN CONSOLE
           </span>
-        </div>
+        </span>
       )}
     </div>
   );
@@ -214,9 +248,18 @@ function SidebarNav({
   collapsed: boolean;
   onNavigate?: () => void;
 }) {
+  const { isSuperAdmin } = usePermissions();
+  // Hide SUPER_ADMIN-only entries from non-super admins so they don't click a
+  // link that dead-ends at the 403 ForbiddenView (the route guard still enforces it).
+  const sections = NAV_SECTIONS
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((it) => !it.superAdmin || isSuperAdmin),
+    }))
+    .filter((section) => section.items.length > 0);
   return (
-    <nav className="flex-1 overflow-y-auto py-3" aria-label="Navigation">
-      {NAV_SECTIONS.map((section) => (
+    <nav className="flex-1 overflow-y-auto px-0 pb-3 pt-1.5" aria-label="Navigation">
+      {sections.map((section) => (
         <SidebarSection
           key={section.id}
           section={section}
@@ -238,9 +281,9 @@ function SidebarSection({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="mb-4">
+    <div className="mb-5">
       {!collapsed && (
-        <div className="px-4 mb-1 text-[10px] uppercase tracking-wider text-[color:var(--text-muted,#71717A)] font-medium">
+        <div className="mb-2 px-[22px] font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-text-muted">
           {section.label}
         </div>
       )}
@@ -273,12 +316,21 @@ function SidebarLink({
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center h-9 mx-2 rounded-md text-sm transition-colors',
-          'text-[color:var(--text-secondary,#A1A1AA)]',
-          'hover:text-[color:var(--text-primary,#E5E7EB)] hover:bg-[color:var(--elevated,#1A1E24)]',
-          collapsed ? 'justify-center px-0' : 'px-3 gap-3',
+          // Redesign: 10 px Radius, Manrope halbfett, durchscheinende
+          // Auflage beim Ueberfahren statt deckender Flaeche.
+          'group relative mx-3 flex items-center rounded-[10px] text-[12.5px] font-semibold transition-colors',
+          'py-[9px]',
+          'text-text-tertiary',
+          'hover:bg-overlay/[0.05] hover:text-text-primary',
+          collapsed ? 'justify-center px-0' : 'gap-[11px] px-[11px]',
+          // Aktiv: waagerechter Akzentverlauf, der nach rechts ausläuft — plus
+          // der 2-px-Balken am linken Rand (unten als Element, nicht als
+          // inset-Schatten: der wuerde beim Radius mitgerundet).
           isActive &&
-            'text-[color:var(--text-primary,#E5E7EB)] bg-[color:var(--elevated,#1A1E24)]',
+            // text-text-primary, NICHT text-white: der Verlauf ist
+            // durchscheinend, und im Hellmodus wäre weisse Schrift darauf
+            // unsichtbar. Am Bild nachgemessen.
+            'bg-gradient-to-r from-accent-500/[0.16] via-accent-500/[0.03] to-transparent text-text-primary',
         )
       }
     >
@@ -288,11 +340,15 @@ function SidebarLink({
           {isActive && (
             <span
               aria-hidden
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] bg-[color:var(--accent-500,#1D6FE8)] rounded-r-sm"
+              className="absolute inset-y-0 left-0 w-[2px] rounded-r-full bg-accent-500"
             />
           )}
-          <Icon size={16} className="shrink-0" aria-hidden />
-          {!collapsed && <span className="truncate">{item.label}</span>}
+          <Icon
+            size={16}
+            className={cn('shrink-0 transition-colors', isActive ? 'text-accent-500' : 'text-text-faint group-hover:text-text-tertiary')}
+            aria-hidden
+          />
+          {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
         </>
       )}
     </NavLink>
@@ -322,17 +378,16 @@ function SidebarFooter({
       type="button"
       onClick={onToggle}
       className={cn(
-        'flex items-center h-9 mx-2 mb-2 rounded-md text-sm transition-colors',
-        'text-[color:var(--text-muted,#71717A)] hover:text-[color:var(--text-primary,#E5E7EB)]',
-        'hover:bg-[color:var(--elevated,#1A1E24)]',
-        collapsed ? 'justify-center px-0' : 'px-3 gap-3 justify-start',
+        'flex w-full items-center rounded-lg py-1.5 text-xs font-semibold transition-colors',
+        'text-text-muted hover:text-text-primary',
+        collapsed ? 'justify-center px-0' : 'justify-start gap-2 px-1',
       )}
       aria-label={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
     >
       {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
       {!collapsed && <span>Einklappen</span>}
       {!collapsed && (
-        <kbd className="ml-auto font-mono text-[10px] text-[color:var(--text-muted,#71717A)] border border-[color:var(--border,#252A31)] rounded-sm px-1">
+        <kbd className="ml-auto rounded-[5px] bg-overlay/[0.05] px-1.5 py-[3px] font-mono text-[10px] font-medium text-text-muted">
           ⌘\
         </kbd>
       )}
@@ -340,7 +395,8 @@ function SidebarFooter({
   );
 
   return (
-    <div className="border-t border-[color:var(--border,#252A31)] py-2 shrink-0">
+    <div className="shrink-0 border-t border-border-subtle p-3.5">
+      {!collapsed && <SidebarStatus />}
       {collapsed ? (
         <Tooltip>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
@@ -355,9 +411,65 @@ function SidebarFooter({
   );
 }
 
+/**
+ * Statusfeld der Vorlage.
+ *
+ * Zwei Abweichungen von der Vorlage, beide mit Absicht:
+ *
+ * 1. KEINE "99,98 %". Das war eine Zahl im Entwurf, die niemand berechnet. Eine
+ *    erfundene Verfügbarkeit ist im Betrieb schlimmer als keine — man verlässt
+ *    sich darauf. Sie kommt, sobald es einen Messwert dafür gibt.
+ * 2. Der Zustand ist nicht fest "normal", sondern kommt aus /health. Ein
+ *    Statusfeld, das immer grün leuchtet, ist eine Lampe ohne Kabel.
+ */
+function SidebarStatus() {
+    const { zustand: lebenszeichen, isLoading } = useSystemHealth();
+
+    /**
+     * Nur noch EINE Aussage, weil nur eine belegbar ist.
+     *
+     * Hier standen drei Einzelampeln fuer Datenbank, Redis und Warteschlange.
+     * Die Adresse dahinter (`/api/admin/health`) gab es nie — die Anzeige
+     * stand deshalb dauerhaft auf "Status wird geprueft". Erreichbar ist von
+     * aussen allein `/health/live`, und das liefert ein Lebenszeichen, sonst
+     * nichts. Aus einem Lebenszeichen drei Einzelampeln abzuleiten waere die
+     * Lampe ohne Kabel, vor der der Kommentar oben warnt.
+     */
+    const stufe = isLoading && !lebenszeichen
+        ? 'unbekannt'
+        : lebenszeichen?.erreichbar
+            ? 'ok'
+            : 'gestoert';
+
+    const farben = {
+        ok: 'border-success/[0.16] bg-success/[0.06] text-success',
+        gestoert: 'border-danger/20 bg-danger/[0.07] text-danger',
+        unbekannt: 'border-border-subtle bg-overlay/[0.03] text-text-muted',
+    }[stufe];
+
+    const text = {
+        ok: 'API erreichbar',
+        gestoert: 'API nicht erreichbar',
+        unbekannt: 'Status wird geprüft',
+    }[stufe];
+
+    const punkt = {
+        ok: 'bg-success shadow-[0_0_10px_hsl(var(--success))] motion-safe:animate-pulse',
+        gestoert: 'bg-danger shadow-[0_0_10px_hsl(var(--danger))] motion-safe:animate-pulse',
+        unbekannt: 'bg-text-faint',
+    }[stufe];
+
+  return (
+    <div
+      className={cn('mb-2.5 flex items-center gap-2.5 rounded-[11px] border px-3 py-2.5', farben)}
+      role="status"
+    >
+      <span aria-hidden className={cn('size-[7px] shrink-0 rounded-full', punkt)} />
+      <span className="flex-1 text-[11px] font-semibold leading-tight">{text}</span>
+    </div>
+  );
+}
+
 /** Re-export for tests / route helpers. */
 export const ADMIN_NAV_SECTIONS: ReadonlyArray<NavSection> = NAV_SECTIONS;
 export type { NavItem, NavSection };
-
-// Avoid unused-import warning for ReactNode if reused
-export type AdminSidebarChildren = ReactNode;

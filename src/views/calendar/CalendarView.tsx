@@ -1,0 +1,816 @@
+/**
+ * Kalender / Termine — Quali- & Sales-Calls des Vertriebsteams.
+ *
+ * Calendly-artiger Flow: Admin legt im Call einen Termin an, der Kunde erhält
+ * eine E-Mail-Einladung (+ .ics + Bestätigungs-Link) und bestätigt selbst — der
+ * Status springt dann automatisch auf „Bestätigt". Termine sind einem Admin
+ * (Elias/Bardia/Aaron/Fecat) zugewiesen und nach Zuständigem filterbar.
+ */
+import { useMemo, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import {
+    Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Loader2, Clock, User, Mail, Phone,
+    MapPin, Check, RotateCcw, CalendarX, Video,
+    CalendarSync, ShieldCheck, AlertTriangle, RefreshCw, CircleHelp, ExternalLink, Workflow,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HAUPT_AKTION, NEBEN_AKTION, SEITEN_RAND, SeitenKopf } from '@/components/ui/seite';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { useAuth } from '@/context/AuthContext';
+import {
+    listAppointments, getAppointmentById, listAppointmentAdmins, createAppointment, updateAppointment, cancelAppointment,
+    getMicrosoftCalendarStatus, listMicrosoftCalendarReviews, syncMicrosoftCalendar,
+    type Appointment, type CreateAppointmentInput,
+    type MicrosoftCalendarReview,
+} from '@/api/appointments';
+import { cn } from '@/lib/utils';
+import { KALENDER_ZELLE } from '@/components/ui/dichte';
+
+// ── Anzeige-Maps ──────────────────────────────────────────────────────────────
+
+const TYPE_META: Record<string, { label: string; chip: string; dot: string }> = {
+    quali: { label: 'Quali', chip: 'bg-violet-500/15 text-violet-300 hell:text-violet-700 border-violet-500/30', dot: 'bg-violet-400' },
+    sales: { label: 'Sales', chip: 'bg-sky-500/15 text-sky-300 hell:text-sky-700 border-sky-500/30', dot: 'bg-sky-400' },
+    call: { label: 'Rückruf', chip: 'bg-emerald-500/15 text-emerald-300 hell:text-emerald-700 border-emerald-500/30', dot: 'bg-emerald-400' },
+    other: { label: 'Termin', chip: 'bg-slate-500/15 text-slate-300 hell:text-slate-700 border-slate-500/30', dot: 'bg-slate-400' },
+};
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+    proposed: { label: 'Vorgeschlagen', cls: 'bg-amber-500/15 text-amber-300 hell:text-amber-800 border-amber-500/30' },
+    confirmed: { label: 'Bestätigt', cls: 'bg-emerald-500/15 text-emerald-300 hell:text-emerald-700 border-emerald-500/30' },
+    declined: { label: 'Abgelehnt', cls: 'bg-rose-500/15 text-rose-300 hell:text-rose-700 border-rose-500/30' },
+    cancelled: { label: 'Abgesagt', cls: 'bg-slate-500/15 text-slate-400 hell:text-slate-700 border-slate-500/30' },
+    completed: { label: 'Erledigt', cls: 'bg-blue-500/15 text-blue-300 hell:text-blue-700 border-blue-500/30' },
+    no_show: { label: 'Nicht erschienen', cls: 'bg-orange-500/15 text-orange-300 hell:text-orange-800 border-orange-500/30' },
+};
+const DURATIONS = [15, 30, 45, 60, 90, 120];
+const EMPTY_APPOINTMENTS: Appointment[] = [];
+
+// ── Datums-Helfer (lokale Wall-Clock, kein TZ-Mathe) ─────────────────────────
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const toKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+function timeOf(iso: string): string {
+    const m = iso.match(/T(\d{2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}` : '';
+}
+function dayKeyOf(iso: string): string {
+    return iso.slice(0, 10);
+}
+function reviewReasonLabel(reason: string | null): string {
+    const value = String(reason || '').toLowerCase();
+    if (value.includes('ambiguous_recipient')) return 'Mehrere mögliche Empfänger – bitte den richtigen Kontakt prüfen.';
+    if (value.includes('multiple_crm_attendees')) return 'Mehrere CRM-Kontakte passen – bitte den zuständigen Kunden wählen.';
+    if (value.includes('crm_match_missing')) return 'Der Empfänger ist eindeutig, aber noch keinem CRM-Kunden zugeordnet.';
+    if (value.includes('insufficient_lead_time')) return 'Der Termin liegt zu nah für die automatische Erinnerung.';
+    if (value.includes('invalid_start') || value.includes('invalid_schedule')) return 'Terminzeit oder Erinnerungszeit konnte nicht sicher bestimmt werden.';
+    if (value.includes('delivery_review_mode')) return 'Der externe Versand wartet auf interne Freigabe.';
+    if (value.includes('versandstatus unklar') || value.includes('provider-timeout')) return 'Der Mailanbieter hat den Versand nicht eindeutig bestätigt. Es wird nicht automatisch erneut gesendet.';
+    return reason || 'Der Agent benötigt eine Rückfrage, bevor er sicher fortfahren kann.';
+}
+function startOfMonth(d: Date): Date { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function buildGrid(cursor: Date): Date[] {
+    const first = startOfMonth(cursor);
+    const offset = (first.getDay() + 6) % 7; // Montag = 0
+    const start = new Date(first);
+    start.setDate(first.getDate() - offset);
+    return Array.from({ length: 42 }, (_, i) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        return d;
+    });
+}
+
+const emptyForm = (): CreateAppointmentInput & { date?: string; time?: string } => ({
+    type: 'sales', durationMinutes: 30, sendInvite: true, date: '', time: '10:00',
+});
+
+export default function CalendarView(): JSX.Element {
+    const { user } = useAuth();
+    const myId = user?.id != null ? String(user.id) : null;
+
+    const [cursor, setCursor] = useState<Date>(() => new Date());
+    const [assigneeFilter, setAssigneeFilter] = useState<string>('all'); // all | mine | <adminId>
+    const [selectedDay, setSelectedDay] = useState<string>(() => toKey(new Date()));
+
+    const [createOpen, setCreateOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [form, setForm] = useState(emptyForm());
+    const [saving, setSaving] = useState(false);
+    const [detail, setDetail] = useState<Appointment | null>(null);
+    const [syncingMicrosoft, setSyncingMicrosoft] = useState(false);
+    const [reviewsOpen, setReviewsOpen] = useState(false);
+
+    const grid = useMemo(() => buildGrid(cursor), [cursor]);
+    const todayKey = toKey(new Date());
+    const rangeStart = `${toKey(grid[0])}T00:00`;
+    const rangeEnd = `${toKey(grid[grid.length - 1])}T23:59`;
+    const assigneeId =
+        assigneeFilter === 'mine'
+            ? myId ?? undefined
+            : assigneeFilter !== 'all'
+              ? assigneeFilter
+              : undefined;
+
+    const appointmentsQ = useQuery({
+        queryKey: ['admin', 'appointments', rangeStart, rangeEnd, assigneeId ?? 'all'],
+        queryFn: () => listAppointments({ from: rangeStart, to: rangeEnd, assigneeId }),
+        staleTime: 15_000,
+        refetchInterval: 60_000,
+    });
+    const adminsQ = useQuery({
+        queryKey: ['admin', 'appointment-admins'],
+        queryFn: listAppointmentAdmins,
+        staleTime: 5 * 60_000,
+    });
+    const microsoftQ = useQuery({
+        queryKey: ['admin', 'appointments', 'microsoft-status'],
+        queryFn: getMicrosoftCalendarStatus,
+        staleTime: 30_000,
+        refetchInterval: 60_000,
+        retry: false,
+    });
+    const reviewsQ = useQuery({
+        queryKey: ['admin', 'appointments', 'microsoft-reviews'],
+        queryFn: () => listMicrosoftCalendarReviews(),
+        enabled: reviewsOpen,
+        staleTime: 15_000,
+        retry: false,
+    });
+    const appointments = appointmentsQ.data?.appointments ?? EMPTY_APPOINTMENTS;
+    const admins = adminsQ.data?.admins ?? [];
+    const loading = appointmentsQ.isFetching;
+    const lastMicrosoftSync = useMemo(() => {
+        const values = (microsoftQ.data?.states || [])
+            .map((state) => state.last_success_at || state.last_sync_at)
+            .filter((value): value is string => Boolean(value));
+        if (values.length === 0) return null;
+        return values.sort((a, b) => b.localeCompare(a))[0];
+    }, [microsoftQ.data?.states]);
+
+    const byDay = useMemo(() => {
+        const map: Record<string, Appointment[]> = {};
+        for (const a of appointments) {
+            const k = dayKeyOf(a.start_at);
+            (map[k] ||= []).push(a);
+        }
+        Object.values(map).forEach((list) => list.sort((x, y) => x.start_at.localeCompare(y.start_at)));
+        return map;
+    }, [appointments]);
+
+    const selectedList = byDay[selectedDay] || [];
+
+    // Termine im ANGEZEIGTEN Monat — nicht alle geladenen. Der Entwurf schreibt
+    // dort "15 TERMINE"; eine Zahl über den ganzen Zeitraum wäre neben dem
+    // Monatsnamen irreführend.
+    const monatsTermine = useMemo(
+        () => appointments.filter((a) => {
+            const d = new Date(a.start_at);
+            return d.getMonth() === cursor.getMonth() && d.getFullYear() === cursor.getFullYear();
+        }).length,
+        [appointments, cursor],
+    );
+
+    // ── Modal öffnen ──────────────────────────────────────────────────────────
+    function openCreate(dayKey?: string) {
+        setEditingId(null);
+        setForm({ ...emptyForm(), date: dayKey || selectedDay || todayKey });
+        setCreateOpen(true);
+    }
+    function openEdit(a: Appointment) {
+        setEditingId(a.id);
+        setForm({
+            type: a.type as CreateAppointmentInput['type'],
+            title: a.title,
+            notes: a.notes || '',
+            assigneeId: a.assignee_id || undefined,
+            customerName: a.customer_name || '',
+            customerEmail: a.customer_email || '',
+            customerPhone: a.customer_phone || '',
+            durationMinutes: a.duration_minutes,
+            location: a.location || '',
+            meetingLink: a.meeting_link || '',
+            sendInvite: false,
+            date: dayKeyOf(a.start_at),
+            time: timeOf(a.start_at),
+        });
+        setDetail(null);
+        setCreateOpen(true);
+    }
+
+    async function submitForm() {
+        if (!form.date || !form.time) { toast.error('Bitte Datum und Uhrzeit angeben.'); return; }
+        const start = `${form.date}T${form.time}`;
+        const payload: CreateAppointmentInput = {
+            type: form.type, title: form.title?.trim() || undefined, notes: form.notes,
+            assigneeId: form.assigneeId, customerName: form.customerName, customerEmail: form.customerEmail,
+            customerPhone: form.customerPhone, durationMinutes: form.durationMinutes, location: form.location,
+            meetingLink: form.meetingLink, start, sendInvite: form.sendInvite,
+        };
+        setSaving(true);
+        try {
+            if (editingId) {
+                const res = await updateAppointment(editingId, { ...payload, resendInvite: form.sendInvite });
+                if (res.calendarError) toast.warning(`Termin gespeichert, Teams-Synchronisierung ausstehend: ${res.calendarError}`);
+                else toast.success(res.inviteSent ? 'Termin aktualisiert · Teams und Einladung aktualisiert.' : 'Termin aktualisiert.');
+                if (res.calendarDecision && !res.calendarDecision.eligible) toast.info('Kein Teams-Termin: In den internen Notizen wurde kein eindeutiger digitaler Kundentermin erkannt.');
+            } else {
+                const res = await createAppointment(payload);
+                if (res.calendarError) toast.warning(`Termin angelegt, Teams-Synchronisierung ausstehend: ${res.calendarError}`);
+                else if (res.inviteSent) toast.success(res.calendarSynced ? 'Termin und Teams-Call angelegt · Einladung verschickt.' : 'Termin angelegt · Einladung an den Kunden verschickt.');
+                else if (form.sendInvite && form.customerEmail) toast.warning(`Termin angelegt, aber E-Mail nicht versendet: ${res.inviteError || 'unbekannt'}`);
+                else toast.success('Termin angelegt.');
+                if (res.calendarDecision && !res.calendarDecision.eligible) toast.info('Bewusst ohne Teams angelegt: kein eindeutiger digitaler Kundentermin erkannt.');
+            }
+            setCreateOpen(false);
+            setSelectedDay(form.date);
+            await appointmentsQ.refetch();
+        } catch {
+            toast.error(editingId ? 'Aktualisieren fehlgeschlagen.' : 'Anlegen fehlgeschlagen.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function doCancel(a: Appointment) {
+        if (!confirm('Termin wirklich absagen? Der Kunde wird per E-Mail informiert.')) return;
+        try {
+            const result = await cancelAppointment(a.id);
+            setDetail(result.appointment);
+            if (result.emailSentToLead) toast.success('Termin abgesagt · E-Mail an den Lead versendet.');
+            else if (result.emailSent) toast.warning('Termin abgesagt · E-Mail wurde nur an die interne Testadresse versendet.');
+            else toast.warning(`Termin abgesagt · keine E-Mail an den Lead versendet${result.emailError ? `: ${result.emailError}` : '.'}`);
+            await appointmentsQ.refetch();
+        }
+        catch { toast.error('Absagen fehlgeschlagen.'); }
+    }
+    async function resend(a: Appointment) {
+        try {
+            const r = await updateAppointment(a.id, { resendInvite: true });
+            setDetail(r.appointment);
+            if (r.inviteSent && r.appointment.invite_delivery_mode === 'live') toast.success('Einladung an den Lead verschickt.');
+            else if (r.inviteSent) toast.warning('Einladung wurde nur an die interne Testadresse verschickt.');
+            else toast.warning(`Einladung nicht versendet${r.inviteError ? `: ${r.inviteError}` : '.'}`);
+            await appointmentsQ.refetch();
+        }
+        catch { toast.error('Erneutes Senden fehlgeschlagen.'); }
+    }
+    async function syncMicrosoftNow() {
+        setSyncingMicrosoft(true);
+        try {
+            const result = await syncMicrosoftCalendar();
+            if ('skipped' in result) toast.info('Eine Synchronisierung läuft bereits.');
+            else toast.success('Microsoft-365-Kalender und Erinnerungen wurden abgeglichen.');
+            await Promise.all([
+                microsoftQ.refetch(),
+                appointmentsQ.refetch(),
+                ...(reviewsOpen ? [reviewsQ.refetch()] : []),
+            ]);
+        } catch {
+            toast.error('Microsoft-365-Synchronisierung fehlgeschlagen.');
+        } finally {
+            setSyncingMicrosoft(false);
+        }
+    }
+
+    async function openReviewAppointment(review: MicrosoftCalendarReview) {
+        try {
+            const result = await getAppointmentById(review.appointment_id);
+            const date = new Date(`${dayKeyOf(result.appointment.start_at)}T00:00`);
+            setCursor(new Date(date.getFullYear(), date.getMonth(), 1));
+            setSelectedDay(dayKeyOf(result.appointment.start_at));
+            setReviewsOpen(false);
+            setDetail(result.appointment);
+        } catch {
+            toast.error('Der zugehörige Termin konnte nicht geladen werden.');
+        }
+    }
+
+    const selDate = new Date(`${selectedDay}T00:00`);
+
+    return (
+        <div className={cn(SEITEN_RAND, 'space-y-6')}>
+            <SeitenKopf
+                titel="Kalender"
+                beileile="Quali- & Sales-Termine planen, einladen und nachhalten."
+                aktionen={
+                    <>
+                        <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                            <SelectTrigger className="h-auto w-[190px] rounded-[10px] border-overlay/[0.08] bg-overlay/[0.04] px-3.5 py-2.5 text-[12px] font-semibold">
+                                <SelectValue placeholder="Zuständig" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Alle Zuständigen</SelectItem>
+                                {myId && <SelectItem value="mine">Meine Termine</SelectItem>}
+                                {admins.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <button type="button" onClick={() => openCreate()} className={HAUPT_AKTION}>
+                            <Plus className="size-[15px]" /> Neuer Termin
+                        </button>
+                    </>
+                }
+            />
+
+            {microsoftQ.data && (
+                <section className="karte flex flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex min-w-0 items-start gap-3.5">
+                        <div className="grid size-10 shrink-0 place-items-center rounded-[10px] border border-brand/25 bg-brand/10 text-brand">
+                            <CalendarSync className="size-[19px]" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="text-[14px] font-bold text-text">Microsoft 365 · Termin-Automation</h2>
+                                {microsoftQ.data.configured ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
+                                        <ShieldCheck className="size-3" /> Sicher verbunden
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[10px] font-bold text-warning">
+                                        <AlertTriangle className="size-3" /> Einrichtung offen
+                                    </span>
+                                )}
+                            </div>
+                            <p className="mt-1 text-[12px] leading-relaxed text-dim">
+                                Teams-Termine werden Kunden zugeordnet, um {microsoftQ.data.reminderTime} Uhr erinnert und bei Verschiebung oder Absage automatisch aktualisiert.
+                            </p>
+                            {!microsoftQ.data.configured && (
+                                <p className="mt-1.5 text-[10px] text-muted">
+                                    Server-Konfiguration fehlt: {microsoftQ.data.missing.join(', ')}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-5 rounded-xl border border-brand/15 bg-brand/[0.06] px-4 py-3">
+                        <div>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted">Kalender</p>
+                            <p className="mt-1 text-[14px] font-bold text-text">{microsoftQ.data.mailboxes.length}</p>
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-muted">Geplant</p>
+                            <p className="mt-1 text-[14px] font-bold text-text">{microsoftQ.data.reminders.pending || 0}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setReviewsOpen(true)}
+                            className={cn(
+                                'rounded-[9px] px-2.5 py-1.5 text-left transition-colors hover:bg-overlay/[0.06]',
+                                (microsoftQ.data.reminders.needs_review || 0) > 0 && 'bg-warning/10',
+                            )}
+                            aria-label={`${microsoftQ.data.reminders.needs_review || 0} Rückfragen öffnen`}
+                        >
+                            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.18em] text-muted">
+                                Rückfragen <CircleHelp className="size-3" />
+                            </p>
+                            <p className={cn('mt-1 text-[14px] font-bold', (microsoftQ.data.reminders.needs_review || 0) > 0 ? 'text-warning' : 'text-text')}>
+                                {microsoftQ.data.reminders.needs_review || 0}
+                            </p>
+                        </button>
+                        <div className="min-w-[150px]">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand">Automatisch aktiv</p>
+                            <p className="mt-1 text-[11px] text-dim">
+                                Alle {Math.max(1, Math.round((microsoftQ.data.syncIntervalSeconds || 300) / 60))} Min.
+                                {lastMicrosoftSync ? ` · zuletzt ${new Date(lastMicrosoftSync).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                            </p>
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={!microsoftQ.data.configured || syncingMicrosoft}
+                            onClick={() => void syncMicrosoftNow()}
+                            className="size-9 rounded-[9px] p-0"
+                            aria-label="Microsoft 365 jetzt zusätzlich prüfen"
+                            title="Jetzt zusätzlich prüfen"
+                        >
+                            <RefreshCw className={cn('size-3.5', syncingMicrosoft && 'animate-spin')} />
+                        </Button>
+                    </div>
+                </section>
+            )}
+
+            {appointmentsQ.isError && (
+                <div className="flex items-center justify-between gap-3 rounded-[14px] border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+                    <span>Termine konnten nicht geladen werden.</span>
+                    <Button size="sm" variant="outline" onClick={() => void appointmentsQ.refetch()}>
+                        Erneut versuchen
+                    </Button>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_328px]">
+                {/* Kalendergitter */}
+                <div className="karte overflow-hidden">
+                    <div className="flex flex-wrap items-center gap-3.5 border-b border-overlay/[0.06] px-5 py-[18px]">
+                        <h3 className="font-display text-xl font-semibold">
+                            {MONTHS[cursor.getMonth()]} <span className="text-text-muted">{cursor.getFullYear()}</span>
+                        </h3>
+                        {/* Anzahl im Monat als Mono-Feld, wie im Entwurf. Sie
+                            steht dort als "15 TERMINE" fest; hier gezählt. */}
+                        <span className="rounded-md bg-overlay/[0.05] px-2 py-1.5 font-mono text-[11px] font-medium text-text-faint">
+                            {monatsTermine} {monatsTermine === 1 ? 'TERMIN' : 'TERMINE'}
+                        </span>
+                        <span className="flex-1" />
+                        <button type="button" onClick={() => setCursor(new Date())} className={cn(NEBEN_AKTION, '!px-3.5 !py-[7px] !text-xs')}>
+                            Heute
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Voriger Monat"
+                            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+                            className="flex size-8 shrink-0 items-center justify-center rounded-[9px] border border-overlay/[0.08] bg-overlay/[0.05] text-text-tertiary transition-colors hover:text-text-primary"
+                        >
+                            <ChevronLeft className="size-4" />
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Nächster Monat"
+                            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+                            className="flex size-8 shrink-0 items-center justify-center rounded-[9px] border border-overlay/[0.08] bg-overlay/[0.05] text-text-tertiary transition-colors hover:text-text-primary"
+                        >
+                            <ChevronRight className="size-4" />
+                        </button>
+                        {loading && <Loader2 className="size-4 animate-spin text-text-muted" />}
+                    </div>
+                    <div className="grid grid-cols-7 border-b border-overlay/[0.06]">
+                        {WD.map((d) => (
+                            <div key={d} className="px-3 py-[11px] text-center font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-text-faint">
+                                {d}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-7">
+                        {grid.map((d, i) => {
+                            const k = toKey(d);
+                            const inMonth = d.getMonth() === cursor.getMonth();
+                            const list = byDay[k] || [];
+                            const isToday = k === todayKey;
+                            const isSel = k === selectedDay;
+                            return (
+                                <button
+                                    key={i}
+                                    onClick={() => setSelectedDay(k)}
+                                    onDoubleClick={() => openCreate(k)}
+                                    className={[
+                                        'border-b border-r p-1.5 text-left align-top transition-colors', KALENDER_ZELLE,
+                                        i % 7 === 6 ? 'border-r-0' : '',
+                                        inMonth ? '' : 'bg-muted/30 text-muted-foreground',
+                                        isSel ? 'ring-2 ring-inset ring-primary/60' : 'hover:bg-accent/40',
+                                    ].join(' ')}
+                                >
+                                    <div className="mb-1 flex items-center justify-between">
+                                        <span className={['inline-flex size-6 items-center justify-center rounded-full text-xs', isToday ? 'bg-primary font-semibold text-primary-foreground' : ''].join(' ')}>{d.getDate()}</span>
+                                        {list.length > 0 && <span className="text-[10px] text-muted-foreground">{list.length}</span>}
+                                    </div>
+                                    <div className="space-y-1">
+                                        {list.slice(0, 3).map((a) => {
+                                            const tm = TYPE_META[a.type] || TYPE_META.other;
+                                            return (
+                                                <div key={a.id} className={['truncate rounded border px-1 py-0.5 text-[10px] leading-tight', tm.chip, a.status === 'cancelled' ? 'line-through opacity-60' : ''].join(' ')}>
+                                                    <span className="font-medium">{timeOf(a.start_at)}</span> {a.customer_name || a.title}
+                                                </div>
+                                            );
+                                        })}
+                                        {list.length > 3 && <div className="px-1 text-[10px] text-muted-foreground">+{list.length - 3} mehr</div>}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Tages-Panel */}
+                <div className="karte overflow-hidden bg-overlay/[0.035]">
+                    <div className="flex items-center justify-between border-b px-4 py-3">
+                        <div>
+                            <div className="text-sm font-semibold">{WD[(selDate.getDay() + 6) % 7]}, {selDate.getDate()}. {MONTHS[selDate.getMonth()]}</div>
+                            <div className="text-xs text-muted-foreground">{selectedList.length} Termin{selectedList.length === 1 ? '' : 'e'}</div>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => openCreate(selectedDay)}><Plus className="size-4" /> Termin</Button>
+                    </div>
+                    <div className="max-h-[560px] space-y-2 overflow-auto p-3">
+                        {selectedList.length === 0 && (
+                            <div className="py-10 text-center text-sm text-muted-foreground">
+                                <CalendarIcon className="mx-auto mb-2 size-6 opacity-40" />
+                                Keine Termine an diesem Tag.
+                            </div>
+                        )}
+                        {selectedList.map((a) => {
+                            const tm = TYPE_META[a.type] || TYPE_META.other;
+                            const sm = STATUS_META[a.status] || STATUS_META.proposed;
+                            return (
+                                <button key={a.id} onClick={() => setDetail(a)} className="w-full rounded-lg border border-overlay/[0.08] bg-overlay/[0.045] p-3 text-left transition-colors hover:bg-overlay/[0.08]">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="flex items-center gap-1.5 text-sm font-medium"><Clock className="size-3.5 text-muted-foreground" />{timeOf(a.start_at)}–{timeOf(a.end_at)}</span>
+                                        <span className={['rounded-full border px-2 py-0.5 text-[10px] font-medium', sm.cls].join(' ')}>{sm.label}</span>
+                                    </div>
+                                    <div className="mt-1.5 truncate text-sm font-medium">{a.customer_name || a.title}</div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                                        <span className={['rounded border px-1.5 py-0.5 text-[10px]', tm.chip].join(' ')}>{tm.label}</span>
+                                        {a.assignee_name && <span className="inline-flex items-center gap-1"><User className="size-3" />{a.assignee_name}</span>}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            {/* Nur echte Unsicherheiten: eindeutige Fälle erledigt der Agent selbst. */}
+            <Dialog open={reviewsOpen} onOpenChange={setReviewsOpen}>
+                <DialogContent className="max-h-[88vh] overflow-hidden p-0 sm:max-w-[680px]">
+                    <DialogHeader className="border-b border-overlay/[0.07] px-6 py-5">
+                        <DialogTitle className="flex items-center gap-2">
+                            <CircleHelp className="size-5 text-warning" /> Rückfragen der Termin-Automation
+                        </DialogTitle>
+                        <DialogDescription>
+                            Eindeutige Termine und E-Mails verarbeitet der Agent selbstständig. Hier erscheinen ausschließlich Fälle, bei denen eine sichere Entscheidung nicht möglich ist.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[64vh] overflow-y-auto px-6 py-4">
+                        {reviewsQ.isLoading && (
+                            <div className="flex items-center justify-center gap-2 py-12 text-sm text-dim">
+                                <Loader2 className="size-4 animate-spin" /> Rückfragen werden geladen …
+                            </div>
+                        )}
+                        {reviewsQ.isError && (
+                            <div className="rounded-[12px] border border-danger/25 bg-danger/10 px-4 py-4 text-sm text-danger">
+                                Rückfragen konnten nicht geladen werden.
+                            </div>
+                        )}
+                        {!reviewsQ.isLoading && !reviewsQ.isError && (reviewsQ.data?.reviews.length || 0) === 0 && (
+                            <div className="py-12 text-center">
+                                <ShieldCheck className="mx-auto size-8 text-success" />
+                                <p className="mt-3 text-sm font-bold text-text">Keine Rückfragen offen</p>
+                                <p className="mt-1 text-xs text-dim">Alle eindeutigen Fälle wurden automatisch verarbeitet.</p>
+                            </div>
+                        )}
+                        <div className="space-y-3">
+                            {reviewsQ.data?.reviews.map((review) => (
+                                <article key={review.id} className="rounded-[13px] border border-warning/25 bg-warning/[0.06] p-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-bold text-warning">Rückfrage</span>
+                                                <span className="font-mono text-[10px] text-muted">{Math.round(Number(review.match_confidence || 0) * 100)} % Zuordnung</span>
+                                            </div>
+                                            <h3 className="mt-2 truncate text-[14px] font-bold text-text">{review.title}</h3>
+                                            <p className="mt-1 text-[12px] text-dim">
+                                                {dayKeyOf(review.start_at).split('-').reverse().join('.')} · {timeOf(review.start_at)} Uhr
+                                            </p>
+                                        </div>
+                                        <Button size="sm" variant="outline" onClick={() => void openReviewAppointment(review)}>
+                                            Termin öffnen <ExternalLink className="size-3.5" />
+                                        </Button>
+                                    </div>
+                                    <div className="mt-3 rounded-[10px] border border-overlay/[0.07] bg-overlay/[0.035] px-3.5 py-3">
+                                        <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted">Was ist unklar?</p>
+                                        <p className="mt-1.5 text-[12px] leading-relaxed text-text-secondary">{reviewReasonLabel(review.review_reason)}</p>
+                                    </div>
+                                    <div className="mt-3 grid gap-2 text-[11px] text-dim sm:grid-cols-2">
+                                        <span className="flex min-w-0 items-center gap-2"><Mail className="size-3.5 shrink-0" /><span className="truncate">{review.recipient_email}</span></span>
+                                        <span className="flex min-w-0 items-center gap-2"><User className="size-3.5 shrink-0" /><span className="truncate">{review.external_organizer_email || review.external_calendar_user || 'Nicht zugeordnet'}</span></span>
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                    </div>
+                    <DialogFooter className="border-t border-overlay/[0.07] px-6 py-4">
+                        <Button variant="outline" onClick={() => setReviewsOpen(false)}>Schließen</Button>
+                        <Button onClick={() => void syncMicrosoftNow()} disabled={syncingMicrosoft}>
+                            <RefreshCw className={cn('size-4', syncingMicrosoft && 'animate-spin')} /> Erneut prüfen
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Create / Edit Modal */}
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogContent className="max-h-[90vh] overflow-auto sm:max-w-[560px]">
+                    <DialogHeader>
+                        <DialogTitle>{editingId ? 'Termin bearbeiten' : 'Neuer Termin'}</DialogTitle>
+                        <DialogDescription>Quali- oder Sales-Call planen. Mit Kunden-E-Mail wird automatisch eine Einladung verschickt.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-1.5">
+                                <Label>Art</Label>
+                                <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as CreateAppointmentInput['type'] }))}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="quali">Quali-Call</SelectItem>
+                                        <SelectItem value="sales">Sales-Call</SelectItem>
+                                        <SelectItem value="call">Anruf / Rückruf</SelectItem>
+                                        <SelectItem value="other">Sonstiger Termin</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label>Zuständig</Label>
+                                <Select value={form.assigneeId || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v === 'none' ? undefined : v }))}>
+                                    <SelectTrigger><SelectValue placeholder="Niemand" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">— Niemand —</SelectItem>
+                                        {admins.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-3">
+                            <div className="grid gap-1.5">
+                                <Label>Datum</Label>
+                                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label>Uhrzeit</Label>
+                                <Input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} className="w-[120px]" />
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label>Dauer</Label>
+                                <Select value={String(form.durationMinutes)} onValueChange={(v) => setForm((f) => ({ ...f, durationMinutes: Number(v) }))}>
+                                    <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+                                    <SelectContent>{DURATIONS.map((d) => <SelectItem key={d} value={String(d)}>{d} Min.</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label>Titel <span className="text-muted-foreground">(optional)</span></Label>
+                            <Input value={form.title || ''} placeholder="z. B. Erstgespräch Werkstatt Müller" onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+                        </div>
+                        <div className="border-t pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Kunde</div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-1.5">
+                                <Label>Name</Label>
+                                <Input value={form.customerName || ''} placeholder="Firma / Ansprechpartner" onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))} />
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label>Telefon</Label>
+                                <Input value={form.customerPhone || ''} placeholder="+49 …" onChange={(e) => setForm((f) => ({ ...f, customerPhone: e.target.value }))} />
+                            </div>
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label>E-Mail <span className="text-muted-foreground">(für die Einladung)</span></Label>
+                            <Input type="email" value={form.customerEmail || ''} placeholder="kunde@firma.de" onChange={(e) => setForm((f) => ({ ...f, customerEmail: e.target.value }))} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-1.5">
+                                <Label>Ort</Label>
+                                <Input value={form.location || ''} placeholder="Telefon / vor Ort" onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label>Meeting-Link</Label>
+                                <Input value={form.meetingLink || ''} placeholder="https://meet…" onChange={(e) => setForm((f) => ({ ...f, meetingLink: e.target.value }))} />
+                            </div>
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label>Notizen <span className="text-muted-foreground">(steuern Teams automatisch)</span></Label>
+                            <Textarea rows={2} value={form.notes || ''} placeholder="z. B. Teams-Beratung / vor Ort / telefonischer Rückruf" onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+                            <p className="text-xs text-muted-foreground">Der Terminmanager liest diese internen Notizen. Digitale Quali-/Sales-Termine erhalten automatisch einen Teams-Link; vor Ort, Telefon und interne Blöcke nicht.</p>
+                        </div>
+                        <label className="flex items-center gap-2 rounded-lg border bg-muted/30 p-2.5 text-sm">
+                            <input type="checkbox" checked={!!form.sendInvite} onChange={(e) => setForm((f) => ({ ...f, sendInvite: e.target.checked }))} className="size-4 accent-primary" />
+                            <Mail className="size-4 text-muted-foreground" />
+                            {editingId ? 'Neue Einladung per E-Mail senden' : 'Einladung per E-Mail an den Kunden senden'}
+                        </label>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>Abbrechen</Button>
+                        <Button onClick={submitForm} disabled={saving}>
+                            {saving ? <Loader2 className="size-4 animate-spin" /> : (editingId ? <Check className="size-4" /> : <Plus className="size-4" />)}
+                            {editingId ? 'Speichern' : 'Anlegen'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Detail Modal */}
+            <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+                <DialogContent className="overflow-hidden sm:max-w-[520px]">
+                    {detail && (() => {
+                        const tm = TYPE_META[detail.type] || TYPE_META.other;
+                        const sm = STATUS_META[detail.status] || STATUS_META.proposed;
+                        return (
+                            <>
+                                <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2">
+                                        <span className={['rounded border px-1.5 py-0.5 text-[11px]', tm.chip].join(' ')}>{tm.label}</span>
+                                        {detail.customer_name || detail.title}
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        <span className={['mr-2 rounded-full border px-2 py-0.5 text-[10px] font-medium', sm.cls].join(' ')}>{sm.label}</span>
+                                        {detail.invite_sent_at && <span className="text-xs text-muted-foreground">Einladung verschickt</span>}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-2 text-sm">
+                                    <Row icon={<Clock className="size-4" />} text={`${dayKeyOf(detail.start_at).split('-').reverse().join('.')} · ${timeOf(detail.start_at)}–${timeOf(detail.end_at)} (${detail.duration_minutes} Min.)`} />
+                                    {detail.assignee_name && <Row icon={<User className="size-4" />} text={`Zuständig: ${detail.assignee_name}`} />}
+                                    {detail.customer_email && <Row icon={<Mail className="size-4" />} text={detail.customer_email} />}
+                                    {detail.customer_phone && <Row icon={<Phone className="size-4" />} text={detail.customer_phone} />}
+                                    {detail.meeting_link && (
+                                        <a
+                                            href={detail.meeting_link}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex min-w-0 items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 font-medium text-primary transition-colors hover:bg-muted"
+                                        >
+                                            <Video className="size-4 shrink-0" />
+                                            <span className="min-w-0 truncate">Teams-Besprechung öffnen</span>
+                                            <ExternalLink className="ml-auto size-3.5 shrink-0" />
+                                        </a>
+                                    )}
+                                    {!detail.meeting_link && detail.location && <Row icon={<MapPin className="size-4" />} text={detail.location} />}
+                                    {detail.notes && <div className="break-words [overflow-wrap:anywhere] rounded-lg border bg-muted/30 p-2.5 text-sm text-muted-foreground">{detail.notes}</div>}
+                                    {(detail.external_calendar_user || detail.source === 'microsoft' || detail.meeting_link || detail.customer_email) && (
+                                        <OfficeFlow appointment={detail} />
+                                    )}
+                                </div>
+                                {detail.status !== 'cancelled' && (
+                                    <div className="grid grid-cols-1 gap-2 border-t pt-4 sm:grid-cols-2">
+                                        <Button size="sm" variant="outline" className="w-full" onClick={() => openEdit(detail)}><RotateCcw className="size-4" /> Verschieben/Bearbeiten</Button>
+                                        {detail.customer_email && <Button size="sm" variant="outline" className="w-full" onClick={() => resend(detail)}><Mail className="size-4" /> Erneut einladen</Button>}
+                                        <Button size="sm" variant="destructive" className="w-full sm:col-span-2" onClick={() => doCancel(detail)}><CalendarX className="size-4" /> Termin absagen</Button>
+                                    </div>
+                                )}
+                            </>
+                        );
+                    })()}
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function Row({ icon, text }: { icon: ReactNode; text: string }) {
+    return (
+        <div className="flex min-w-0 items-start gap-2 overflow-hidden text-sm">
+            <span className="shrink-0 text-muted-foreground">{icon}</span>
+            <span className="min-w-0 break-words [overflow-wrap:anywhere]">{text}</span>
+        </div>
+    );
+}
+
+function OfficeFlow({ appointment }: { appointment: Appointment }) {
+    const inviteToLead = Boolean(
+        appointment.invite_sent_at
+        && appointment.invite_delivery_mode === 'live'
+        && appointment.invite_recipient?.toLowerCase() === appointment.customer_email?.toLowerCase(),
+    );
+    const cancellationToLead = Boolean(
+        appointment.cancellation_email_sent_at
+        && appointment.cancellation_delivery_mode === 'live'
+        && appointment.cancellation_email_recipient?.toLowerCase() === appointment.customer_email?.toLowerCase(),
+    );
+    const microsoftManagedInvite = Boolean(
+        appointment.source === 'microsoft_graph'
+        && appointment.external_calendar_user
+        && appointment.customer_email,
+    );
+    const inviteLabel = inviteToLead
+        ? 'Einladung an Lead versendet'
+        : microsoftManagedInvite
+            ? 'Einladung in Microsoft 365 vorhanden'
+        : appointment.invite_sent_at
+            ? appointment.invite_delivery_mode === 'test' ? 'Einladung nur intern getestet' : 'Einladungsversand protokolliert'
+            : appointment.invite_email_error ? 'Einladung nicht versendet' : 'Noch keine Einladung versendet';
+    const cancellationLabel = cancellationToLead
+        ? 'Absage an Lead versendet'
+        : appointment.cancellation_email_sent_at
+            ? appointment.cancellation_delivery_mode === 'test' ? 'Absage nur intern getestet' : 'Absageversand protokolliert'
+            : appointment.status === 'cancelled' ? 'Absage-E-Mail nicht versendet' : null;
+    const steps = [
+        { label: 'Kalender synchron', active: !!(appointment.external_calendar_user || appointment.source === 'microsoft_graph') },
+        { label: 'Teams bereit', active: !!appointment.meeting_link },
+        { label: inviteLabel, active: inviteToLead || microsoftManagedInvite },
+        ...(cancellationLabel ? [{ label: cancellationLabel, active: cancellationToLead }] : []),
+    ];
+    return (
+        <div className="rounded-lg border bg-muted/20 p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <Workflow className="size-4 text-primary" /> Microsoft 365 Flow
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+                {steps.map((step) => (
+                    <div key={step.label} className="flex min-w-0 items-center gap-2 text-xs">
+                        <span className={cn('size-2 shrink-0 rounded-full', step.active ? 'bg-emerald-400' : 'bg-muted-foreground/35')} />
+                        <span className="min-w-0 break-words leading-tight">{step.label}</span>
+                    </div>
+                ))}
+            </div>
+            {(appointment.invite_email_error || appointment.cancellation_email_error) && (
+                <p className="mt-2 border-t pt-2 text-[11px] leading-4 text-amber-500">
+                    {appointment.cancellation_email_error || appointment.invite_email_error}
+                </p>
+            )}
+        </div>
+    );
+}

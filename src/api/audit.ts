@@ -55,7 +55,16 @@ export async function exportAuditLogCsv(query: AuditLogQuery = {}): Promise<Blob
 
     const headers = ['id', 'created_at', 'admin_user', 'action_type', 'entity_type', 'entity_id', 'ip_address'];
     const escape = (v: unknown): string => {
-        const s = v == null ? '' : String(v);
+        let s = v == null ? '' : String(v);
+        // Audit Week-2: neutralise CSV formula triggers (= + - @ TAB CR) so the
+        // exported audit log can't execute as a formula in Excel; signed numbers
+        // are preserved.
+        if (s.length > 0) {
+            const c = s.charCodeAt(0);
+            const trig = c === 61 || c === 43 || c === 45 || c === 64 || c === 9 || c === 13;
+            const isNum = (c === 43 || c === 45) && /^[+-]?\d+(?:[.,]\d+)?$/.test(s.trim());
+            if (trig && !isNum) s = "'" + s;
+        }
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const csv =

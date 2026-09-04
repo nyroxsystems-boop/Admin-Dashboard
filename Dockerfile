@@ -9,15 +9,14 @@
 #     -t partsunion-admin-dashboard .
 #
 # Run:
-#   docker run -p 8080:80 partsunion-admin-dashboard
+#   docker run -p 8080:8080 partsunion-admin-dashboard
 
 # ─── Stage 1: Build ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Install deps with deterministic lockfile resolution.
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund --no-progress
 
 # Copy source last to maximize layer cache.
 COPY . .
@@ -37,15 +36,20 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
 RUN npm run build
 
 # ─── Stage 2: Serve ─────────────────────────────────────────────────────────
-FROM nginx:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-# Use template so $PORT (set by Railway / fallback to 80) is interpolated at container start.
+# Use a template so $PORT (set by Railway / fallback to 8080) is interpolated at container start.
 # nginx:alpine runs /docker-entrypoint.d/20-envsubst-on-templates.sh automatically.
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
-ENV PORT=80
-EXPOSE 80
+ENV PORT=8080
+EXPOSE 8080
+# Probe 127.0.0.1, NOT "localhost": in the container, localhost resolves to
+# IPv6 ::1 first, but nginx's configured listener binds IPv4 only, and BusyBox wget
+# does not fall back across address families — so a "localhost" probe gets
+# "Connection refused" and the container falsely reports unhealthy.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider "http://localhost:${PORT}/" || exit 1
+    CMD wget --quiet --tries=1 --spider "http://127.0.0.1:${PORT}/" || exit 1
 
+USER 101
 CMD ["nginx", "-g", "daemon off;"]

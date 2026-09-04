@@ -1,252 +1,429 @@
 /**
- * Partsunion Design Tokens — CSS Variables (Admin Dashboard)
+ * Partsunion Design Tokens — EINZIGE Quelle der Wahrheit (Phase 0, 2026-06-10)
  *
- * Source of Truth: design-system/tokens.ts
- * Default: Dark-Mode. Light-Mode via [data-theme="light"] auf :root oder <body>
- * (oder via next-themes: class-Strategie auf <html>).
+ * Konventionen 1:1 aus dem User-Dashboard (Goldstandard) übernommen.
  *
- * Portiert aus User-Dashboard (Goldstandard).
+ * Regeln:
+ *  - Diese Datei enthält NUR Custom Properties (keine Element-Styles —
+ *    die leben in index.css).
+ *  - Jede Farbe ist ein HSL-Tripel ("H S% L%"), konsumiert als
+ *    hsl(var(--token)) bzw. hsl(var(--token) / <alpha>) — dadurch
+ *    funktionieren Tailwind-Opacity-Modifier (bg-canvas/50) überall.
+ *  - Schatten sind Komposit-Tokens und dürfen hsl(var(--x) / α) referenzieren.
+ *  - Keine HEX-Werte, kein rgba() — nirgends.
+ *  - Drei Ebenen: Primitives (Accent-Rampe) → Semantik → Aliase (shadcn-
+ *    Legacy-Vokabular, bis Phase 2 die Alt-Komponenten migriert).
+ *
+ * ZWEI SÄTZE seit dem 2026-07-30: der dunkle in :root (und damit als
+ * Vorgabe), der helle unter [data-theme="light"] weiter unten. Hier stand
+ * jahrelang "BEWUSST DARK-ONLY … es gibt kein Light-Theme" — das stimmt nicht
+ * mehr, und ein Kommentar, der das Gegenteil des Codes behauptet, ist
+ * schlimmer als keiner.
+ *
+ * Der helle Satz ist KEINE Spiegelung des dunklen. Wo eine Zahl in beiden
+ * Sätzen dasselbe bedeuten würde, steht sie als gemeinsames Token
+ * (--overlay); wo dieselbe Zahl gegenteilig wirkt, stehen eigene Werte
+ * (--karte-*, --hero-*, --auf-ton). Die Begründung steht jeweils dort.
  */
 
-/* ──────────────────────────────────────────────────────── */
-/* DARK (Default) — "Industrial Precision"                   */
-/* ──────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────── */
+/* DARK (einziges Theme)                                         */
+/* ──────────────────────────────────────────────────────────── */
 
 :root,
 [data-theme="dark"],
 .dark {
-    /* Neutrals */
-    --bg-canvas: #0A0B0D;
-    --bg-surface: #111418;
-    --bg-elevated: #1A1E24;
-    --border: #252A31;
-    --border-strong: #3A4049;
+  /* ── Primitives: Accent-Rampe ──
+   *
+   * Aus dem Redesign vom 2026-07-30 (#5b8cff = 500, #3d63e0 = 600).
+   * Heller und satter als die vorige Rampe — dadurch traegt der Akzent auf dem
+   * sehr dunklen Grund, ohne zu leuchten.
+   *
+   * ACHTUNG bei gefuellten Knoepfen: Weiss auf accent-500 ergibt nur 3,16 —
+   * zu wenig fuer Text. Gefuellte Akzent-Knoepfe nehmen daher accent-600
+   * (5,17 gegen Weiss). accent-500 ist die Farbe fuer TEXT und Linien auf
+   * dunklem Grund (6,33 gegen Canvas), nicht fuer Flaechen unter Weiss.
+   */
+  --accent-50:  222 100% 96%;
+  --accent-200: 222 100% 88%;
+  --accent-400: 222 100% 78%;   /* #8fb0ff */
+  --accent-500: 222 100% 68%;   /* #5b8cff */
+  --accent-600: 226  72% 56%;   /* #3d63e0 */
+  --accent-700: 226  60% 44%;
 
-    --text-primary: #E8ECF1;
-    --text-secondary: #9AA3AD;
-    --text-muted: #5E6670;
+  /* ── Semantik: Flächen & Linien ──
+   *
+   * Grundflaeche #07080b aus dem Redesign. Die Stufen darueber halten Farbton
+   * und Saettigung und steigen nur in der Helligkeit — eine gerechnete Treppe
+   * statt einzeln gewaehlter Werte. Das Redesign selbst arbeitet mit
+   * durchscheinenden weissen Auflagen (rgba(255,255,255,.04–.09)); als Token
+   * brauchen wir deckende Entsprechungen, damit Tailwind-Deckkraft
+   * (bg-surface/50) weiter funktioniert.
+   */
+  /* ── Auflage ──
+   *
+   * Der Entwurf baut jede Fläche aus DURCHSCHEINENDEM WEISS über dem dunklen
+   * Grund: Karten sind `rgba(255,255,255,.045)`, Pillen `.04`, Linien `.07`.
+   * Das ist gut — eine Auflage passt sich jedem Untergrund an, eine eigene
+   * Farbe muss nachgepflegt werden.
+   *
+   * Genau deshalb ist es aber auch der Grund, warum ein Hellmodus nicht mit
+   * einem neuen Farbsatz zu machen war: Weiss auf Weiss ist unsichtbar.
+   *
+   * Die Lösung ist dieses eine Token. Es hält nur die GRUNDFARBE der Auflage;
+   * die Deckungswerte bleiben überall stehen, wo sie sind. Im Dunkeln liegt
+   * Weiss auf Dunkel, im Hellen Schwarz auf Hell — dieselbe Rolle, dieselben
+   * Zahlen, umgekehrtes Vorzeichen.
+   *
+   * Benutzt als `bg-overlay/[0.045]`, `border-overlay/[0.07]`.
+   */
+  --overlay: 255 255 255;
 
-    /* Accent — Deep Signal Blue */
-    --accent-50: #EFF6FF;
-    --accent-200: #BFDBFE;
-    --accent-400: #3B82F6;
-    --accent-500: #1D6FE8;
-    --accent-600: #1554B8;
-    --accent-700: #0E3F8F;
-    --accent-glow: rgba(29, 111, 232, 0.18);
+  /**
+   * Schriftfarbe AUF einer vollflächigen Statusfarbe.
+   *
+   * Statusfelder ("Live", "Gefährdet", "Gewonnen") lagen vorher als 10-%-
+   * Tönung der eigenen Farbe da, mit derselben Farbe als Schrift. Das sah
+   * blass aus — und war im Hellmodus nachweislich unlesbar: die Schrift kam
+   * dort auf 4,1 statt der geforderten 4,5, weil eine Tönung derselben Farbe
+   * den Untergrund genau in Richtung der Schrift zieht.
+   *
+   * Mein Kontrasttest hat das nicht gefunden, weil er die Statusfarbe gegen
+   * die KARTE gemessen hat. Auf der Karte liegt sie aber nur bei Punkten und
+   * Rändern; in einem Feld liegt sie auf ihrer eigenen Tönung, und das ist ein
+   * anderer, schlechterer Untergrund. Der Test prüft jetzt beides.
+   *
+   * Deshalb: volle Farbe als Fläche, und die Schrift kippt mit dem Modus. Im
+   * Dunkeln sind die Statusfarben hell (dunkle Schrift, 6,9–12,1), im Hellen
+   * dunkel (weisse Schrift, 5,2–6,0). Ein Token statt einer Rechnung im
+   * Baustein — dieselbe Rolle wie --overlay.
+   *
+   * 230 17% 7% = #0F1015, derselbe Wert, den das CRM als PILL_DUNKEL führt.
+   */
+  --auf-ton: 230 17% 7%;
 
-    /* Semantic */
-    --success: #4ADE80;
-    --success-muted: rgba(74, 222, 128, 0.12);
-    --warning: #F5A524;
-    --warning-muted: rgba(245, 165, 36, 0.12);
-    --danger: #F87171;
-    --danger-muted: rgba(248, 113, 113, 0.12);
-    --info: #60A5FA;
-    --info-muted: rgba(96, 165, 250, 0.12);
+  /**
+   * Die Kartenfläche — eigene Token, NICHT über --overlay.
+   *
+   * ─── Warum eine Spiegelung hier nicht reicht ───────────────────────────
+   *
+   * --overlay kippt Weiss auf Schwarz und macht damit fast alles im Hellmodus
+   * richtig: Pillen, Ränder, Filterfelder. Bei der KARTE führt es in die Irre,
+   * und das ist der Grund, warum der helle Modus flach aussah.
+   *
+   * Im Dunkeln liegt die Karte als 4,5 % WEISS auf dunklem Grund — sie ist
+   * heller als ihre Umgebung, und genau daher kommt der Eindruck, dass sie
+   * darüber schwebt. Gespiegelt wird daraus 4,5 % SCHWARZ auf hellem Grund:
+   * die Karte ist dann DUNKLER als der Grund. Das liest das Auge nicht als
+   * "gehoben", sondern als Schmutz oder Schatten — eine graue Folie auf Weiss.
+   *
+   * Helle Oberflächen erzeugen Tiefe umgekehrt: der Grund ist leicht getönt,
+   * die Karte ist WEISS, und der Abstand entsteht über einen weichen Schatten.
+   * Dieselbe Wirkung, anderes Mittel — deshalb eigene Token statt einer Zahl,
+   * die in beiden Sätzen dasselbe bedeuten soll.
+   *
+   * Im Dunkeln bleiben exakt die Werte des Entwurfs (4,5 % → 1,2 % Weiss,
+   * 7,5 % Rand, kein Schatten — ein Schatten auf Schwarz ist unsichtbar).
+   */
+  --karte-von:         rgb(255 255 255 / 0.045);
+  --karte-bis:         rgb(255 255 255 / 0.012);
+  --karte-rand:        rgb(255 255 255 / 0.075);
+  --karte-rand-hover:  rgb(255 255 255 / 0.16);
+  --karte-schatten:    none;
 
-    /* Shadows */
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
-    --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.6);
-    --shadow-glow-primary: 0 0 12px rgba(29, 111, 232, 0.4);
-    --shadow-glow-success: 0 0 8px rgba(74, 222, 128, 0.6);
-    --shadow-glow-warning: 0 0 8px rgba(245, 165, 36, 0.6);
-    --shadow-glow-danger: 0 0 8px rgba(248, 113, 113, 0.6);
-    --shadow-glow-accent: 0 0 12px rgba(29, 111, 232, 0.4);
+  /**
+   * Der Begrüßungsbereich — Verlauf und Lichtschein, je Modus eigene Werte.
+   *
+   * Vorher stand der Verlauf ausgeschrieben im Baustein und mischte
+   * `accent-500` mit 16 %, der Schein mit 28 %. Im Dunkeln ist accent-500 ein
+   * HELLES Blau (#5C8DFF) — 28 % davon auf dunklem Grund sind ein Schimmer.
+   * Im Hellen ist derselbe Token ein DUNKLES Blau (#2258D6), und 28 % davon
+   * auf Weiss sind kein Schimmer, sondern ein Fleck.
+   *
+   * Dieselbe Zahl, gegenteilige Wirkung — genau der Grund, warum eine
+   * Spiegelung als Hellmodus nicht funktioniert.
+   */
+  --hero-verlauf: linear-gradient(
+      135deg,
+      hsl(var(--accent-500) / 0.16),
+      hsl(var(--accent-500) / 0.03) 42%,
+      hsl(0 0% 100% / 0.012)
+  );
+  --hero-schein: hsl(var(--accent-500) / 0.28);
+  --hero-rand:   rgb(255 255 255 / 0.08);
 
-    /* Charts */
-    --chart-1: 217 83% 52%;
-    --chart-2: 142 71% 55%;
-    --chart-3: 37 91% 55%;
-    --chart-4: 262 80% 70%;
-    --chart-5: 220 9% 46%;
+  /* Deckung der beiden Lichtquellen auf der Grundfläche (index.css).
+     Im Dunkeln die Werte des Entwurfs; im Hellen deutlich schwächer, siehe
+     unten. */
+  --schein-1: 0.14;
+  --schein-2: 0.07;
 
-    /* Radius */
-    --radius: 8px;
+  --bg-canvas:         225 22%  4%;   /* #07080b */
+  --bg-surface:        225 18%  7%;
+  --bg-elevated:       225 16% 11%;
+  --bg-elevated-hover: 225 15% 15%;
+  --border:            225 14% 13%;
+  --border-strong:     225 12% 21%;
 
-    /* Legacy-Kompatibilität (Shadcn/Radix HSL-Werte) */
-    --background: 220 10% 5%;
-    --foreground: 220 15% 93%;
-    --card: 220 10% 8%;
-    --card-foreground: 220 15% 93%;
-    --popover: 220 10% 10%;
-    --popover-foreground: 220 15% 93%;
-    --primary: 217 83% 52%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 8% 16%;
-    --secondary-foreground: 220 15% 93%;
-    --muted: 220 8% 16%;
-    --muted-foreground: 220 9% 65%;
-    --accent: 217 83% 52%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 87% 72%;
-    --destructive-foreground: 0 0% 100%;
-    --success-foreground: 0 0% 100%;
-    --warning-foreground: 0 0% 100%;
-    --info-foreground: 0 0% 100%;
-    --input: 220 10% 17%;
-    --ring: 217 83% 52%;
-    --sidebar-background: 220 10% 6%;
-    --sidebar-foreground: 220 15% 85%;
-    --sidebar-primary: 217 83% 52%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 8% 14%;
-    --sidebar-accent-foreground: 220 15% 93%;
-    --sidebar-border: 220 10% 14%;
-    --sidebar-ring: 217 83% 52%;
+  /* ── Semantik: Text ──
+   *
+   * Fuenf Stufen wie im Redesign. ZWEI Werte sind gegenueber der Vorlage
+   * angehoben, weil sie die Lesbarkeitsgrenze unterschritten:
+   *
+   *   text-muted  #6b7185 -> 4,13   angehoben auf 54% Helligkeit (4,86)
+   *   text-faint  #565c70 -> 2,77   angehoben auf 42% Helligkeit (3,05)
+   *
+   * Gemessen wird gegen den HELLSTEN Untergrund, auf dem die Stufe vorkommt —
+   * das ist der obere Rand des Kartenverlaufs (Weiss 4,5 % ueber der
+   * Grundflaeche), nicht die Grundflaeche selbst. Gegen die Grundflaeche allein
+   * sah text-faint mit 3,00 gerade gut aus und lag auf der Karte bei 2,77.
+   *
+   * ─── Warum text-faint nur 3,0 braucht und nicht 4,5 ───────────────────────
+   *
+   * Weil es KEINE Textstufe ist. Ich hatte sie erst als solche benutzt (die
+   * kleinen Mono-Versalien der Gruppenmarken) und dafuer auf 53 % anheben
+   * muessen — dann lag sie 1,08 neben text-muted, also praktisch gleich. Fuenf
+   * Stufen, von denen zwei gleich aussehen, sind eine Stufe zu viel.
+   *
+   * Deshalb: die Gruppen- und Abschnittsmarken nehmen text-muted. Der
+   * Groessenunterschied macht die Abstufung, nicht der Kontrast — bei 9 px
+   * gegen 13,5 px sieht man den Rang ohnehin. text-faint bleibt fuer
+   * SYMBOLE und Linien (nicht angeklickte Navigationszeichen, Pfeile,
+   * abgeschalteter Statuspunkt); dort gilt 3,0, und der Wert der Vorlage
+   * brauchte nur 39 -> 42 % Helligkeit.
+   *
+   * Nachgerechnet in kontrast.test.ts — der Test faellt, wenn jemand einen
+   * dieser Werte zurueckdreht.
+   */
+  --text-primary:   225 22% 93%;      /* #e9ebf1 */
+  --text-secondary: 224 19% 80%;      /* #c3c8d6 */
+  --text-tertiary:  226 12% 59%;      /* #8a90a3 */
+  --text-muted:     226 11% 54%;      /* angehoben, siehe oben */
+  --text-faint:     226 13% 42%;      /* Symbolstufe, siehe oben */
 
-    /* Legacy admin tokens — stay HSL for hsl(var(--token)) consumers */
-    --brand: 221 83% 53%;
-    --brand-hover: 221 83% 46%;
-    --brand-light: 221 50% 15%;
-    --brand-muted: 221 40% 12%;
-    --brand-glow: 221 83% 53%;
-    --warn: 36 80% 50%;
-    --warn-light: 36 60% 12%;
-    --danger-light: 0 50% 12%;
-    --info-light: 210 40% 14%;
-    --success-light: 160 50% 12%;
-    --surface-1: 225 14% 10%;
-    --surface-2: 225 14% 13%;
-    --surface-3: 225 14% 16%;
-    --surface-overlay: 0 0% 0%;
-    --stat-1: 221 83% 63%;
-    --stat-2: 160 60% 42%;
-    --stat-3: 36 85% 55%;
-    --stat-4: 280 60% 55%;
-    --stat-5: 210 20% 95%;
+  /* ── Semantik: Status ── */
+  --success: 154 69% 55%;             /* #3ddc97 aus dem Redesign */
+  --warning:  39 86% 71%;             /* #f5c877 aus dem Redesign */
+  --danger:  0 91% 71%;               /* war #F87171 */
+  --info:    213 94% 68%;             /* war #60A5FA */
+
+  /* ── Charts (max. 5 Serien, Anti-Slop-Regel 7) ── */
+  --chart-1: 217 83% 52%;             /* Partsunion-Blau */
+  --chart-2: 142 71% 55%;             /* Grün */
+  --chart-3: 37 91% 55%;              /* Gelb */
+  --chart-4: 262 80% 70%;             /* Violett */
+  --chart-5: 220 9% 46%;              /* Grau */
+
+  /* ── Schatten (4 Elevation-Stufen + Status-Glows) ── */
+  --shadow-xs:         0 1px 2px hsl(0 0% 0% / 0.4);
+  --shadow-sm:         0 1px 3px hsl(0 0% 0% / 0.4), 0 1px 2px -1px hsl(0 0% 0% / 0.3);
+  --shadow-card:       0 2px 8px hsl(0 0% 0% / 0.3);
+  --shadow-card-hover: 0 4px 16px hsl(0 0% 0% / 0.4);
+  --shadow-modal:      0 16px 48px hsl(0 0% 0% / 0.6);
+  --shadow-glow-accent:  0 0 12px hsl(var(--accent-500) / 0.4);
+  --shadow-glow-primary: 0 0 12px hsl(var(--accent-500) / 0.4);
+  --shadow-glow-success: 0 0 8px hsl(var(--success) / 0.6);
+  --shadow-glow-warning: 0 0 8px hsl(var(--warning) / 0.6);
+  --shadow-glow-danger:  0 0 8px hsl(var(--danger) / 0.6);
 }
 
-/* ──────────────────────────────────────────────────────── */
-/* LIGHT — Optional, Dark ist Default                       */
-/* ──────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────── */
+/* THEME-UNABHÄNGIG: Aliase, Typografie, Radius                  */
+/* ──────────────────────────────────────────────────────────── */
 
+:root {
+  /* ── Typografie ── */
+  /* Aus dem Redesign: Space Grotesk fuer Ueberschriften, Manrope fuer Text,
+     JetBrains Mono fuer Marken und Zahlen. Alle drei selbst gehostet
+     (DSGVO: kein CDN) — importiert in main.tsx. */
+  --font-display: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    'Manrope Variable', 'Manrope', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', monospace;
+
+  /* ── Radius-System ── */
+  --radius: 8px;
+
+  /* ── shadcn-Legacy-Vokabular (Aliase — KEINE eigenen Werte!)
+       Wird von Alt-Komponenten/Tailwind-Legacy-Namen konsumiert,
+       bis Phase 2 sie auf die Semantik-Namen migriert. ── */
+  --background:             var(--bg-canvas);
+  --foreground:             var(--text-primary);
+  --card:                   var(--bg-surface);
+  --card-foreground:        var(--text-primary);
+  --popover:                var(--bg-elevated);
+  --popover-foreground:     var(--text-primary);
+  --primary:                var(--accent-500);
+  /* P0.7: hover shade for the default button (bg-primary-hover) — was
+     referenced by button.tsx but never defined, so the hover was a no-op. */
+  --primary-hover:          var(--accent-600);
+  --primary-foreground:     0 0% 100%;
+  --secondary:              var(--bg-elevated-hover);
+  --secondary-foreground:   var(--text-primary);
+  --muted:                  var(--bg-elevated-hover);
+  --muted-foreground:       var(--text-secondary);
+  --accent:                 var(--accent-500);
+  --accent-foreground:      0 0% 100%;
+  /* NICHT var(--danger). --danger ist die Farbe fuer FEHLERTEXT auf dunklem
+     Grund und muss dort hell sein (#F87171). Als Flaeche eines Knopfes mit
+     weisser Schrift ergab genau das einen Kontrast von 2,75 — die Richtlinie
+     verlangt 4,5. Betroffen war ausgerechnet der Loeschen-Knopf.
+     Dieser Ton kommt auf 4,80 und liegt damit auf der Hoehe des
+     Primaerknopfes (4,71) — gefuellte Knoepfe bleiben so untereinander
+     stimmig, statt dass einer aus der Reihe faellt. */
+  --destructive:            0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --success-foreground:     0 0% 100%;
+  --warning-foreground:     0 0% 100%;
+  --info-foreground:        0 0% 100%;
+  --input:                  var(--border);
+  --border-foreground:      var(--border);
+  --ring:                   var(--accent-500);
+  --sidebar-background:         var(--bg-canvas);
+  --sidebar-foreground:         var(--text-primary);
+  --sidebar-primary:            var(--accent-500);
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent:             var(--bg-elevated);
+  --sidebar-accent-foreground:  var(--text-primary);
+  --sidebar-border:             var(--border);
+  --sidebar-ring:               var(--accent-500);
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/* HELL                                                          */
+/* ──────────────────────────────────────────────────────────── */
+/**
+ * Der Entwurf ist nur dunkel gezeichnet. Dieser Satz ist die Übertragung, und
+ * er war nur möglich, nachdem die durchscheinenden Flächen auf `--overlay`
+ * umgestellt waren: vorher lag überall `rgba(255,255,255,.045)` fest im
+ * Quelltext, und Weiss auf Weiss ist unsichtbar. Jetzt kippt eine Zeile die
+ * Grundfarbe der Auflage von Weiss auf Schwarz, und alle Deckungswerte des
+ * Entwurfs bleiben, wo sie sind.
+ *
+ * ─── Was NICHT einfach gespiegelt wurde ────────────────────────────────────
+ *
+ * · Die Akzentrampe wird dunkler statt heller. #5b8cff auf Weiss ergibt 2,3 —
+ *   unlesbar. Im Hellen trägt der Akzent bei 48 % Helligkeit (6,00).
+ * · Die Lichtquellen der Grundfläche sind von 14/7 auf 5/3 Prozent zurück.
+ *   Derselbe Wert wirkt auf hellem Grund etwa doppelt so stark; die Seite
+ *   bekäme sonst einen Blaustich.
+ * · Vier Werte mussten nachgezogen werden, weil sie unter 4,5 lagen:
+ *   text-muted 48->45 %, success 32->29 %, warning 34->32 %, info 36->35 %.
+ *
+ * Alle Werte sind gegen den HELLSTEN Untergrund gerechnet, auf dem sie
+ * vorkommen — den oberen Rand des Kartenverlaufs, hier also 4,5 % SCHWARZ auf
+ * der Grundfläche. Festgehalten in design-system/kontrast.test.ts, das beide
+ * Sätze prüft.
+ */
 [data-theme="light"],
 :root.light,
 html.light {
-    --bg-canvas: #FAFBFC;
-    --bg-surface: #FFFFFF;
-    --bg-elevated: #F5F6F8;
-    --border: #E4E7EB;
-    --border-strong: #CBD2D9;
+  --overlay: 0 0 0;
+  /* Im Hellen sind die Statusfarben dunkel — die Schrift darauf muss weiss
+     sein. Siehe die Begründung beim dunklen Satz. */
+  --auf-ton: 0 0% 100%;
 
-    --text-primary: #1F2933;
-    --text-secondary: #52606D;
-    --text-muted: #7B8794;
+  /**
+   * Die Lichtquellen bleiben — sie sind der Grund, warum der dunkle Modus
+   * lebendig wirkt, und derselbe Kniff trägt im Hellen.
+   *
+   * Nur schwächer: auf hellem Grund wirkt dieselbe Deckung ungefähr doppelt so
+   * stark, und ein zu kräftiger Schein macht aus einem ruhigen Weiss eine
+   * blaue Fläche. 7 und 4,5 Prozent sind gerade so viel, dass man den Verlauf
+   * nicht benennen, aber sein Fehlen bemerken würde.
+   */
+  --schein-1: 0.07;
+  --schein-2: 0.045;
 
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
-    --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.2);
+  /**
+   * Karten: WEISS auf getöntem Grund, Tiefe über den Schatten.
+   *
+   * Der Grund ist bewusst nicht mehr fast-weiss (98 %), sondern spürbar getönt
+   * (96 %, kühl). Das ist die Voraussetzung dafür, dass eine weisse Karte
+   * überhaupt als Karte gelesen wird — auf Weiss ist Weiss keine Fläche.
+   *
+   * Der Verlauf läuft von reinem Weiss auf ein Grau von 99,4 %: dieselbe
+   * Bewegung wie im Dunkeln (oben heller, unten dunkler), nur um ein Vielfaches
+   * feiner, weil eine helle Fläche jeden Verlauf gnadenlos zeigt.
+   *
+   * Der Schatten hat zwei Lagen — eine harte, enge für die Kante und eine
+   * weite, weiche für die Distanz zum Grund. Eine einzelne Lage wirkt entweder
+   * geklebt oder verwaschen. Farbe ist kein Grau, sondern ein sehr dunkles
+   * Blau: ein neutralgrauer Schatten wirkt auf einem kühl getönten Grund
+   * schmutzig.
+   */
+  --karte-von:        hsl(0 0% 100%);
+  --karte-bis:        hsl(226 30% 99.4%);
+  --karte-rand:       hsl(226 22% 89%);
+  --karte-rand-hover: hsl(226 30% 78%);
+  --karte-schatten:
+    0 1px 2px hsl(226 40% 22% / 0.05),
+    0 10px 28px -12px hsl(226 45% 22% / 0.16);
 
-    /* Legacy HSL */
-    --background: 0 0% 98%;
-    --foreground: 220 15% 12%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 12%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 12%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 15% 12%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --input: 220 13% 91%;
+  /* Im Hellen läuft der Bereich von einem weichen Blau ins Weiss — nicht von
+     einer Tönung ins Nichts. Der Schein nimmt einen HELLEREN Blauton als
+     accent-500 und bleibt bei 20 %: derselbe Eindruck, andere Zahl. */
+  --hero-verlauf: linear-gradient(
+      135deg,
+      hsl(226 88% 92%),
+      hsl(226 80% 97%) 42%,
+      hsl(0 0% 100%)
+  );
+  --hero-schein: hsl(226 92% 64% / 0.26);
+  --hero-rand:   hsl(226 40% 88%);
 
-    --brand: 221 83% 53%;
-    --brand-hover: 221 83% 46%;
-    --brand-light: 221 83% 96%;
-    --brand-muted: 221 50% 92%;
-    --brand-glow: 221 83% 53%;
-    --warn-light: 36 70% 94%;
-    --danger-light: 0 60% 95%;
-    --info-light: 210 50% 95%;
-    --success-light: 160 50% 94%;
-    --surface-1: 0 0% 100%;
-    --surface-2: 220 14% 97%;
-    --surface-3: 220 14% 94%;
-    --surface-overlay: 220 15% 12%;
-    --stat-1: 221 83% 53%;
-    --stat-2: 160 60% 40%;
-    --stat-3: 36 80% 50%;
-    --stat-4: 280 60% 55%;
-    --stat-5: 220 15% 12%;
-}
+  /* Flächen und Linien */
+  --bg-canvas:         226 30% 96%;
+  --bg-surface:          0  0% 100%;
+  --bg-elevated:       226 26% 98%;
+  --bg-elevated-hover: 226 24% 94%;
+  --border:            226 22% 89%;
+  --border-strong:     226 16% 76%;
 
-/* ──────────────────────────────────────────────────────── */
-/* BASE TYPOGRAPHY                                           */
-/* ──────────────────────────────────────────────────────── */
+  /* Text — fünf Stufen, Abstände nachgerechnet (Faktoren 2,40 / 1,57 / 1,36 / 1,73) */
+  --text-primary:   225 18% 22%;
+  --text-secondary: 225 16% 34%;
+  --text-tertiary:  226 14% 42%;
+  --text-muted:     226 12% 45%;
+  --text-faint:     226 12% 56%;
 
-html {
-    font-family: "Inter Text", "Inter", system-ui, sans-serif;
-    font-feature-settings: "cv11", "ss01", "ss03";
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-}
 
-body {
-    background: var(--bg-canvas);
-    color: var(--text-primary);
-    font-size: 1rem;
-    line-height: 1.5;
-}
+  /**
+   * ─── Kräftig, nicht dunkel ─────────────────────────────────────────────
+   *
+   * Diese Werte waren vorher deutlich matter: success #1C7850, warning
+   * #975D0C (praktisch Braun), accent-500 #224BD3. Ich hatte sie abgedunkelt,
+   * damit sie als SCHRIFT auf Weiss lesbar sind — und dabei die Sättigung
+   * mitgenommen, obwohl nur die Helligkeit zählt.
+   *
+   * Die Schranke ist für beide Fälle dieselbe: Weiss auf Farbe und Farbe auf
+   * Weiss ergeben denselben Kontrast. Sie begrenzt die LEUCHTDICHTE, nicht die
+   * Sättigung. Man darf also den Farbton voll aufdrehen und muss nur die
+   * Helligkeit passend wählen.
+   *
+   * Genau das steht hier: gleicher Farbton, Sättigung auf 82–98 % hochgezogen,
+   * Helligkeit so weit herunter, dass gegen Weiss 4,6 bleiben. Nachgerechnet
+   * und in kontrast.test.ts festgehalten.
+   *
+   * accent-400 ist bewusst KEINE Textstufe im Hellen (2,83) — sie ist die
+   * helle Fläche für Verläufe und Punkte. Für Text nimmt man accent-500.
+   */
+  /* Akzent */
+  --accent-50:  222 100% 97%;
+  --accent-200: 222  90% 88%;
+  --accent-400: 226  88% 60%;
+  --accent-500: 226  88% 52%;
+  --accent-600: 226  88% 44%;
+  --accent-700: 226  86% 36%;
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-.font-display {
-    font-family: "Inter Display", "Inter", system-ui, sans-serif;
-    letter-spacing: -0.01em;
-}
+  /* Zustände */
+  --success: 152  92% 27%;
+  --warning:   30  98% 36%;
+  --danger:      2  82% 49%;
+  --info:    200  95% 36%;
 
-.font-mono,
-code,
-kbd,
-samp {
-    font-family: "IBM Plex Mono", "JetBrains Mono", "SF Mono", monospace;
-    font-feature-settings: "zero", "ss01";
-}
-
-.label-technical {
-    font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-/* ──────────────────────────────────────────────────────── */
-/* FOCUS RING                                                */
-/* ──────────────────────────────────────────────────────── */
-
-*:focus-visible {
-    outline: 2px solid var(--accent-500);
-    outline-offset: 2px;
-    border-radius: 2px;
-}
-
-/* ──────────────────────────────────────────────────────── */
-/* SCROLLBAR                                                 */
-/* ──────────────────────────────────────────────────────── */
-
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg-canvas);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+  /* Schatten dürfen im Hellen nicht schwarz aufreissen */
+  --shadow-xs:    0 1px 2px hsl(225 20% 20% / 0.06);
+  --shadow-card:  0 2px 8px hsl(225 20% 20% / 0.07);
+  --shadow-card-hover: 0 4px 16px hsl(225 20% 20% / 0.1);
+  --shadow-modal: 0 16px 48px hsl(225 20% 20% / 0.18);
 }

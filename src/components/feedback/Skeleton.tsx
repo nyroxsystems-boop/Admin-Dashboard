@@ -31,10 +31,10 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
         aria-hidden="true"
         style={inlineStyle}
         className={cn(
-          'relative overflow-hidden bg-[color:var(--surface,#111418)]',
+          'relative overflow-hidden bg-surface',
           circle ? 'rounded-full' : 'rounded-md',
           'before:absolute before:inset-0 before:-translate-x-full',
-          'before:bg-gradient-to-r before:from-transparent before:via-white/[0.06] before:to-transparent',
+          'before:bg-gradient-to-r before:from-transparent before:via-overlay/[0.06] before:to-transparent',
           'before:animate-[shimmer_1.6s_ease-in-out_infinite]',
           'motion-reduce:before:animate-none',
           className,

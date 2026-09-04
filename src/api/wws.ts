@@ -1,7 +1,7 @@
 /**
  * @deprecated — use the domain-specific modules instead:
  *   ./auth, ./admins, ./tenants, ./audit, ./oem, ./bot, ./inbox,
- *   ./orders, ./scraper, ./maintenance, ./health, ./emails
+ *   ./orders, ./maintenance, ./health, ./emails
  *
  * This file exists only as a backward-compat re-export shim during the
  * Phase-2 view migration (Agent 3). It will be deleted once all `views/`
@@ -23,13 +23,10 @@ export {
     updateSignature,
 } from './auth';
 
-// Admins
+// Admins (read + self-service email only; no create/delete/role endpoints exist)
 export {
     listAdmins as listAdminUsers,
     updateAdminEmail as updateAdminUserEmail,
-    createAdmin,
-    deleteAdmin,
-    setAdminRole,
 } from './admins';
 
 // Tenants
@@ -42,10 +39,10 @@ export {
     updateTenantLimits,
     deactivateTenant,
     activateTenant,
-    deleteTenant,
     listActiveDevices,
     removeActiveDevice,
     createTenantUser,
+    resetTenantUserPassword,
 } from './tenants';
 
 // Audit
@@ -78,43 +75,13 @@ export { listAllOrders, updateOrderStatus, updateOrder, getOrder } from './order
 export { listInboxMessages, markInboxRead, listMailboxes, replyInboxMessage } from './inbox';
 
 // Bot
-export { sendBotTestMessage, uploadBotTestMedia, cancelBotTestRun } from './bot';
-
-// Scraper / PartsLink24
-export {
-    lookupPartslink24,
-    getPartslinkHealth,
-    getBulkStatus,
-    getBulkVehicles,
-    createBulkVehicle,
-    updateBulkVehicle,
-    discoverFromPL24,
-    seedBulkVins,
-    deleteBulkVehicle,
-    startBulkJob,
-    startAllBulkJobs,
-    pauseBulkJob,
-    resumeBulkJob,
-    cancelBulkJob,
-    cancelAllBulkJobs,
-    getBulkJobs,
-    getBulkJobDetail,
-    getBulkJobResults,
-    exportBulkToOemDb,
-    getBrands,
-    crawlBrand,
-    startBrandChain,
-    pauseBrandChain,
-    resumeBrandChain,
-    cancelBrandChain,
-    getBrandChainState,
-} from './scraper';
+export { sendBotTestMessage, fileToBase64, cancelBotTestRun } from './bot';
 
 // Maintenance
 export { getMaintenanceState, setMaintenanceState } from './maintenance';
 
 // Health
-export { getSystemHealth, pingService } from './health';
+export { getSystemHealth } from './health';
 
 // Emails
 export {
@@ -150,25 +117,6 @@ export type {
 
 export type { OemSearchParams } from './oem';
 export type { VinDecodedInfo, VinSearchResponse, AccuracyStats } from './oem';
-export type {
-    BulkVehicle,
-    BulkJob,
-    BulkStatus,
-    BulkResultRow,
-    BulkJobProgress,
-    BrandChainError,
-    BrandChainState,
-    PartslinkResult,
-} from './scraper';
 
-/**
- * Legacy device shape exposed by listActiveDevices.
- * Kept as type alias so old callers compile.
- */
-export interface ActiveDevice {
-    id: string;
-    device_id: string;
-    user: string;
-    last_seen: string;
-    ip: string;
-}
+/** Legacy name for the normalized device-session response. */
+export type { ActiveTenantDevice as ActiveDevice } from './types';

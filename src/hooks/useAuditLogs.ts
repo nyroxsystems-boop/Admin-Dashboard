@@ -41,7 +41,12 @@ export function useAuditLogs(query: AuditLogQuery = {}): {
             return last.cursor ?? undefined;
         },
         staleTime: 30_000,
-        gcTime: 5 * 60_000,
+        /**
+         * KEIN eigenes gcTime: die globale Ablagezeit (30 Minuten, App.tsx)
+         * wurde genau fuer den Rueckweg aus dem Mailprogramm gesetzt. Ein
+         * 5-Minuten-Wert hier hebelte sie wieder aus — wer laenger als fuenf
+         * Minuten Post gelesen hat, bekam wieder Skelette statt Zahlen.
+         */
     });
     const entries: AuditLog[] = q.data?.pages.flatMap((p) => p.logs) ?? [];
     return {

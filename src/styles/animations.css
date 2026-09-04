@@ -126,10 +126,10 @@
 
 @keyframes glow-pulse {
     0%, 100% {
-        box-shadow: 0 0 12px rgba(29, 111, 232, 0.4);
+        box-shadow: 0 0 12px hsl(var(--accent-500) / 0.4);
     }
     50% {
-        box-shadow: 0 0 24px rgba(29, 111, 232, 0.6);
+        box-shadow: 0 0 24px hsl(var(--accent-500) / 0.6);
     }
 }
 
@@ -185,7 +185,7 @@
     background: linear-gradient(
         90deg,
         transparent 0%,
-        rgba(29, 111, 232, 0.1) 50%,
+        hsl(var(--accent-500) / 0.1) 50%,
         transparent 100%
     );
     background-size: 200% 100%;

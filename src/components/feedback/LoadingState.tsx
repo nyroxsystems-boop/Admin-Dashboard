@@ -29,19 +29,19 @@ export function LoadingState({
       className={cn(
         'flex items-center justify-center gap-3',
         inline ? 'py-2' : 'py-12',
-        'text-[color:var(--text-muted,#71717A)]',
+        'text-text-muted',
         className,
       )}
       {...rest}
     >
       <Loader2
         size={inline ? 14 : 18}
-        className="animate-spin text-[color:var(--accent-500,#1D6FE8)]"
+        className="animate-spin text-accent-500"
         aria-hidden
       />
       <span className={cn('text-sm', inline && 'text-xs')}>{label}</span>
       {typeof etaSeconds === 'number' && etaSeconds > 0 && (
-        <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-muted,#71717A)]">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
           ≈ {Math.ceil(etaSeconds)}s
         </span>
       )}

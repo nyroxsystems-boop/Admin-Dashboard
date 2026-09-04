@@ -105,7 +105,7 @@
     },
     "nav": {
         "dashboard": "Dashboard",
-        "tenants": "Mandanten",
+        "tenants": "Kunden",
         "admins": "Administratoren",
         "audit": "Audit-Log",
         "oem": "OEM-Datenbank",
@@ -114,7 +114,6 @@
         "oemBatch": "Batch-Test",
         "oemErrors": "OEM-Fehler",
         "accuracy": "Genauigkeit",
-        "scraper": "Scraper",
         "bot": "Bot-Test",
         "inbox": "Inbox",
         "orders": "Aufträge",
@@ -129,8 +128,8 @@
         "subtitle": "Plattform-Status auf einen Blick",
         "welcomeBack": "Willkommen zurück, {{name}}",
         "kpi": {
-            "tenants": "Mandanten",
-            "tenantsActive": "Aktive Mandanten",
+            "tenants": "Kunden",
+            "tenantsActive": "Aktive Kunden",
             "users": "Nutzer",
             "devices": "Geräte",
             "orders": "Aufträge",
@@ -144,25 +143,25 @@
         },
         "activity": "Aktivitäten",
         "activityEmpty": "Noch keine Aktivität.",
-        "recentTenants": "Zuletzt besuchte Mandanten",
+        "recentTenants": "Zuletzt besuchte Kunden",
         "systemHealth": "System-Status",
         "quickActions": "Schnellaktionen"
     },
     "tenants": {
-        "title": "Mandanten",
-        "subtitle": "Alle Mandanten auf der Plattform",
-        "create": "Neuer Mandant",
-        "createTitle": "Mandant anlegen",
-        "edit": "Mandant bearbeiten",
-        "delete": "Mandant löschen",
-        "deleteConfirm": "Diesen Mandanten wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "title": "Kunden",
+        "subtitle": "Alle Kunden auf der Plattform",
+        "create": "Neuer Kunde",
+        "createTitle": "Kunde anlegen",
+        "edit": "Kunde bearbeiten",
+        "delete": "Kunde löschen",
+        "deleteConfirm": "Diesen Kunden wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
         "activate": "Aktivieren",
         "deactivate": "Deaktivieren",
-        "impersonate": "Als Mandant anmelden",
-        "search": "Mandanten suchen…",
-        "empty": "Noch keine Mandanten angelegt.",
+        "impersonate": "Als Kunde anmelden",
+        "search": "Kunden suchen…",
+        "empty": "Noch keine Kunden angelegt.",
         "fields": {
-            "name": "Mandantenname",
+            "name": "Kundenname",
             "slug": "URL-Slug",
             "email": "E-Mail",
             "website": "Webseite",
@@ -197,7 +196,7 @@
         "users": {
             "add": "Nutzer hinzufügen",
             "remove": "Nutzer entfernen",
-            "removeConfirm": "Nutzer wirklich aus diesem Mandanten entfernen?",
+            "removeConfirm": "Nutzer wirklich aus diesem Kunden entfernen?",
             "role": "Rolle"
         },
         "devices": {
@@ -205,11 +204,11 @@
             "removeConfirm": "Gerät wirklich abmelden?"
         },
         "messages": {
-            "createSuccess": "Mandant erstellt",
-            "updateSuccess": "Mandant aktualisiert",
-            "deleteSuccess": "Mandant gelöscht",
-            "activateSuccess": "Mandant aktiviert",
-            "deactivateSuccess": "Mandant deaktiviert"
+            "createSuccess": "Kunde erstellt",
+            "updateSuccess": "Kunde aktualisiert",
+            "deleteSuccess": "Kunde gelöscht",
+            "activateSuccess": "Kunde aktiviert",
+            "deactivateSuccess": "Kunde deaktiviert"
         }
     },
     "admins": {
@@ -298,36 +297,7 @@
             "forward": "Vorwärts (Fahrzeug → OEM)",
             "reverse": "Rückwärts (OEM → Teil)",
             "batch": "Batch-Test",
-            "errors": "Fehler",
-            "bulk": "Bulk-Scraper"
-        }
-    },
-    "scraper": {
-        "title": "Bulk-Scraper",
-        "subtitle": "PartsLink24-Crawl im Hintergrund",
-        "status": {
-            "running": "Läuft",
-            "paused": "Pausiert",
-            "idle": "Bereit"
-        },
-        "actions": {
-            "start": "Starten",
-            "pause": "Pausieren",
-            "resume": "Fortsetzen",
-            "cancel": "Abbrechen",
-            "cancelAll": "Alle abbrechen",
-            "discover": "PL24 entdecken",
-            "seedVins": "VINs seeden",
-            "exportToOem": "In OEM-DB exportieren"
-        },
-        "vehicle": {
-            "vin": "VIN",
-            "brand": "Marke",
-            "model": "Modell",
-            "modelCode": "Modell-Code",
-            "yearFrom": "Jahr von",
-            "yearTo": "Jahr bis",
-            "notes": "Notizen"
+            "errors": "Fehler"
         }
     },
     "bot": {
@@ -393,7 +363,7 @@
     },
     "emails": {
         "title": "Marketing-Mails",
-        "subtitle": "Mailings an Mandanten verschicken",
+        "subtitle": "Mailings an Kunden verschicken",
         "generate": "Generieren",
         "improve": "Verbessern",
         "subject": "Betreff",
@@ -451,12 +421,12 @@
         "title": "Tastenkürzel",
         "openPalette": "Befehlspalette öffnen",
         "toggleSidebar": "Seitenleiste umschalten",
-        "newTenant": "Neuer Mandant",
+        "newTenant": "Neuer Kunde",
         "goDashboard": "Zur Übersicht",
         "showShortcuts": "Diese Übersicht anzeigen"
     },
     "empty": {
-        "tenants": "Noch keine Mandanten — der erste startet alles.",
+        "tenants": "Noch keine Kunden — der erste startet alles.",
         "admins": "Du bist allein. Lade weitere Admins ein.",
         "audit": "Keine Audit-Einträge im aktuellen Filter.",
         "orders": "Hier wird's lebhaft, sobald die ersten Aufträge eingehen.",

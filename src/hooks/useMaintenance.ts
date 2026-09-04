@@ -1,10 +1,10 @@
 /**
- * useMaintenance — read/write the global maintenance banner.
+ * useMaintenance — read/write the global maintenance flag.
  *
- * Differences from previous stub shape:
- *   - state.scheduled_until replaces plannedEndAt
- *   - No updatedAt / updatedBy fields anymore
- *   - useSetMaintenance accepts { enabled, message?, scheduled_until? }
+ * The bot-service backend persists a single global boolean
+ * (merchant_settings 'admin' → maintenanceMode). There is NO free-text
+ * message and NO scheduled end time, so the only writable field is
+ * `enabled`. When on, tenant users see a banner in the User-Dashboard.
  */
 
 import {
@@ -40,8 +40,6 @@ export function useMaintenance(): {
 
 export interface SetMaintenanceInput {
     enabled: boolean;
-    message?: string;
-    scheduled_until?: string | null;
 }
 
 export function useSetMaintenance(): UseMutationResult<

@@ -12,6 +12,8 @@ import { LoadingState } from '@/components/feedback/LoadingState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDateTime } from '@/utils/format/date';
+import { SEITEN_RAND } from '@/components/ui/seite';
+import { cn } from '@/lib/utils';
 
 export default function AuditLogView(): JSX.Element {
     const [params] = useSearchParams();
@@ -55,7 +57,7 @@ export default function AuditLogView(): JSX.Element {
     }
 
     return (
-        <div className="p-6 md:p-8 max-w-7xl mx-auto">
+        <div className={cn(SEITEN_RAND)}>
             <header className="flex items-end justify-between mb-6 gap-4 flex-wrap">
                 <div>
                     <h1 className="text-2xl font-display font-semibold tracking-tight">Audit Log</h1>

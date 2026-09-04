@@ -41,4 +41,9 @@ describe('validatePassword', () => {
     it('accepts a strong password', () => {
         expect(validatePassword('SecurePass123!@#').valid).toBe(true);
     });
+
+    it('uses exactly the special-character set accepted by tenant provisioning', () => {
+        expect(validatePassword('SecurePass123.').valid).toBe(false);
+        expect(validatePassword('SecurePass123=').valid).toBe(true);
+    });
 });

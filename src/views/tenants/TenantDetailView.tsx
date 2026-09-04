@@ -3,10 +3,14 @@
  *
  * Implementation uses Radix Sheet (right side) — closes on ESC, click-outside,
  * and on route change. Wires:
+ *   - Rich detail (users, settings) via useTenant → GET /api/admin/tenants/:id/detail
  *   - Active devices via useTenantDevices + useRemoveDevice
- *   - Impersonation via useImpersonate (toast fallback)
- *   - Password reset trigger via requestPasswordReset() from @/api/auth
+ *   - Limits-Editor (max_users/max_devices) via useUpdateTenantLimits
+ *   - WhatsApp-Nummer (Bot-Zuordnung) via useUpdateTenant
+ *   - Owner-Passwort-Reset DIREKT via resetTenantUserPassword (kein E-Mail-Versand)
+ *   - Impersonation via useImpersonate
  */
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -18,62 +22,376 @@ import {
     SheetDescription,
 } from '@/components/ui/sheet';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
     useTenants,
+    useTenant,
     useTenantDevices,
     useRemoveDevice,
+    useSuspendTenant,
+    useUnsuspendTenant,
+    useUpdateTenant,
+    useUpdateTenantLimits,
+    type TenantDeviceRow,
 } from '@/hooks/useTenants';
 import { useImpersonate } from '@/hooks/useImpersonate';
+import { usePermissions } from '@/auth/usePermissions';
 import { LoadingState } from '@/components/feedback/LoadingState';
+import { ErrorState } from '@/components/feedback/ErrorState';
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { copyToClipboard } from '@/utils/clipboard';
 import { formatDateTime, formatRelative } from '@/utils/format/date';
-import { requestPasswordReset } from '@/api/auth';
+import { resetTenantUserPassword, setTenantWhatsAppMeta, testTenantWhatsAppMeta, type WhatsAppMetaTestResult } from '@/api/tenants';
+import { getTenantOnboardingHealth, type OnboardingHealthRow, type OnboardingRisk } from '@/api/onboarding';
+import type { TenantUser } from '@/api/types';
+import {
+    presentTenantPaymentStatus,
+    type TenantPaymentTone,
+} from './tenantStatus';
+
+/** Gleiche Validierung wie das Backend: Strip von Leerzeichen/Bindestrichen/
+ *  Klammern, dann optionales + gefolgt von 10-15 Ziffern. */
+const WHATSAPP_RE = /^\+?\d{10,15}$/;
+function normalizeWhatsapp(value: string): string {
+    return value.replace(/[\s\-()]/g, '');
+}
+
+/** Backend-Limits der PATCH /tenants/:id/limits Route (zod 1-100 / 1-50). */
+const MAX_USERS_MIN = 1;
+const MAX_USERS_MAX = 100;
+const MAX_DEVICES_MIN = 1;
+const MAX_DEVICES_MAX = 50;
+
+const PAYMENT_TONE_CLASS: Record<TenantPaymentTone, string> = {
+    success: 'bg-status-success/10 text-status-success',
+    info: 'bg-accent-500/12 text-accent-500',
+    warning: 'bg-status-warning/10 text-status-warning',
+    danger: 'bg-status-danger-muted text-status-danger',
+    neutral: 'bg-surface text-text-secondary border border-border',
+};
+
+interface TenantLimitsDraft {
+    tenantId: string;
+    maxUsers: string;
+    maxDevices: string;
+}
+
+interface TenantWhatsappDraft {
+    tenantId: string;
+    value: string;
+}
+
+/** Sicheres Zufallspasswort (clientseitig, crypto.getRandomValues). */
+function generatePassword(length = 16): string {
+    // Ohne leicht verwechselbare Zeichen (0/O, 1/l/I).
+    const charset =
+        'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*+-=?';
+    const values = new Uint32Array(length);
+    crypto.getRandomValues(values);
+    return Array.from(values, (v) => charset[v % charset.length]).join('');
+}
+
+/** Owner-User ermitteln: role 'merchant', Fallback erster aktiver User. */
+function findOwnerUser(users: TenantUser[]): TenantUser | undefined {
+    return users.find((u) => u.role === 'merchant') ?? users.find((u) => u.is_active);
+}
 
 export default function TenantDetailView(): JSX.Element {
     const { id } = useParams<{ id: string }>();
     const nav = useNavigate();
-    const numericId = id != null ? Number(id) : null;
-    const { tenants, isLoading } = useTenants();
-    const tenant = tenants.find((t) => t.id === numericId);
-    const { devices, isLoading: devicesLoading } = useTenantDevices(numericId);
+    const {
+        tenants,
+        isLoading,
+        error: tenantsError,
+        refetch: refetchTenants,
+    } = useTenants();
+    const tenant = tenants.find((t) => t.id === id);
+    const detailQ = useTenant(id ?? null);
+    const detail = detailQ.data;
+    const {
+        devices,
+        isLoading: devicesLoading,
+        error: devicesError,
+        refetch: refetchDevices,
+    } = useTenantDevices(id ?? null);
     const removeDeviceMut = useRemoveDevice();
+    const suspendMut = useSuspendTenant();
+    const unsuspendMut = useUnsuspendTenant();
+    const updateTenantMut = useUpdateTenant();
+    const updateLimitsMut = useUpdateTenantLimits();
     const impersonateMut = useImpersonate();
+    const { isSuperAdmin } = usePermissions();
+    const [confirmSuspend, setConfirmSuspend] = useState(false);
+    const [deviceToRemove, setDeviceToRemove] = useState<{
+        tenantId: string;
+        device: TenantDeviceRow;
+    } | null>(null);
+
+    // ── Limits-Editor ──────────────────────────────────────────────────
+    const [limitsDraft, setLimitsDraft] = useState<TenantLimitsDraft | null>(null);
+
+    // ── Anzeigename (P1.2) — Draft überlagert den Server-Namen; null = noch
+    //    nicht bearbeitet (zeigt den geladenen Tenant-Namen, ohne Effect-Sync).
+    const [nameDraft, setNameDraft] = useState<string | null>(null);
+
+    // ── WhatsApp-Nummer ────────────────────────────────────────────────
+    const [whatsappDraft, setWhatsappDraft] = useState<TenantWhatsappDraft | null>(null);
+
+    // ── WhatsApp Meta-Cloud (phone_number_id = Aktivierungs-Schlüssel) ──
+    const [metaPnid, setMetaPnid] = useState('');
+    const [metaWaba, setMetaWaba] = useState('');
+    const [metaSaving, setMetaSaving] = useState(false);
+    const [metaTesting, setMetaTesting] = useState(false);
+    const [metaTest, setMetaTest] = useState<WhatsAppMetaTestResult | null>(null);
+
+    // ── Onboarding health (per-tenant cockpit) ──────────────────────────
+    const [obHealth, setObHealth] = useState<OnboardingHealthRow | null>(null);
+    useEffect(() => {
+        if (!id) return;
+        let alive = true;
+        getTenantOnboardingHealth(id).then((h) => { if (alive) setObHealth(h); }).catch(() => {});
+        return () => { alive = false; };
+    }, [id]);
+
+    async function handleSaveMeta(): Promise<void> {
+        if (!id) return;
+        const pnid = metaPnid.trim();
+        if (!/^\d{6,}$/.test(pnid)) {
+            toast.error('phone_number_id: nur Ziffern (Meta-ID).');
+            return;
+        }
+        setMetaSaving(true);
+        try {
+            await setTenantWhatsAppMeta(id, { phone_number_id: pnid, waba_id: metaWaba.trim() || undefined });
+            toast.success('WhatsApp-ID gespeichert. Jetzt „Verbindung testen".');
+            setMetaTest(null);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Speichern fehlgeschlagen.');
+        } finally {
+            setMetaSaving(false);
+        }
+    }
+
+    async function handleTestMeta(): Promise<void> {
+        if (!id) return;
+        setMetaTesting(true);
+        setMetaTest(null);
+        try {
+            const r = await testTenantWhatsAppMeta(id, metaPnid.trim() ? { phone_number_id: metaPnid.trim() } : {});
+            setMetaTest(r);
+            if (r.ok) toast.success('Verbindung OK.');
+            else toast.error(r.error || 'Verbindung fehlgeschlagen.');
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Test fehlgeschlagen.');
+        } finally {
+            setMetaTesting(false);
+        }
+    }
+
+    // ── Passwort-Reset-Dialog ──────────────────────────────────────────
+    const [resetOpen, setResetOpen] = useState(false);
+    const [resetPasswordInput, setResetPasswordInput] = useState('');
+    const [resetBusy, setResetBusy] = useState(false);
+    /** Nach Erfolg: das gesetzte Passwort — wird genau EINMAL angezeigt. */
+    const [resetResultPassword, setResetResultPassword] = useState<string | null>(null);
+
+    const suspended = tenant?.payment_status?.trim().toLowerCase() === 'suspended';
+    const payment = presentTenantPaymentStatus(tenant?.payment_status);
+    const ownerUser = detail ? findOwnerUser(detail.users) : undefined;
+    // P1.2: angezeigter Name = Draft (falls bearbeitet), sonst Server-Wert.
+    const nameValue = nameDraft ?? tenant?.name ?? '';
+
+    // Serverwerte bleiben die Quelle der Wahrheit, bis der Operator das jeweilige
+    // Feld tatsächlich bearbeitet. Tenant-gebundene Drafts verhindern, dass beim
+    // Wechsel zwischen zwei Detail-Routen Eingaben des vorherigen Kunden aufblitzen.
+    const activeLimitsDraft = limitsDraft?.tenantId === id ? limitsDraft : null;
+    const maxUsersInput =
+        activeLimitsDraft?.maxUsers ?? (detail ? String(detail.settings.max_users) : '');
+    const maxDevicesInput =
+        activeLimitsDraft?.maxDevices ?? (detail ? String(detail.settings.max_devices) : '');
+    const activeWhatsappDraft = whatsappDraft?.tenantId === id ? whatsappDraft : null;
+    const whatsappInput =
+        activeWhatsappDraft?.value ?? detail?.settings.whatsapp_number ?? '';
+
+    const maxUsersValue = Number(maxUsersInput);
+    const maxDevicesValue = Number(maxDevicesInput);
+    const limitsValid =
+        Number.isInteger(maxUsersValue) &&
+        maxUsersValue >= MAX_USERS_MIN &&
+        maxUsersValue <= MAX_USERS_MAX &&
+        Number.isInteger(maxDevicesValue) &&
+        maxDevicesValue >= MAX_DEVICES_MIN &&
+        maxDevicesValue <= MAX_DEVICES_MAX;
+
+    const whatsappNormalized = normalizeWhatsapp(whatsappInput);
+    const whatsappValid = WHATSAPP_RE.test(whatsappNormalized);
+
+    function handleUnsuspend(): void {
+        if (!tenant) return;
+        unsuspendMut.mutate(tenant.id, {
+            onSuccess: () => toast.success(`${tenant.name} reaktiviert.`),
+            onError: (err) =>
+                toast.error(err instanceof Error ? err.message : 'Reaktivieren fehlgeschlagen.'),
+        });
+    }
 
     function handleImpersonate(): void {
-        if (numericId == null) return;
+        if (id == null) return;
         impersonateMut.mutate(
-            { tenantId: numericId },
+            { tenantId: id, tenantName: tenant?.name },
             {
                 onSuccess: () => toast.success('Impersonation gestartet.'),
-                onError: () => toast.message('Impersonation noch nicht verfügbar.'),
+                onError: (err) =>
+                    toast.error(
+                        err instanceof Error ? err.message : 'Impersonation fehlgeschlagen.',
+                    ),
             }
         );
     }
 
-    async function handlePasswordReset(): Promise<void> {
-        if (!tenant) return;
+    function handleSaveLimits(): void {
+        if (id == null || !limitsValid) return;
+        updateLimitsMut.mutate(
+            { id, limits: { max_users: maxUsersValue, max_devices: maxDevicesValue } },
+            {
+                onSuccess: () => {
+                    toast.success('Limits gespeichert.');
+                    void detailQ.refetch().then((result) => {
+                        if (result.isSuccess) {
+                            setLimitsDraft((draft) =>
+                                draft?.tenantId === id ? null : draft,
+                            );
+                        }
+                    });
+                },
+                onError: (err) =>
+                    toast.error(
+                        err instanceof Error ? err.message : 'Limits speichern fehlgeschlagen.',
+                    ),
+            }
+        );
+    }
+
+    function handleSaveName(): void {
+        if (id == null) return;
+        const next = nameValue.trim();
+        if (next.length < 2) {
+            toast.error('Name muss mindestens 2 Zeichen haben.');
+            return;
+        }
+        updateTenantMut.mutate(
+            { id, patch: { name: next } },
+            {
+                onSuccess: () => {
+                    setNameDraft(null); // zurück auf den (refetchten) Server-Wert
+                    toast.success('Name gespeichert.');
+                },
+                onError: (err) =>
+                    toast.error(err instanceof Error ? err.message : 'Name speichern fehlgeschlagen.'),
+            }
+        );
+    }
+
+    function handleSaveWhatsapp(): void {
+        if (id == null) return;
+        if (!whatsappValid) {
+            toast.error('Ungültige Nummer — erwartet wird +49… mit 10-15 Ziffern.');
+            return;
+        }
+        updateTenantMut.mutate(
+            { id, patch: { whatsapp_number: whatsappNormalized } },
+            {
+                onSuccess: () => {
+                    toast.success('WhatsApp-Nummer gespeichert.');
+                    void detailQ.refetch().then((result) => {
+                        if (result.isSuccess) {
+                            setWhatsappDraft((draft) =>
+                                draft?.tenantId === id ? null : draft,
+                            );
+                        }
+                    });
+                },
+                onError: (err) =>
+                    toast.error(
+                        err instanceof Error
+                            ? err.message
+                            : 'WhatsApp-Nummer speichern fehlgeschlagen.',
+                    ),
+            }
+        );
+    }
+
+    function openResetDialog(): void {
+        setResetPasswordInput('');
+        setResetResultPassword(null);
+        setResetOpen(true);
+    }
+
+    async function handleResetPassword(): Promise<void> {
+        if (!ownerUser) {
+            toast.error('Kein Owner-User gefunden — Passwort-Reset nicht möglich.');
+            return;
+        }
+        const pw = resetPasswordInput.trim();
+        if (pw.length < 6) {
+            toast.error('Passwort muss mindestens 6 Zeichen haben.');
+            return;
+        }
+        setResetBusy(true);
         try {
-            await requestPasswordReset(tenant.slug);
-            toast.success('Passwort-Reset an Admin-Email gesendet.');
+            const res = await resetTenantUserPassword(ownerUser.id, pw);
+            if (res.success) {
+                setResetResultPassword(pw);
+                toast.success(`Passwort für ${ownerUser.username} neu gesetzt.`);
+            } else {
+                toast.error(res.message ?? 'Passwort-Reset fehlgeschlagen.');
+            }
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Reset-Anfrage fehlgeschlagen.');
+            toast.error(err instanceof Error ? err.message : 'Passwort-Reset fehlgeschlagen.');
+        } finally {
+            setResetBusy(false);
         }
     }
 
     return (
+        <>
         <Sheet open onOpenChange={(open) => !open && nav('/tenants')}>
             <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
                 <SheetHeader className="px-6 py-4 border-b border-border">
-                    <SheetTitle>{tenant?.name ?? 'Tenant'}</SheetTitle>
+                    <SheetTitle className="flex items-center gap-2">
+                        {tenant?.name ?? 'Kunde'}
+                        {tenant?.is_demo && (
+                            <span className="rounded-full bg-accent-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-500">
+                                Demo-Zugang
+                            </span>
+                        )}
+                    </SheetTitle>
                     <SheetDescription>
                         {tenant ? <span className="font-mono text-xs">{tenant.slug}</span> : 'Lade…'}
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {isLoading && <LoadingState label="Lade Tenant…" />}
-                    {!isLoading && !tenant && (
-                        <p className="text-sm text-text-muted">Tenant nicht gefunden.</p>
+                    {isLoading && <LoadingState label="Lade Kunde…" />}
+                    {!isLoading && Boolean(tenantsError) && (
+                        <ErrorState
+                            title="Kunde konnte nicht geladen werden"
+                            message="Die Kundenliste ist derzeit nicht verfügbar. Der Datensatz wird deshalb nicht fälschlich als fehlend angezeigt."
+                            detail={tenantsError instanceof Error ? tenantsError.message : undefined}
+                            onRetry={refetchTenants}
+                        />
+                    )}
+                    {!isLoading && !tenantsError && !tenant && (
+                        <p className="text-sm text-text-muted">Kunde nicht gefunden.</p>
                     )}
                     {tenant && (
                         <>
@@ -85,20 +403,316 @@ export default function TenantDetailView(): JSX.Element {
                                     <dt className="text-text-secondary">Status</dt>
                                     <dd>{tenant.is_active ? 'Aktiv' : 'Inaktiv'}</dd>
                                     <dt className="text-text-secondary">Payment</dt>
-                                    <dd>{tenant.payment_status ?? '—'}</dd>
+                                    <dd>
+                                        <span
+                                            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${PAYMENT_TONE_CLASS[payment.tone]}`}
+                                        >
+                                            <span
+                                                className="inline-block size-1.5 rounded-full bg-current"
+                                                aria-hidden="true"
+                                            />
+                                            {payment.label}
+                                        </span>
+                                    </dd>
                                     <dt className="text-text-secondary">Onboarding</dt>
                                     <dd>{tenant.onboarding_status ?? '—'}</dd>
                                     <dt className="text-text-secondary">User</dt>
                                     <dd className="font-mono">
-                                        {tenant.user_count}/{tenant.max_users}
+                                        {tenant.user_count}/{detail?.settings.max_users ?? tenant.max_users}
                                     </dd>
                                     <dt className="text-text-secondary">Devices</dt>
                                     <dd className="font-mono">
-                                        {tenant.device_count}/{tenant.max_devices}
+                                        {tenant.device_count}/{detail?.settings.max_devices ?? tenant.max_devices}
                                     </dd>
-                                    <dt className="text-text-secondary">Erstellt</dt>
-                                    <dd>{tenant.created_at ? formatDateTime(tenant.created_at) : '—'}</dd>
+                                    {tenant.created_at && (
+                                        <>
+                                            <dt className="text-text-secondary">Erstellt</dt>
+                                            <dd>{formatDateTime(tenant.created_at)}</dd>
+                                        </>
+                                    )}
                                 </dl>
+                            </section>
+
+                            <section>
+                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                                    Anzeigename
+                                </h3>
+                                <div className="flex items-end gap-2">
+                                    <div className="flex-1 space-y-1">
+                                        <Label htmlFor="tenant-name" className="text-xs">
+                                            Firmen-/Anzeigename
+                                        </Label>
+                                        <Input
+                                            id="tenant-name"
+                                            value={nameValue}
+                                            onChange={(e) => setNameDraft(e.target.value)}
+                                            disabled={updateTenantMut.isPending}
+                                        />
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={
+                                            updateTenantMut.isPending ||
+                                            nameValue.trim().length < 2 ||
+                                            nameValue.trim() === (tenant.name ?? '')
+                                        }
+                                        onClick={handleSaveName}
+                                    >
+                                        {updateTenantMut.isPending ? 'Speichert…' : 'Speichern'}
+                                    </Button>
+                                </div>
+                            </section>
+
+                            <section>
+                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                                    Limits
+                                </h3>
+                                {detailQ.isLoading ? (
+                                    <div className="text-xs text-text-muted">Lade…</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="flex items-end gap-2">
+                                            <div className="flex-1 space-y-1">
+                                                <Label htmlFor="tenant-max-users" className="text-xs">
+                                                    Max. User ({MAX_USERS_MIN}-{MAX_USERS_MAX})
+                                                </Label>
+                                                <Input
+                                                    id="tenant-max-users"
+                                                    type="number"
+                                                    min={MAX_USERS_MIN}
+                                                    max={MAX_USERS_MAX}
+                                                    step={1}
+                                                    value={maxUsersInput}
+                                                    onChange={(e) => {
+                                                        if (!id) return;
+                                                        setLimitsDraft({
+                                                            tenantId: id,
+                                                            maxUsers: e.target.value,
+                                                            maxDevices: maxDevicesInput,
+                                                        });
+                                                    }}
+                                                    disabled={!detail || updateLimitsMut.isPending}
+                                                />
+                                            </div>
+                                            <div className="flex-1 space-y-1">
+                                                <Label htmlFor="tenant-max-devices" className="text-xs">
+                                                    Max. Geräte ({MAX_DEVICES_MIN}-{MAX_DEVICES_MAX})
+                                                </Label>
+                                                <Input
+                                                    id="tenant-max-devices"
+                                                    type="number"
+                                                    min={MAX_DEVICES_MIN}
+                                                    max={MAX_DEVICES_MAX}
+                                                    step={1}
+                                                    value={maxDevicesInput}
+                                                    onChange={(e) => {
+                                                        if (!id) return;
+                                                        setLimitsDraft({
+                                                            tenantId: id,
+                                                            maxUsers: maxUsersInput,
+                                                            maxDevices: e.target.value,
+                                                        });
+                                                    }}
+                                                    disabled={!detail || updateLimitsMut.isPending}
+                                                />
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={!detail || !limitsValid || updateLimitsMut.isPending}
+                                                onClick={handleSaveLimits}
+                                            >
+                                                {updateLimitsMut.isPending ? 'Speichert…' : 'Speichern'}
+                                            </Button>
+                                        </div>
+                                        {!limitsValid && detail && (
+                                            <p className="text-xs text-status-danger">
+                                                Erlaubt: {MAX_USERS_MIN}-{MAX_USERS_MAX} User,{' '}
+                                                {MAX_DEVICES_MIN}-{MAX_DEVICES_MAX} Geräte (ganze Zahlen).
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+
+                            {obHealth && (
+                                <section>
+                                    <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                                        Onboarding-Status
+                                    </h3>
+                                    <div className="space-y-1.5 text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-text-muted">Status</span>
+                                            {(() => {
+                                                const m: Record<OnboardingRisk, { label: string; cls: string }> = {
+                                                    live: { label: 'Live (aktiviert)', cls: 'bg-status-success/10 text-status-success' },
+                                                    configured: { label: 'Konfiguriert', cls: 'bg-accent-500/10 text-accent-500' },
+                                                    setup: { label: 'In Einrichtung', cls: 'bg-amber-500/10 text-amber-400 hell:text-amber-800' },
+                                                    'at-risk': { label: 'Gefährdet', cls: 'bg-status-danger/10 text-status-danger' },
+                                                };
+                                                const r = m[obHealth.risk];
+                                                return <span className={`px-2 py-0.5 rounded ${r.cls}`}>{r.label}</span>;
+                                            })()}
+                                        </div>
+                                        <div className="text-text-muted">Plan: <span className="text-text-primary">{obHealth.planId ?? '—'}</span></div>
+                                        <div className="text-text-muted">WhatsApp: <span className="text-text-primary">{obHealth.whatsappConfigured ? 'verbunden' : 'offen'}</span></div>
+                                        <div className="text-text-muted">Aktiviert: <span className="text-text-primary">{obHealth.activatedAt ? formatDateTime(obHealth.activatedAt) : 'noch nicht'}</span></div>
+                                        <div className="text-text-muted">Time-to-Value: <span className="text-text-primary">{obHealth.timeToActivationHours != null ? (obHealth.timeToActivationHours < 48 ? `${Math.round(obHealth.timeToActivationHours)} h` : `${Math.round(obHealth.timeToActivationHours / 24)} T`) : '—'}</span></div>
+                                    </div>
+                                </section>
+                            )}
+
+                            <section>
+                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                                    WhatsApp-Nummer
+                                </h3>
+                                {detailQ.isLoading ? (
+                                    <div className="text-xs text-text-muted">Lade…</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <div className="flex items-end gap-2">
+                                            <div className="flex-1 space-y-1">
+                                                <Label htmlFor="tenant-whatsapp" className="text-xs">
+                                                    WhatsApp-Nummer (Bot-Zuordnung)
+                                                </Label>
+                                                <Input
+                                                    id="tenant-whatsapp"
+                                                    type="tel"
+                                                    placeholder="+4915123456789"
+                                                    value={whatsappInput}
+                                                    onChange={(e) => {
+                                                        if (!id) return;
+                                                        setWhatsappDraft({
+                                                            tenantId: id,
+                                                            value: e.target.value,
+                                                        });
+                                                    }}
+                                                    disabled={!detail || updateTenantMut.isPending}
+                                                />
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={!detail || !whatsappValid || updateTenantMut.isPending}
+                                                onClick={handleSaveWhatsapp}
+                                            >
+                                                {updateTenantMut.isPending ? 'Speichert…' : 'Speichern'}
+                                            </Button>
+                                        </div>
+                                        {whatsappInput.length > 0 && !whatsappValid && (
+                                            <p className="text-xs text-status-danger">
+                                                Ungültiges Format — erwartet wird z.B. +4915123456789
+                                                (10-15 Ziffern, optional +).
+                                            </p>
+                                        )}
+                                        <p className="text-xs text-text-muted">
+                                            Ohne Nummer empfängt der Kunde keine WhatsApp-Bestellungen.
+                                        </p>
+                                    </div>
+                                )}
+                            </section>
+
+                            <section>
+                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                                    WhatsApp-Aktivierung (Meta Cloud)
+                                </h3>
+                                <div className="space-y-2">
+                                    <div className="flex flex-wrap items-end gap-2">
+                                        <div className="flex-1 min-w-[12rem] space-y-1">
+                                            <Label htmlFor="tenant-meta-pnid" className="text-xs">
+                                                Meta phone_number_id
+                                            </Label>
+                                            <Input
+                                                id="tenant-meta-pnid"
+                                                inputMode="numeric"
+                                                placeholder="z.B. 1151047651429851"
+                                                value={metaPnid}
+                                                onChange={(e) => setMetaPnid(e.target.value)}
+                                                disabled={metaSaving}
+                                            />
+                                        </div>
+                                        <div className="w-36 space-y-1">
+                                            <Label htmlFor="tenant-meta-waba" className="text-xs">
+                                                WABA-ID (optional)
+                                            </Label>
+                                            <Input
+                                                id="tenant-meta-waba"
+                                                inputMode="numeric"
+                                                placeholder="WABA-ID"
+                                                value={metaWaba}
+                                                onChange={(e) => setMetaWaba(e.target.value)}
+                                                disabled={metaSaving}
+                                            />
+                                        </div>
+                                        <Button size="sm" variant="outline" disabled={metaSaving} onClick={handleSaveMeta}>
+                                            {metaSaving ? 'Speichert…' : 'Speichern'}
+                                        </Button>
+                                        <Button size="sm" variant="outline" disabled={metaTesting} onClick={handleTestMeta}>
+                                            {metaTesting ? 'Teste…' : 'Verbindung testen'}
+                                        </Button>
+                                    </div>
+                                    {metaTest && (
+                                        <p className={`text-xs ${metaTest.ok ? 'text-status-success' : 'text-status-danger'}`}>
+                                            {metaTest.ok
+                                                ? `✓ Verbunden${metaTest.displayPhoneNumber ? ' — ' + metaTest.displayPhoneNumber : ''}${metaTest.verifiedName ? ' (' + metaTest.verifiedName + ')' : ''}`
+                                                : `✗ ${metaTest.error ?? 'Verbindung fehlgeschlagen'}`}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-text-muted">
+                                        Aktivierungs-Schlüssel: Inbound-Routing UND Versand laufen über die
+                                        phone_number_id. „Verbindung testen" pingt die Meta-Graph-API (kein Versand).
+                                    </p>
+                                </div>
+                            </section>
+
+                            <section>
+                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                                    Benutzer
+                                </h3>
+                                {detailQ.isLoading ? (
+                                    <div className="text-xs text-text-muted">Lade…</div>
+                                ) : detailQ.error ? (
+                                    <p className="text-xs text-status-danger">
+                                        {detailQ.error instanceof Error
+                                            ? detailQ.error.message
+                                            : 'Detail-Daten konnten nicht geladen werden.'}
+                                    </p>
+                                ) : !detail || detail.users.length === 0 ? (
+                                    <p className="text-xs text-text-muted">Keine Benutzer vorhanden.</p>
+                                ) : (
+                                    <ul className="space-y-1">
+                                        {detail.users.map((u) => (
+                                            <li
+                                                key={u.id}
+                                                className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface/30 px-3 py-2 text-xs"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="font-mono truncate">
+                                                        {u.name || u.username}
+                                                    </div>
+                                                    <div className="text-text-muted truncate">
+                                                        {u.email} · seit {formatRelative(u.created_at)}
+                                                    </div>
+                                                </div>
+                                                <div className="flex shrink-0 items-center gap-1.5">
+                                                    <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-text-secondary">
+                                                        {u.role}
+                                                    </span>
+                                                    <span
+                                                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                                            u.is_active
+                                                                ? 'bg-accent-500/12 text-accent-500'
+                                                                : 'bg-status-danger-muted text-status-danger'
+                                                        }`}
+                                                    >
+                                                        {u.is_active ? 'Aktiv' : 'Inaktiv'}
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </section>
 
                             <section>
@@ -107,45 +721,78 @@ export default function TenantDetailView(): JSX.Element {
                                 </h3>
                                 {devicesLoading ? (
                                     <div className="text-xs text-text-muted">Lade…</div>
+                                ) : devicesError ? (
+                                    <ErrorState
+                                        className="px-3 py-4"
+                                        title="Geräte konnten nicht geladen werden"
+                                        message="Der aktuelle Session-Stand ist unbekannt. Es werden deshalb nicht fälschlich null aktive Geräte angezeigt."
+                                        detail={
+                                            devicesError instanceof Error
+                                                ? devicesError.message
+                                                : undefined
+                                        }
+                                        onRetry={refetchDevices}
+                                    />
                                 ) : devices.length === 0 ? (
                                     <p className="text-xs text-text-muted">Keine aktiven Geräte.</p>
                                 ) : (
-                                    <ul className="space-y-1">
-                                        {devices.map((d) => (
-                                            <li
-                                                key={d.id}
-                                                className="flex items-center justify-between rounded-md border border-border bg-surface/30 px-3 py-2 text-xs"
-                                            >
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="font-mono truncate">{d.user}</div>
-                                                    <div className="text-text-muted">
-                                                        {d.last_seen ? formatRelative(d.last_seen) : '—'} · {d.ip}
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => {
-                                                        if (numericId == null) return;
-                                                        removeDeviceMut.mutate(
-                                                            { tenantId: numericId, deviceId: d.device_id },
-                                                            {
-                                                                onSuccess: () => toast.success('Gerät entfernt.'),
-                                                                onError: (e) =>
-                                                                    toast.error(
-                                                                        e instanceof Error
-                                                                            ? e.message
-                                                                            : 'Entfernen fehlgeschlagen.',
-                                                                    ),
-                                                            },
-                                                        );
-                                                    }}
+                                    <div className="space-y-2">
+                                        {!isSuperAdmin && (
+                                            <p className="text-xs text-text-muted">
+                                                Geräte können nur von Superadmins abgemeldet werden.
+                                            </p>
+                                        )}
+                                        <ul className="space-y-1">
+                                            {devices.map((d) => (
+                                                <li
+                                                    key={d.id}
+                                                    className="flex items-start justify-between gap-3 rounded-md border border-border bg-surface/30 px-3 py-2 text-xs"
                                                 >
-                                                    Entfernen
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                                    <div className="min-w-0 flex-1 space-y-0.5">
+                                                        <div className="font-mono truncate">{d.user}</div>
+                                                        <div className="flex flex-wrap gap-x-3 text-text-muted">
+                                                            <span>
+                                                                Letzte Aktivität:{' '}
+                                                                {d.last_seen
+                                                                    ? formatRelative(d.last_seen)
+                                                                    : 'unbekannt'}
+                                                            </span>
+                                                            <span>IP: {d.ip ?? 'unbekannt'}</span>
+                                                        </div>
+                                                        {d.user_agent && (
+                                                            <div
+                                                                className="truncate text-text-muted"
+                                                                title={d.user_agent}
+                                                            >
+                                                                {d.user_agent}
+                                                            </div>
+                                                        )}
+                                                        <div
+                                                            className="truncate font-mono text-[10px] text-text-muted"
+                                                            title={d.device_id}
+                                                        >
+                                                            Geräte-ID: {d.device_id}
+                                                        </div>
+                                                    </div>
+                                                    {isSuperAdmin && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="shrink-0"
+                                                            aria-label={`${d.user} von diesem Gerät abmelden`}
+                                                            onClick={() => {
+                                                                if (id != null) {
+                                                                    setDeviceToRemove({ tenantId: id, device: d });
+                                                                }
+                                                            }}
+                                                        >
+                                                            Abmelden
+                                                        </Button>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 )}
                             </section>
 
@@ -171,13 +818,32 @@ export default function TenantDetailView(): JSX.Element {
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => void handlePasswordReset()}
+                                        disabled={detailQ.isLoading}
+                                        onClick={openResetDialog}
                                     >
                                         Passwort zurücksetzen
                                     </Button>
                                     <Button size="sm" variant="outline" onClick={handleImpersonate}>
                                         Impersonate
                                     </Button>
+                                    {suspended ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={unsuspendMut.isPending}
+                                            onClick={handleUnsuspend}
+                                        >
+                                            Reaktivieren
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setConfirmSuspend(true)}
+                                        >
+                                            Sperren
+                                        </Button>
+                                    )}
                                 </div>
                             </section>
                         </>
@@ -185,5 +851,164 @@ export default function TenantDetailView(): JSX.Element {
                 </div>
             </SheetContent>
         </Sheet>
+
+        <ConfirmDialog
+            open={deviceToRemove !== null}
+            onOpenChange={(open) => {
+                if (!open && !removeDeviceMut.isPending) setDeviceToRemove(null);
+            }}
+            title="Gerät wirklich abmelden?"
+            description={
+                deviceToRemove
+                    ? `${deviceToRemove.device.user} verliert die aktive Sitzung auf dem Gerät ${deviceToRemove.device.device_id}. Eine erneute Anmeldung ist erforderlich.`
+                    : undefined
+            }
+            tone="danger"
+            confirmLabel="Gerät abmelden"
+            loading={removeDeviceMut.isPending}
+            onConfirm={async () => {
+                if (!deviceToRemove) return;
+                try {
+                    await removeDeviceMut.mutateAsync({
+                        tenantId: deviceToRemove.tenantId,
+                        deviceId: deviceToRemove.device.device_id,
+                        sessionId: deviceToRemove.device.session_id,
+                        userId: deviceToRemove.device.user_id,
+                    });
+                    toast.success('Gerät wurde abgemeldet.');
+                    setDeviceToRemove(null);
+                } catch (err) {
+                    toast.error(
+                        err instanceof Error ? err.message : 'Abmelden fehlgeschlagen.',
+                    );
+                }
+            }}
+        />
+
+        <ConfirmDialog
+            open={confirmSuspend}
+            onOpenChange={setConfirmSuspend}
+            title={tenant ? `${tenant.name} sperren?` : 'Sperren?'}
+            description="Diesen Kunden wegen offener Zahlung sperren? Der Zugang wird sofort blockiert."
+            tone="danger"
+            confirmLabel="Sperren"
+            loading={suspendMut.isPending}
+            onConfirm={async () => {
+                if (tenant) {
+                    try {
+                        await suspendMut.mutateAsync(tenant.id);
+                        toast.success(`${tenant.name} gesperrt.`);
+                    } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'Sperren fehlgeschlagen.');
+                    }
+                }
+                setConfirmSuspend(false);
+            }}
+        />
+
+        <Dialog
+            open={resetOpen}
+            onOpenChange={(open) => {
+                if (resetBusy) return;
+                setResetOpen(open);
+                if (!open) {
+                    // Passwort nie im State behalten, sobald der Dialog zu ist.
+                    setResetPasswordInput('');
+                    setResetResultPassword(null);
+                }
+            }}
+        >
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Owner-Passwort zurücksetzen</DialogTitle>
+                    <DialogDescription>
+                        {ownerUser
+                            ? `Setzt das Passwort von ${ownerUser.username} (${ownerUser.email}) direkt neu. Es wird KEINE E-Mail versendet — das Passwort selbst übermitteln.`
+                            : 'Kein Owner-User gefunden (weder Rolle „merchant" noch ein aktiver User).'}
+                    </DialogDescription>
+                </DialogHeader>
+
+                {resetResultPassword ? (
+                    <div className="space-y-2">
+                        <Label className="text-xs">Neues Passwort</Label>
+                        <div className="flex items-center gap-2">
+                            <code className="flex-1 rounded-md border border-border bg-surface/30 px-3 py-2 font-mono text-sm break-all select-all">
+                                {resetResultPassword}
+                            </code>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    void copyToClipboard(resetResultPassword).then((ok) =>
+                                        ok
+                                            ? toast.success('Passwort kopiert.')
+                                            : toast.error('Kopieren fehlgeschlagen.'),
+                                    );
+                                }}
+                            >
+                                Kopieren
+                            </Button>
+                        </div>
+                        <p className="text-xs text-text-muted">
+                            Wird nur einmal angezeigt — jetzt kopieren und sicher übermitteln.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        <Label htmlFor="tenant-reset-password" className="text-xs">
+                            Neues Passwort (min. 6 Zeichen)
+                        </Label>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                id="tenant-reset-password"
+                                type="text"
+                                autoComplete="off"
+                                spellCheck={false}
+                                value={resetPasswordInput}
+                                onChange={(e) => setResetPasswordInput(e.target.value)}
+                                disabled={resetBusy || !ownerUser}
+                            />
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={resetBusy || !ownerUser}
+                                onClick={() => setResetPasswordInput(generatePassword())}
+                            >
+                                Generieren
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                <DialogFooter>
+                    {resetResultPassword ? (
+                        <Button variant="outline" onClick={() => setResetOpen(false)}>
+                            Schließen
+                        </Button>
+                    ) : (
+                        <>
+                            <Button
+                                variant="outline"
+                                disabled={resetBusy}
+                                onClick={() => setResetOpen(false)}
+                            >
+                                Abbrechen
+                            </Button>
+                            <Button
+                                disabled={
+                                    resetBusy ||
+                                    !ownerUser ||
+                                    resetPasswordInput.trim().length < 6
+                                }
+                                onClick={() => void handleResetPassword()}
+                            >
+                                {resetBusy ? 'Setzt…' : 'Passwort setzen'}
+                            </Button>
+                        </>
+                    )}
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

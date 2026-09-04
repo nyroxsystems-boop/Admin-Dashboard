@@ -1,46 +1,47 @@
 /**
- * MaintenanceView — Toggle Maintenance-Mode for the entire platform.
+ * MaintenanceView — Toggle the global maintenance flag.
+ *
+ * The backend persists ONLY a boolean (merchant_settings 'admin' →
+ * maintenanceMode). When enabled, tenant users see a non-blocking banner
+ * at the top of the User-Dashboard (MaintenanceBanner) — the app itself
+ * stays usable. There is no free-text message and no scheduled end time,
+ * so this view exposes only the on/off switch.
  */
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useMaintenance, useSetMaintenance } from '@/hooks/useMaintenance';
+import { usePermissions } from '@/auth/usePermissions';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { LoadingState } from '@/components/feedback/LoadingState';
+import { SEITEN_RAND_OHNE_BREITE } from '@/components/ui/seite';
 import { cn } from '@/lib/utils';
 
 export default function MaintenanceView(): JSX.Element {
     const { state, isLoading } = useMaintenance();
     const setMut = useSetMaintenance();
+    const { isReadOnly } = usePermissions();
     const [enabled, setEnabled] = useState(false);
-    const [message, setMessage] = useState('');
-    const [scheduledUntil, setScheduledUntil] = useState('');
 
-    // Sync server state into the editable form fields when the data first loads or refreshes.
+    // Sync server state into the editable switch when the data first loads or refreshes.
     // This is the canonical "sync external state to controlled inputs" pattern; the rule is opt-out.
     /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         if (state) {
             setEnabled(state.enabled);
-            setMessage(state.message ?? '');
-            setScheduledUntil(state.scheduled_until ?? '');
         }
     }, [state]);
     /* eslint-enable react-hooks/set-state-in-effect */
 
     if (isLoading) return <LoadingState label="Lade Maintenance-Status…" />;
 
+    const dirty = state ? enabled !== state.enabled : enabled;
+    const canEdit = !isReadOnly;
+
     async function save(): Promise<void> {
         try {
-            await setMut.mutateAsync({
-                enabled,
-                message,
-                scheduled_until: scheduledUntil || null,
-            });
+            await setMut.mutateAsync({ enabled });
             toast.success('Maintenance-Status aktualisiert.');
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
@@ -48,11 +49,13 @@ export default function MaintenanceView(): JSX.Element {
     }
 
     return (
-        <div className="p-6 md:p-8 max-w-2xl mx-auto">
+        <div className={cn(SEITEN_RAND_OHNE_BREITE, 'mx-auto max-w-2xl')}>
             <header className="mb-6">
                 <h1 className="text-2xl font-display font-semibold tracking-tight">Maintenance Mode</h1>
                 <p className="text-sm text-text-secondary">
-                    Wenn aktiv, sehen alle Tenant-User die Wartungsmeldung statt der App.
+                    Wenn aktiv, sehen alle Tenant-User ein Wartungs-Banner oben im
+                    User-Dashboard. Die App bleibt bedienbar — das Banner ist ein
+                    Hinweis, keine Sperre.
                 </p>
             </header>
 
@@ -62,43 +65,35 @@ export default function MaintenanceView(): JSX.Element {
                     enabled ? 'border-danger/60 bg-danger/5' : 'border-border bg-surface/40',
                 )}
             >
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between">
                     <div>
                         <div className="font-medium">
                             {enabled ? 'Wartungsmodus AKTIV' : 'Wartungsmodus inaktiv'}
                         </div>
+                        <p className="text-xs text-text-secondary mt-1">
+                            {enabled
+                                ? 'Die Nutzer der Kunden sehen aktuell das Wartungs-Banner.'
+                                : 'Es wird kein Banner angezeigt.'}
+                        </p>
                     </div>
-                    <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="Maintenance-Mode" />
+                    <Switch
+                        checked={enabled}
+                        onCheckedChange={setEnabled}
+                        disabled={!canEdit}
+                        aria-label="Maintenance-Mode"
+                    />
                 </div>
 
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="m-msg">Nachricht (sichtbar für User)</Label>
-                        <Textarea
-                            id="m-msg"
-                            rows={4}
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="Wir aktualisieren das System. Voraussichtliche Dauer: 30 Minuten."
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="m-end">Geplantes Ende (ISO Datum)</Label>
-                        <Input
-                            id="m-end"
-                            type="datetime-local"
-                            value={scheduledUntil ? scheduledUntil.slice(0, 16) : ''}
-                            onChange={(e) =>
-                                setScheduledUntil(
-                                    e.target.value ? new Date(e.target.value).toISOString() : '',
-                                )
-                            }
-                        />
-                    </div>
-                </div>
-
-                <div className="mt-6 flex justify-end">
-                    <Button onClick={() => void save()} disabled={setMut.isPending}>
+                <div className="mt-6 flex items-center justify-end gap-3">
+                    {!canEdit && (
+                        <span className="text-xs text-text-secondary">
+                            Nur lesend — keine Berechtigung zum Ändern.
+                        </span>
+                    )}
+                    <Button
+                        onClick={() => void save()}
+                        disabled={!canEdit || !dirty || setMut.isPending}
+                    >
                         {setMut.isPending ? 'Speichere…' : 'Speichern'}
                     </Button>
                 </div>

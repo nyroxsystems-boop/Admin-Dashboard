@@ -114,7 +114,6 @@
         "oemBatch": "Batch test",
         "oemErrors": "OEM errors",
         "accuracy": "Accuracy",
-        "scraper": "Scraper",
         "bot": "Bot test",
         "inbox": "Inbox",
         "orders": "Orders",
@@ -298,36 +297,7 @@
             "forward": "Forward (vehicle → OEM)",
             "reverse": "Reverse (OEM → part)",
             "batch": "Batch test",
-            "errors": "Errors",
-            "bulk": "Bulk scraper"
-        }
-    },
-    "scraper": {
-        "title": "Bulk scraper",
-        "subtitle": "Background PartsLink24 crawl",
-        "status": {
-            "running": "Running",
-            "paused": "Paused",
-            "idle": "Idle"
-        },
-        "actions": {
-            "start": "Start",
-            "pause": "Pause",
-            "resume": "Resume",
-            "cancel": "Cancel",
-            "cancelAll": "Cancel all",
-            "discover": "Discover via PL24",
-            "seedVins": "Seed VINs",
-            "exportToOem": "Export to OEM DB"
-        },
-        "vehicle": {
-            "vin": "VIN",
-            "brand": "Brand",
-            "model": "Model",
-            "modelCode": "Model code",
-            "yearFrom": "Year from",
-            "yearTo": "Year to",
-            "notes": "Notes"
+            "errors": "Errors"
         }
     },
     "bot": {

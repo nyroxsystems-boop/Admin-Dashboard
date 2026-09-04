@@ -100,27 +100,27 @@ export class ErrorBoundary extends Component<Props, State> {
             <div
                 role="alert"
                 className="min-h-screen flex items-center justify-center px-6"
-                style={{ background: 'var(--bg-canvas, #0A0B0D)', color: 'var(--text-primary, #e5e5e5)' }}
+                style={{ background: 'hsl(var(--bg-canvas))', color: 'hsl(var(--text-primary))' }}
             >
                 <div
                     className="max-w-lg w-full text-center px-8 py-10"
                     style={{
-                        background: 'var(--bg-surface, #111418)',
-                        border: '1px solid var(--border, rgba(255,255,255,0.08))',
+                        background: 'hsl(var(--bg-surface))',
+                        border: '1px solid hsl(var(--border))',
                         borderRadius: 16,
                     }}
                 >
                     <div
                         aria-hidden="true"
                         className="text-xs uppercase tracking-widest font-mono mb-3"
-                        style={{ color: 'var(--text-muted, #6B7280)' }}
+                        style={{ color: 'hsl(var(--text-muted))' }}
                     >
                         runtime / unhandled
                     </div>
                     <h1 className="text-xl font-semibold mb-3">{t.title}</h1>
                     <p
                         className="text-sm leading-relaxed mb-6"
-                        style={{ color: 'var(--text-secondary, #9CA3AF)' }}
+                        style={{ color: 'hsl(var(--text-secondary))' }}
                     >
                         {t.description}
                     </p>
@@ -130,7 +130,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             type="button"
                             onClick={this.handleRetry}
                             className="px-5 py-2.5 rounded-md text-sm font-medium"
-                            style={{ background: 'var(--accent-500, #1D6FE8)', color: '#fff' }}
+                            style={{ background: 'hsl(var(--accent-500))', color: 'hsl(0 0% 100%)' }}
                         >
                             {t.retry}
                         </button>
@@ -140,8 +140,8 @@ export class ErrorBoundary extends Component<Props, State> {
                             className="px-5 py-2.5 rounded-md text-sm font-medium"
                             style={{
                                 background: 'transparent',
-                                color: 'var(--text-secondary, #9CA3AF)',
-                                border: '1px solid var(--border, rgba(255,255,255,0.12))',
+                                color: 'hsl(var(--text-secondary))',
+                                border: '1px solid hsl(var(--border))',
                             }}
                         >
                             {t.reload}
@@ -153,7 +153,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             type="button"
                             onClick={this.toggleDetails}
                             className="text-xs underline-offset-2 hover:underline"
-                            style={{ color: 'var(--text-muted, #6B7280)' }}
+                            style={{ color: 'hsl(var(--text-muted))' }}
                             aria-expanded={showDetails}
                         >
                             {showDetails ? t.hideDetails : t.showDetails}
@@ -163,8 +163,8 @@ export class ErrorBoundary extends Component<Props, State> {
                             <pre
                                 className="text-left text-xs mt-3 p-3 rounded overflow-auto max-h-48"
                                 style={{
-                                    background: 'rgba(255,255,255,0.04)',
-                                    color: 'var(--text-secondary, #9CA3AF)',
+                                    background: 'hsl(0 0% 100% / 0.04)',
+                                    color: 'hsl(var(--text-secondary))',
                                 }}
                             >
                                 {error.name}: {error.message}

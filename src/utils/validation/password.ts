@@ -25,6 +25,11 @@ const COMMON_PASSWORDS = new Set([
     'partsunion',
 ]);
 
+// Keep this character class byte-for-byte aligned with the tenant-create
+// backend (`adminRoutes.ts`). A generic "non-alphanumeric" check accepted e.g.
+// dots or spaces in the UI although the API rejected the same password.
+const BACKEND_SPECIAL_CHARACTER_RE = /[!@#$%^&*()_+\-=]/;
+
 export function validatePassword(pw: string): PasswordValidationResult {
     const errors: string[] = [];
 
@@ -32,14 +37,16 @@ export function validatePassword(pw: string): PasswordValidationResult {
     if (!/[a-z]/.test(pw)) errors.push('Mindestens ein Kleinbuchstabe.');
     if (!/[A-Z]/.test(pw)) errors.push('Mindestens ein Großbuchstabe.');
     if (!/\d/.test(pw)) errors.push('Mindestens eine Ziffer.');
-    if (!/[^A-Za-z0-9]/.test(pw)) errors.push('Mindestens ein Sonderzeichen.');
+    if (!BACKEND_SPECIAL_CHARACTER_RE.test(pw)) {
+        errors.push('Mindestens eines dieser Sonderzeichen: ! @ # $ % ^ & * ( ) _ + - =');
+    }
     if (COMMON_PASSWORDS.has(pw.toLowerCase())) errors.push('Passwort ist zu häufig verwendet.');
 
     let score: PasswordValidationResult['score'] = 0;
     if (pw.length >= 12) score++;
     if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
     if (/\d/.test(pw)) score++;
-    if (/[^A-Za-z0-9]/.test(pw) && pw.length >= 16) score++;
+    if (BACKEND_SPECIAL_CHARACTER_RE.test(pw) && pw.length >= 16) score++;
 
     return {
         valid: errors.length === 0,

@@ -4,38 +4,16 @@
  *  • Verlauf: viele Abfragen nacheinander, jede als ✓ richtig / ✗ falsch markierbar (localStorage).
  *  • Rücksuche: OE-Nummer → Teil-Typ, Marken, äquivalente Nummern, Bild, Kriterien.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
+
+import { SEITEN_RAND, SeitenKopf } from '@/components/ui/seite';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Search,
-    Upload,
-    RotateCcw,
-    Check,
-    X,
-    Loader2,
-    Car,
-    Package,
-    BrainCircuit,
-    Database,
-    ShieldCheck,
-    AlertTriangle,
-} from 'lucide-react';
-import {
-    getOemSystemInfo,
-    oemFind,
-    oemReverse,
-    previewOemCatalogIntent,
-    scanFahrzeugschein,
-    type OemCatalogPreview,
-    type OemFindResult,
-    type OemReverseResult,
-    type OemSystemInfo,
-    type OemVehicleInput,
-    type YqCatalogIntelligence,
-} from '@/api/oemFinder';
+import { ArrowRight, BadgeCheck, Search, Upload, RotateCcw, Check, X, Loader2, Car, Package } from 'lucide-react';
+import { oemFind, oemReverse, scanFahrzeugschein, type OemFindResult, type OemReverseResult, type OemVehicleInput } from '@/api/oemFinder';
+import { cn } from '@/lib/utils';
 
 interface HistoryEntry {
     id: string;
@@ -97,6 +75,143 @@ function loadHistory(): HistoryEntry[] {
     }
 }
 
+/**
+ * Zwei-Wege-Umschalter im Rahmen — so zeichnet ihn der Entwurf: eine
+ * durchscheinende Wanne mit 4 px Polster, darin die aktive Seite als gefüllte
+ * Fläche.
+ *
+ * Der Verlauf läuft von accent-600 nach 700 statt von 500 aus: Weiss auf
+ * accent-500 ergibt nur 3,16 Kontrast.
+ */
+function Umschalter({
+    modus,
+    onWechsel,
+}: {
+    modus: 'find' | 'reverse';
+    onWechsel: (m: 'find' | 'reverse') => void;
+}): JSX.Element {
+    const seiten = [
+        { wert: 'find' as const, label: 'Suche' },
+        { wert: 'reverse' as const, label: 'Rücksuche' },
+    ];
+    return (
+        <div
+            role="tablist"
+            aria-label="Suchrichtung"
+            className="inline-flex gap-[3px] rounded-[11px] border border-overlay/[0.08] bg-overlay/[0.045] p-1"
+        >
+            {seiten.map((s) => (
+                <button
+                    key={s.wert}
+                    type="button"
+                    role="tab"
+                    aria-selected={modus === s.wert}
+                    onClick={() => onWechsel(s.wert)}
+                    className={cn(
+                        'rounded-lg px-5 py-2.5 text-[12px] transition-colors',
+                        modus === s.wert
+                            ? 'bg-gradient-to-br from-accent-600 to-accent-700 font-bold text-white'
+                            : 'font-semibold text-text-tertiary hover:text-text-primary',
+                    )}
+                >
+                    {s.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * Der Finder war vor der ersten Suche unterhalb des Formulars vollständig
+ * leer. Die Route zeigt stattdessen, was mit den Eingaben als Nächstes
+ * passiert und ob VIN und Teil bereits startklar sind. Sie verschwindet,
+ * sobald ein echtes Ergebnis vorliegt.
+ */
+function Suchroute({ vin, teil }: { vin?: string; teil?: string }): JSX.Element {
+    const normalisierteVin = (vin || '').toUpperCase().replace(/[\s-]+/g, '');
+    const vinBereit = /^[A-HJ-NPR-Z0-9]{17}$/.test(normalisierteVin);
+    const teilBereit = Boolean(teil?.trim());
+    const schritte = [
+        {
+            label: 'VIN-Fahrzeug',
+            detail: vinBereit ? '17-stellige VIN erkannt' : 'VIN aus Feld E ergänzen',
+            icon: Car,
+            bereit: vinBereit,
+        },
+        {
+            label: 'Teil verstehen',
+            detail: teilBereit ? 'Werkstattbegriff erfasst' : 'Teilbezeichnung ergänzen',
+            icon: Package,
+            bereit: teilBereit,
+        },
+        {
+            label: 'OE verifizieren',
+            detail: vinBereit ? 'YQ-Testpfad ist startklar' : 'Wartet auf gültige VIN',
+            icon: BadgeCheck,
+            bereit: false,
+        },
+    ];
+
+    return (
+        <div className="relative overflow-hidden rounded-[18px] border border-accent-500/15 bg-[linear-gradient(135deg,hsl(var(--accent-500)/0.08),hsl(var(--bg-surface)),hsl(var(--bg-surface)))] p-5">
+            <span
+                aria-hidden
+                className="pointer-events-none absolute -right-16 -top-20 size-52 rounded-full bg-accent-500/[0.08] blur-3xl"
+            />
+            <div className="relative mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-accent-500">
+                        Suchroute
+                    </div>
+                    <p className="mt-1 text-[13px] text-text-secondary">
+                        Vom Fahrzeugschein bis zur belegten OE-Position – ohne geratenen Treffer.
+                    </p>
+                </div>
+                <span className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase',
+                    vinBereit
+                        ? 'border-success/25 bg-success/[0.08] text-success'
+                        : 'border-overlay/10 bg-overlay/[0.04] text-text-muted',
+                )}>
+                    <span className={cn('size-1.5 rounded-full', vinBereit ? 'bg-success' : 'bg-text-muted')} />
+                    {vinBereit ? 'Bereit' : 'VIN fehlt'}
+                </span>
+            </div>
+
+            <div className="relative grid gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
+                {schritte.map((schritt, index) => (
+                    <div key={schritt.label} className="contents">
+                        <div className={cn(
+                            'flex min-w-0 items-center gap-3 rounded-xl border px-3.5 py-3',
+                            schritt.bereit
+                                ? 'border-success/20 bg-success/[0.055]'
+                                : 'border-overlay/[0.07] bg-canvas/45',
+                        )}>
+                            <span className={cn(
+                                'flex size-9 shrink-0 items-center justify-center rounded-[10px]',
+                                schritt.bereit
+                                    ? 'bg-success/[0.13] text-success'
+                                    : 'bg-overlay/[0.055] text-text-muted',
+                            )}>
+                                <schritt.icon className="size-[17px]" aria-hidden />
+                            </span>
+                            <span className="min-w-0">
+                                <span className="block truncate text-[12.5px] font-semibold text-text-primary">
+                                    {index + 1}. {schritt.label}
+                                </span>
+                                <span className="block truncate text-[11px] text-text-muted">{schritt.detail}</span>
+                            </span>
+                        </div>
+                        {index < schritte.length - 1 && (
+                            <ArrowRight className="mx-1 hidden size-4 text-text-faint md:block" aria-hidden />
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function OemFinderView(): JSX.Element {
     const [mode, setMode] = useState<'find' | 'reverse'>('find');
     const [form, setForm] = useState<OemVehicleInput>({});
@@ -104,28 +219,11 @@ export default function OemFinderView(): JSX.Element {
     const [scanning, setScanning] = useState(false);
     const [scanSummary, setScanSummary] = useState<string | null>(null);
     const [result, setResult] = useState<OemFindResult | null>(null);
-    const [catalogPreview, setCatalogPreview] = useState<OemCatalogPreview | null>(null);
-    const [systemInfo, setSystemInfo] = useState<OemSystemInfo | null>(null);
-    const [systemInfoFailed, setSystemInfoFailed] = useState(false);
     const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
     const [revNum, setRevNum] = useState('');
     const [revLoading, setRevLoading] = useState(false);
     const [rev, setRev] = useState<OemReverseResult | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        let active = true;
-        void getOemSystemInfo()
-            .then((info) => {
-                if (active) setSystemInfo(info);
-            })
-            .catch(() => {
-                if (active) setSystemInfoFailed(true);
-            });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     const persist = useCallback((h: HistoryEntry[]) => { setHistory(h); try { localStorage.setItem(HKEY, JSON.stringify(h.slice(0, 100))); } catch { /* ignore */ } }, []);
 
@@ -156,77 +254,22 @@ export default function OemFinderView(): JSX.Element {
         finally { setScanning(false); }
     }, []);
 
-    const runFind = useCallback(async (input: OemVehicleInput) => {
-        const normalizedVin = (input.vin || '').toUpperCase().replace(/[\s-]+/g, '');
+    const onFind = useCallback(async () => {
+        const normalizedVin = (form.vin || '').toUpperCase().replace(/[\s-]+/g, '');
         if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(normalizedVin)) {
             toast.error('Für den YQ-Test wird die gültige 17-stellige VIN aus Feld E benötigt');
             return;
         }
-        setFinding(true);
-        setResult(null);
+        setFinding(true); setResult(null);
         try {
-            let lookupInput = { ...input, vin: normalizedVin };
-            const part = String(input.part || '').trim();
-            if (part) {
-                const preview = await previewOemCatalogIntent({
-                    part,
-                    brand: input.make,
-                });
-                setCatalogPreview(preview);
-                if (preview.action !== 'ready') {
-                    if (preview.action === 'clarify-part') {
-                        toast.warning('Teilbegriff muss vor der OE-Suche bestätigt werden');
-                    } else if (preview.action === 'clarify-position') {
-                        toast.warning('Einbauposition fehlt – OE-Suche bleibt gesperrt');
-                    } else {
-                        toast.error('Teilbegriff ist noch nicht sicher auflösbar');
-                    }
-                    return;
-                }
-                lookupInput = {
-                    ...lookupInput,
-                    part: preview.canonicalQuery || part,
-                };
-            } else {
-                setCatalogPreview(null);
-            }
-
-            const r = await oemFind(lookupInput);
+            const r = await oemFind({ ...form, vin: normalizedVin });
             setResult(r);
-            const queryLabel = [
-                input.make,
-                input.model,
-                `VIN …${normalizedVin.slice(-6)}`,
-                lookupInput.part,
-            ].filter(Boolean).join(' · ');
-            persist([{
-                id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                ts: Date.now(),
-                query: queryLabel,
-                oem: r.evidence?.releaseSafe === true ? r.oem ?? null : null,
-                partType: r.partType,
-                vehicle: r.vehicle,
-                source: r.source,
-                flag: null,
-                result: r,
-            }, ...history]);
+            const queryLabel = [form.make, form.model, `VIN …${normalizedVin.slice(-6)}`, form.part].filter(Boolean).join(' · ');
+            persist([{ id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ts: Date.now(), query: queryLabel, oem: r.oem ?? null, partType: r.partType, vehicle: r.vehicle, source: r.source, flag: null, result: r }, ...history]);
             if (!r.resolved) toast.warning(r.reason || `Nicht gefunden (${r.unresolved || r.stage})`);
-            else if (r.oem && r.evidence?.releaseSafe !== true) {
-                toast.warning('YQ-Kandidat gefunden – noch nicht freigabefähig');
-            }
         } catch (e) { toast.error(e instanceof Error ? e.message : 'Fehler bei der Suche'); }
         finally { setFinding(false); }
-    }, [history, persist]);
-
-    const onFind = useCallback(() => {
-        void runFind(form);
-    }, [form, runFind]);
-
-    const confirmCatalogOption = useCallback((canonicalQuery: string) => {
-        const nextForm = { ...form, part: canonicalQuery };
-        setForm(nextForm);
-        void runFind(nextForm);
-    }, [form, runFind]);
+    }, [form, history, persist]);
 
     const onReverse = useCallback(async () => {
         if (!revNum.trim()) return;
@@ -242,19 +285,18 @@ export default function OemFinderView(): JSX.Element {
     const stats = { total: history.length, ok: history.filter((h) => h.flag === 'ok').length, bad: history.filter((h) => h.flag === 'bad').length };
 
     return (
-        <div className="p-6 md:p-8 max-w-7xl mx-auto">
-            <header className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-                <div>
-                    <h1 className="text-2xl font-display font-semibold tracking-tight text-text-primary">OEM-Finder</h1>
-                    <p className="text-sm text-text-secondary mt-1">YQ Universal v1 · Fahrzeugschein → vorhandene OCR → VIN-Fahrzeug → native OE-Nummer. Mit transparentem Testverlauf statt geratenem Treffer.</p>
-                </div>
-                <div className="inline-flex rounded-lg border border-border overflow-hidden">
-                    <button onClick={() => setMode('find')} className={`px-4 py-2 text-sm font-medium ${mode === 'find' ? 'bg-accent-500 text-white' : 'bg-surface text-text-secondary hover:bg-elevated'}`}>Suche</button>
-                    <button onClick={() => setMode('reverse')} className={`px-4 py-2 text-sm font-medium ${mode === 'reverse' ? 'bg-accent-500 text-white' : 'bg-surface text-text-secondary hover:bg-elevated'}`}>Rücksuche</button>
-                </div>
-            </header>
-
-            <CatalogRuntimeStatus info={systemInfo} failed={systemInfoFailed} />
+        <div className={cn(SEITEN_RAND)}>
+            <SeitenKopf
+                className="mb-6"
+                titel="OEM-Finder"
+                beileile={
+                    <span className="block max-w-[78ch] text-pretty leading-[1.6]">
+                        Fahrzeugschein → vorhandene OCR → VIN-Fahrzeug in YQ → native OE-Nummer.
+                        Mit transparentem Testverlauf statt geratenem Treffer.
+                    </span>
+                }
+                aktionen={<Umschalter modus={mode} onWechsel={setMode} />}
+            />
 
             {mode === 'find' ? (
                 <div className="grid lg:grid-cols-[1fr_380px] gap-6">
@@ -291,14 +333,9 @@ export default function OemFinderView(): JSX.Element {
                             <p className="text-xs text-text-muted mt-2">Die VIN ist der exakte YQ-Schlüssel. HSN/TSN und die OCR-Fahrzeugdaten bleiben zur Gegenprüfung sichtbar. Ohne Teil wird nur die VIN-Fahrzeugauflösung getestet.</p>
                         </div>
 
-                        {catalogPreview && (
-                            <CatalogPreviewPanel
-                                preview={catalogPreview}
-                                onConfirm={confirmCatalogOption}
-                                disabled={finding}
-                            />
-                        )}
-                        {result && <FindResult r={result} />}
+                        {result
+                            ? <FindResult r={result} />
+                            : <Suchroute vin={form.vin} teil={form.part} />}
                     </section>
 
                     {/* ── Verlauf ── */}
@@ -307,7 +344,17 @@ export default function OemFinderView(): JSX.Element {
                             <span className="text-sm font-medium text-text-primary">Verlauf ({stats.total})</span>
                             <span className="text-xs text-text-muted">✓ {stats.ok} · ✗ {stats.bad}</span>
                         </div>
-                        {history.length === 0 && <p className="text-xs text-text-muted">Noch keine Abfragen.</p>}
+                        {history.length === 0 && (
+                            <div className="rounded-[16px] border border-dashed border-overlay/10 bg-overlay/[0.025] px-5 py-8 text-center">
+                                <span className="mx-auto flex size-10 items-center justify-center rounded-xl bg-accent-500/[0.10] text-accent-500">
+                                    <RotateCcw className="size-[18px]" aria-hidden />
+                                </span>
+                                <p className="mt-3 text-[12.5px] font-semibold text-text-secondary">Noch keine Abfragen</p>
+                                <p className="mx-auto mt-1 max-w-[24ch] text-[11px] leading-relaxed text-text-muted">
+                                    Treffer erscheinen hier und können direkt als richtig oder falsch markiert werden.
+                                </p>
+                            </div>
+                        )}
                         <div className="space-y-2 max-h-[70vh] overflow-auto pr-1">
                             {history.map((h) => (
                                 <div key={h.id} className={`border rounded-md p-2.5 text-sm ${h.flag === 'ok' ? 'border-success/40 bg-success/5' : h.flag === 'bad' ? 'border-status-danger/40 bg-status-danger/5' : 'border-border bg-surface'}`}>
@@ -315,9 +362,6 @@ export default function OemFinderView(): JSX.Element {
                                         <button onClick={() => reuse(h)} className="text-left flex-1 min-w-0">
                                             <div className="font-mono text-accent-500 truncate">
                                                 {h.oem
-                                                    || (h.result.oem && h.result.evidence?.releaseSafe !== true
-                                                        ? `${h.result.oem} · Kandidat`
-                                                        : null)
                                                     || (h.result.alternatives
                                                         ? h.result.oemCandidates?.map((candidate) => candidate.oem).join(' / ')
                                                         : h.result.ambiguous
@@ -357,176 +401,6 @@ export default function OemFinderView(): JSX.Element {
     );
 }
 
-function CatalogRuntimeStatus({
-    info,
-    failed,
-}: {
-    info: OemSystemInfo | null;
-    failed: boolean;
-}): JSX.Element {
-    if (!info) {
-        return (
-            <div className={`mb-5 rounded-lg border px-4 py-3 text-xs ${failed ? 'border-status-danger/30 bg-status-danger/5 text-status-danger' : 'border-border bg-surface text-text-muted'}`}>
-                {failed
-                    ? 'YQ-Katalogstatus konnte nicht geladen werden.'
-                    : <span className="inline-flex items-center gap-2"><Loader2 className="size-3.5 animate-spin" /> YQ-Katalogstatus wird geladen …</span>}
-            </div>
-        );
-    }
-
-    const corpus = info.universalYqCorpus;
-    const ai = info.catalogAi;
-    const cards = [
-        {
-            icon: Database,
-            title: 'Universal YQ',
-            value: corpus.loaded
-                ? `${corpus.brands.length} Marken · ${corpus.metrics?.partNames ?? 0} Bezeichnungen`
-                : 'Korpus nicht geladen',
-            ok: corpus.loaded,
-        },
-        {
-            icon: BrainCircuit,
-            title: 'Katalog-KI',
-            value: ai.operational
-                ? `aktiv · ${ai.timeoutMs} ms Guard`
-                : ai.enabled
-                    ? 'aktiviert, lokale KI nicht erreichbar'
-                    : 'deaktiviert',
-            ok: ai.operational,
-        },
-        {
-            icon: ShieldCheck,
-            title: 'OE-Schutz',
-            value: 'KI kann keine OE-Nummern erzeugen',
-            ok: true,
-        },
-        {
-            icon: Check,
-            title: 'Suchreihenfolge',
-            value: 'Universal primär · O.E. sekundär',
-            ok: info.features.universalYqPrimary === true && info.features.oeTreeSecondary === true,
-        },
-    ];
-
-    return (
-        <section className="mb-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="YQ-Katalogstatus">
-            {cards.map(({ icon: Icon, title, value, ok }) => (
-                <div key={title} className={`rounded-lg border px-3 py-2.5 ${ok ? 'border-success/25 bg-success/5' : 'border-status-warning/30 bg-status-warning/5'}`}>
-                    <div className="flex items-center gap-2 text-xs font-medium text-text-primary">
-                        <Icon className={`size-3.5 ${ok ? 'text-success' : 'text-status-warning'}`} />
-                        {title}
-                    </div>
-                    <div className="mt-1 text-[11px] leading-4 text-text-secondary">{value}</div>
-                </div>
-            ))}
-        </section>
-    );
-}
-
-function CatalogPreviewPanel({
-    preview,
-    onConfirm,
-    disabled,
-}: {
-    preview: OemCatalogPreview;
-    onConfirm: (canonicalQuery: string) => void;
-    disabled: boolean;
-}): JSX.Element {
-    const ready = preview.action === 'ready';
-    const title = ready
-        ? `Teil sicher erkannt: ${preview.canonicalQuery}`
-        : preview.action === 'clarify-part'
-            ? 'Mechaniker-Slang erkannt – Bestätigung erforderlich'
-            : preview.action === 'clarify-position'
-                ? 'Einbauposition fehlt'
-                : 'Teilbegriff nicht sicher auflösbar';
-    const border = ready
-        ? 'border-success/30 bg-success/5'
-        : preview.action === 'unresolved'
-            ? 'border-status-danger/30 bg-status-danger/5'
-            : 'border-status-warning/30 bg-status-warning/5';
-    const Icon = ready
-        ? ShieldCheck
-        : preview.action === 'unresolved'
-            ? X
-            : AlertTriangle;
-
-    return (
-        <section className={`rounded-lg border p-4 space-y-3 ${border}`}>
-            <div className="flex items-start gap-2">
-                <Icon className={`mt-0.5 size-4 shrink-0 ${ready ? 'text-success' : preview.action === 'unresolved' ? 'text-status-danger' : 'text-status-warning'}`} />
-                <div>
-                    <div className="text-sm font-medium text-text-primary">{title}</div>
-                    <div className="mt-0.5 text-xs text-text-secondary">
-                        Familie: {preview.family || 'noch unbekannt'} · Gruppierung: {preview.grouping} · Marke: {preview.brand || 'nicht erkannt'}
-                    </div>
-                </div>
-            </div>
-
-            {preview.action === 'clarify-position' && (
-                <div className="text-xs text-status-warning">
-                    Bitte ergänzen: {preview.missingPosition.map((dimension) => dimension === 'axle' ? 'vorne oder hinten' : 'links oder rechts').join(' und ')}.
-                    Die OE-Suche bleibt bis dahin gesperrt.
-                </div>
-            )}
-
-            {preview.action === 'clarify-part' && (
-                <div>
-                    <div className="mb-2 text-xs text-text-secondary">
-                        Die KI rät nicht. Wähle die gemeinte, im YQ-Korpus dieser Marke belegte Teilefamilie:
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                        {preview.confirmationOptions.map((option) => (
-                            <button
-                                key={`${option.family}-${option.canonicalQuery}`}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() => onConfirm(option.canonicalQuery)}
-                                className="rounded-md border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-accent-500/50 hover:bg-elevated disabled:opacity-50"
-                            >
-                                <div className="text-sm font-medium text-text-primary">{option.canonicalPart}</div>
-                                <div className="mt-0.5 text-[11px] text-text-muted">
-                                    {option.family} · {Math.round(option.confidence * 100)} % KI-Konfidenz
-                                    {option.missingPosition.length
-                                        ? ` · Position fehlt: ${option.missingPosition.join(', ')}`
-                                        : ' · Position vollständig'}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                    {preview.groundedLabels.length > 0 && (
-                        <div className="mt-2 text-[11px] text-text-muted">
-                            YQ-Belege: {preview.groundedLabels.slice(0, 6).join(' · ')}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {preview.action === 'unresolved' && (
-                <div className="text-xs text-status-danger">
-                    Keine freigabefähige Katalogzuordnung. Prüfe Korpusabdeckung und KI-Status; es wurde keine OE-Suche gestartet.
-                </div>
-            )}
-
-            <details className="text-xs text-text-muted">
-                <summary className="cursor-pointer select-none">Suchplan und Schutzregeln anzeigen</summary>
-                <div className="mt-2 space-y-1.5 rounded-md border border-border bg-surface/70 p-2.5">
-                    <div>Quellen: {preview.catalogPlan.sources.join(' · ') || '—'}</div>
-                    <div>Suchbegriffe: {preview.catalogPlan.searchTerms.join(' · ') || '—'}</div>
-                    {preview.catalogPlan.excludedConcepts.length > 0 && (
-                        <div>Ausschlüsse: {preview.catalogPlan.excludedConcepts.join(' · ')}</div>
-                    )}
-                    <div>
-                        OE-Freigabe: {preview.safeguards.oeLookupAllowed ? 'erlaubt' : 'gesperrt'}
-                        {' · '}KI-OE-Erzeugung: ausgeschlossen
-                    </div>
-                </div>
-            </details>
-        </section>
-    );
-}
-
 type ScheinScanResultVehicle = NonNullable<Awaited<ReturnType<typeof scanFahrzeugschein>>>['vehicle'];
 
 function ResolutionTrace({ r }: { r: OemFindResult }): JSX.Element | null {
@@ -558,46 +432,8 @@ function ResolutionTrace({ r }: { r: OemFindResult }): JSX.Element | null {
     );
 }
 
-function ResolvedCatalogIntelligence({
-    intelligence,
-}: {
-    intelligence: YqCatalogIntelligence;
-}): JSX.Element {
-    return (
-        <details className="rounded-md border border-accent-500/20 bg-accent-500/5 p-3 text-xs">
-            <summary className="cursor-pointer font-medium text-accent-500">
-                Aktive YQ-Katalogintelligenz · {intelligence.family || 'unbekannte Familie'}
-            </summary>
-            <div className="mt-2 grid gap-2 text-text-secondary sm:grid-cols-2">
-                <div>
-                    <div className="text-[10px] uppercase tracking-wide text-text-muted">Kanonische Anfrage</div>
-                    <div>{intelligence.canonicalQuery}</div>
-                </div>
-                <div>
-                    <div className="text-[10px] uppercase tracking-wide text-text-muted">Marke / Gruppierung / Konfidenz</div>
-                    <div>{intelligence.brand} · {intelligence.grouping} · {intelligence.confidence}</div>
-                </div>
-                <div className="sm:col-span-2">
-                    <div className="text-[10px] uppercase tracking-wide text-text-muted">Verwendete YQ-Begriffe</div>
-                    <div className="break-words">{intelligence.searchTerms.join(' · ') || '—'}</div>
-                </div>
-                {intelligence.excludedConcepts.length > 0 && (
-                    <div className="sm:col-span-2">
-                        <div className="text-[10px] uppercase tracking-wide text-text-muted">Hart ausgeschlossene Nachbarteile</div>
-                        <div className="break-words">{intelligence.excludedConcepts.join(' · ')}</div>
-                    </div>
-                )}
-                <div className="sm:col-span-2 text-[11px] text-text-muted">
-                    Quellen: {intelligence.sources.join(' · ')}
-                </div>
-            </div>
-        </details>
-    );
-}
-
 function FindResult({ r }: { r: OemFindResult }): JSX.Element {
-    const releaseSafe = r.evidence?.releaseSafe === true;
-    if (!r.resolved && !r.fitmentVariants?.length) {
+    if (!r.resolved) {
         return (
             <div className="bg-surface border border-status-danger/30 rounded-lg p-4 space-y-3">
                 <p className="text-sm text-status-danger font-medium">Keine OE-Nummer gefunden</p>
@@ -609,25 +445,19 @@ function FindResult({ r }: { r: OemFindResult }): JSX.Element {
                     </p>
                 )}
                 <ResolutionTrace r={r} />
-                {r.catalogIntelligence && (
-                    <ResolvedCatalogIntelligence intelligence={r.catalogIntelligence} />
-                )}
             </div>
         );
     }
     return (
         <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
             <ResolutionTrace r={r} />
-            {r.catalogIntelligence && (
-                <ResolvedCatalogIntelligence intelligence={r.catalogIntelligence} />
-            )}
             <div className="flex items-start gap-4">
                 {r.image && <img src={r.image} alt="" className="size-20 object-contain rounded-md border border-border bg-elevated shrink-0" />}
                 <div className="min-w-0">
                     {r.oem
-                        ? <div className={`font-mono text-xl font-semibold break-all ${releaseSafe ? 'text-success' : 'text-status-warning'}`}>{r.oem}</div>
+                        ? <div className="font-mono text-xl font-semibold text-accent-500 break-all">{r.oem}</div>
                         : r.alternatives
-                            ? <div className="text-sm font-medium text-status-warning">{r.fitmentVariants?.length ?? 0} YQ-Herstelleralternativen · manuell prüfen</div>
+                            ? <div className="text-sm font-medium text-success">{r.fitmentVariants?.length ?? 0} von YQ ausdrücklich freigegebene OE-Alternativen</div>
                             : r.ambiguous
                             ? <div className="text-sm font-medium text-status-warning">{r.fitmentVariants?.length ?? 0} von YQ markierte OE-Positionen — keine automatisch gewählt</div>
                             : <div className="text-sm text-text-muted">Fahrzeug aufgelöst (kein Teil angefragt)</div>}
@@ -638,24 +468,12 @@ function FindResult({ r }: { r: OemFindResult }): JSX.Element {
                             {r.partInterpretation.method === 'fuzzy' ? ' · Schreibweise tolerant korrigiert' : ''}
                         </div>
                     )}
-                    <div className="text-xs text-text-secondary">
-                        {r.vehicle}
-                        {r.source === 'yq-ws-oem-v2' && (
-                            <span className={`ml-1 ${releaseSafe ? 'text-success' : 'text-status-warning'}`}>
-                                · {releaseSafe ? 'nativ in YQ bestätigt' : 'YQ-Kandidat'}
-                            </span>
-                        )}
-                    </div>
+                    <div className="text-xs text-text-secondary">{r.vehicle} {r.source === 'yq-ws-oem-v2' && <span className="ml-1 text-success">· via VIN in YQ</span>}</div>
                     <div className="text-[11px] text-text-muted mt-0.5">{[r.catalog ? `Katalog ${r.catalog}` : null, r.provider, typeof r.elapsedMs === 'number' ? `${r.elapsedMs} ms` : null].filter(Boolean).join(' · ')}</div>
-                    {r.oem && !r.ambiguous && r.partType && releaseSafe && (
+                    {r.oem && !r.ambiguous && r.partType && (
                         <div className="text-xs text-success mt-0.5">
-                            Freigabefähig: YQ bestätigt Fahrzeug, Position und Anwendbarkeit
+                            Eindeutig: YQ markiert diese Position als zur VIN passend
                             {r.position?.verified ? ' und der angefragte Einbauort ist belegt.' : '.'}
-                        </div>
-                    )}
-                    {r.oem && !releaseSafe && (
-                        <div className="text-xs text-status-warning mt-0.5">
-                            Kandidat – noch nicht freigabefähig. Keine automatische Bestellung oder Angebotserzeugung.
                         </div>
                     )}
                     {r.oem && r.position?.evidence?.length ? (

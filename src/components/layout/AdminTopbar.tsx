@@ -1,28 +1,23 @@
 /**
  * AdminTopbar — 56px Topbar with breadcrumb, quick-actions, ⌘K trigger,
- * notifications, theme toggle, user menu.
+ * notifications and user menu.
  *
  * Adapted from User-Dashboard `layout/TopbarV2.tsx` for Admin context.
  */
 
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell,
-  ChevronRight,
-  Command as CommandIcon,
+  Briefcase,
   LogOut,
   Menu,
-  Moon,
   Plus,
-  Settings,
+  Search,
+  ShieldAlert,
   ShieldCheck,
-  Sun,
-  TerminalSquare,
   User as UserIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,12 +27,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useActiveImpersonation } from '@/hooks/useActiveImpersonation';
+import { clearActiveImpersonation } from '@/lib/impersonationSession';
+import { apiFetch } from '@/api/client';
+import { usePermissions } from '@/auth/usePermissions';
+import { useOffeneSachen } from '@/hooks/useOffeneSachen';
+import { NotificationsBell } from './NotificationsBell';
+import { ErscheinungsbildKnopf } from './ErscheinungsbildKnopf';
 import type { Admin } from '@/api/types';
 
 const ROUTE_LABELS: Record<string, string> = {
   '': 'Dashboard',
-  tenants: 'Tenants',
+  tenants: 'Kunden',
+  'access-requests': 'Zugänge beantragen',
+  support: 'Support-Konsole',
   admins: 'Admins',
   audit: 'Audit Log',
   oem: 'OEM',
@@ -47,14 +50,24 @@ const ROUTE_LABELS: Record<string, string> = {
   errors: 'Errors',
   accuracy: 'Accuracy',
   bot: 'Bot',
-  testing: 'Testing',
+  testing: 'Test & Simulation',
+  'e2e-runner': 'E2E-Flow-Runner',
+  'live-sim': 'Live-Simulation',
   inbox: 'Inbox',
   orders: 'Orders',
-  scraper: 'Bulk Scraper',
   maintenance: 'Maintenance',
   settings: 'Settings',
-  profile: 'Profile',
+  profile: 'Profil',
 };
+
+// Hier stand `PLATFORM_NOTIFICATIONS_ENABLED = false` mit der richtigen
+// Begruendung: /api/events/ticket verlangt einen Mandantenbezug, den eine
+// Plattform-Admin-Sitzung nicht hat, und ein Anschluss haette bei jedem Laden
+// und jedem Wiederverbinden eine fehlschlagende Anfrage erzeugt.
+//
+// Die Glocke braucht dafuer aber gar keinen Ereignisstrom. Was hier wirklich
+// interessiert — ungelesene Post, nicht zugestellte Zugangsanfragen — holen
+// wir ohnehin schon fuer andere Ansichten. Siehe hooks/useOffeneSachen.ts.
 
 function humanize(segment: string): string {
   return ROUTE_LABELS[segment] ?? segment.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -84,7 +97,32 @@ function buildBreadcrumbs(pathname: string): BreadcrumbCrumb[] {
   return crumbs;
 }
 
-export interface AdminTopbarProps {
+/**
+ * Zurückhaltende Pille in der Kopfzeile — dieselbe Form wie im CRM.
+ *
+ * Nicht ausgeführt: sie wird nur hier gebraucht, und ein Export neben
+ * Komponenten kostet in dieser Datei das schnelle Neuladen im Entwicklungslauf.
+ * Das Gegenstück im CRM steht dort ebenfalls dateiintern.
+ */
+const NEBEN_PILLE = cn(
+  'inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[10px]',
+  'border border-overlay/[0.07] bg-overlay/[0.04] px-3.5 py-2.5',
+  'text-[12px] font-semibold text-text-secondary transition-colors',
+  'hover:bg-overlay/[0.07] hover:text-text-primary',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+);
+
+/**
+ * Feste Breite des Wechselknopfs.
+ *
+ * "CRM" und "Admin" sind unterschiedlich lang. Ohne feste Breite läge der
+ * Rückweg im CRM ein paar Pixel woanders — und genau das war der Wunsch: nach
+ * dem Wechsel soll der Zeiger auf dem Knopf zurück stehen. Der Wert ist in
+ * beiden Anwendungen gleich (CRM-System/src/app/components/layout/Topbar.tsx).
+ */
+const WECHSEL_BREITE = 'md:w-[104px] md:justify-center';
+
+interface AdminTopbarProps {
   /** Trigger when user opens command palette (⌘K). */
   onOpenCommandPalette?: () => void;
   /** Trigger to toggle the mobile sidebar (hamburger). */
@@ -103,27 +141,76 @@ export function AdminTopbar({
   const location = useLocation();
   const navigate = useNavigate();
   const crumbs = buildBreadcrumbs(location.pathname);
-  const { unread } = useNotifications();
+  const { ungeleseneMails, fehlgeschlageneAnfragen } = useOffeneSachen();
   const { user, logout } = useAuth();
+  const { can, isSuperAdmin } = usePermissions();
+  const impersonation = useActiveImpersonation();
 
   const handleLogout = async (): Promise<void> => {
     await logout();
   };
 
   return (
-    <header
-      className={cn(
-        'flex items-center h-14 px-3 md:px-4 gap-2 sticky top-0 z-30',
-        'bg-[color:var(--surface,#111418)] border-b border-[color:var(--border,#252A31)]',
-        className,
+    <div className={cn('sticky top-0 z-30', className)}>
+      {/* P1.4: Impersonation-Banner — der eigentliche Impersonation-Tab ist das
+          User-Dashboard; hier sieht der Admin den State + steigt in-app aus. */}
+      {impersonation && (
+        <div className="flex items-center justify-between gap-3 bg-status-warning px-4 py-1.5 text-xs font-medium text-canvas">
+          <span className="flex items-center gap-2">
+            <ShieldAlert size={13} />
+            Impersonation aktiv:{' '}
+            <strong className="font-semibold">{impersonation.tenantName}</strong>
+            {impersonation.expiresAt && (
+              <span className="opacity-80">
+                · bis{' '}
+                {new Date(impersonation.expiresAt).toLocaleTimeString('de-DE', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={async () => {
+              // Audit H-1: revoke server-side (blacklist the token) before
+              // clearing the local marker, so "exit" is real, not cosmetic.
+              const sid = impersonation?.sessionId;
+              if (sid) {
+                try {
+                  await apiFetch('/api/admin/impersonation/revoke', {
+                    method: 'POST',
+                    body: JSON.stringify({ sessionId: sid }),
+                  });
+                } catch {
+                  /* best-effort — still clear the local marker below */
+                }
+              }
+              clearActiveImpersonation();
+            }}
+            className="font-semibold underline underline-offset-2 hover:opacity-80"
+          >
+            Zurück zum Admin
+          </button>
+        </div>
       )}
-      role="banner"
-    >
+      <header
+        className={cn(
+          'flex items-center gap-2.5 px-3 py-3.5 md:px-8',
+          // Redesign: die Kopfzeile schwebt ueber dem Inhalt statt ihn
+          // abzuschneiden — durchscheinend mit Weichzeichner. `supports` sorgt
+          // dafuer, dass sie ohne backdrop-filter deckend bleibt und der Text
+          // darunter nicht durchscheint.
+          'border-b border-border-subtle bg-canvas/95',
+          'supports-[backdrop-filter]:bg-canvas/[0.82] supports-[backdrop-filter]:backdrop-blur-[18px]',
+        )}
+        role="banner"
+      >
       {/* Mobile: hamburger */}
       <button
         type="button"
         onClick={onOpenMobileSidebar}
-        className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md text-[color:var(--text-secondary,#A1A1AA)] hover:text-[color:var(--text-primary,#E5E7EB)] hover:bg-[color:var(--elevated,#1A1E24)]"
+        className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md text-text-secondary hover:text-text-primary hover:bg-elevated"
         aria-label="Navigation öffnen"
       >
         <Menu size={18} />
@@ -133,61 +220,76 @@ export function AdminTopbar({
 
       <div className="flex-1" />
 
+      <CommandTrigger onClick={onOpenCommandPalette} />
+
       {/* Quick-Action Pills (hidden on small screens) */}
       <div className="hidden lg:flex items-center gap-1.5">
-        <QuickAction
-          icon={<Plus size={14} />}
-          label="New Tenant"
-          onClick={() => navigate('/tenants/new')}
-        />
-        <QuickAction
-          icon={<TerminalSquare size={14} />}
-          label="Run Seeder"
-          onClick={() => onOpenCommandPalette?.()}
-        />
-        <QuickAction
-          icon={<ShieldCheck size={14} />}
-          label="System Health"
-          onClick={() => navigate('/maintenance')}
-        />
+        {can('tenants.create') && (
+          <QuickAction
+            icon={<Plus size={15} />}
+            label="Neuer Kunde"
+            onClick={() => navigate('/tenants/new')}
+            hervorgehoben
+          />
+        )}
+        {isSuperAdmin && (
+          <QuickAction
+            icon={<ShieldCheck size={15} />}
+            label="System Health"
+            onClick={() => navigate('/maintenance')}
+            tonKlasse="text-success"
+          />
+        )}
       </div>
 
-      <CommandTrigger onClick={onOpenCommandPalette} />
-      <NotificationsBell unread={unread} />
-      <ThemeToggle />
+      <ErscheinungsbildKnopf />
+
+      <NotificationsBell
+        ungeleseneMails={ungeleseneMails}
+        fehlgeschlageneAnfragen={fehlgeschlageneAnfragen}
+      />
+      {/* Workspace-Wechsel → CRM (separate App/Domain)
+          
+          Sitzt UNMITTELBAR links vom Avatar und hat eine feste Breite — im CRM
+          steht der Rückweg ("Admin") an genau derselben Stelle mit genau
+          derselben Breite. Wer hier klickt, hat den Zeiger nach dem Wechsel
+          direkt auf dem Knopf zurück. Der Wert steht in beiden Anwendungen als
+          WECHSEL_BREITE; wer ihn ändert, muss es dort auch tun. */}
+      <a
+        href="https://crm.partsunion.de"
+        className={cn(NEBEN_PILLE, WECHSEL_BREITE)}
+        title="Zum CRM wechseln"
+      >
+        <Briefcase size={15} className="shrink-0 text-text-tertiary" />
+        <span className="hidden md:inline">CRM</span>
+      </a>
+
       <UserMenu user={user} onLogout={handleLogout} />
 
       {rightSlot}
-    </header>
+      </header>
+    </div>
   );
 }
 
 function Breadcrumbs({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
   return (
     <nav aria-label="Breadcrumb" className="hidden sm:flex items-center min-w-0">
-      <ol className="flex items-center gap-1 text-sm min-w-0">
+      <ol className="flex min-w-0 items-center gap-2 text-[12px] font-medium">
         {crumbs.map((c, i) => (
           <Fragment key={`${c.to}-${i}`}>
             {i > 0 && (
-              <ChevronRight
-                size={14}
-                className="text-[color:var(--text-muted,#71717A)] shrink-0"
-                aria-hidden
-              />
+              <span aria-hidden className="shrink-0 text-border-strong">
+                /
+              </span>
             )}
-            <li className={cn('truncate max-w-[180px]', c.isLast && 'font-medium')}>
+            <li className="max-w-[180px] truncate">
               {c.isLast ? (
-                <span
-                  aria-current="page"
-                  className="text-[color:var(--text-primary,#E5E7EB)]"
-                >
+                <span aria-current="page" className="font-bold text-text-primary">
                   {c.label}
                 </span>
               ) : (
-                <Link
-                  to={c.to}
-                  className="text-[color:var(--text-secondary,#A1A1AA)] hover:text-[color:var(--text-primary,#E5E7EB)] transition-colors"
-                >
+                <Link to={c.to} className="text-text-muted transition-colors hover:text-text-primary">
                   {c.label}
                 </Link>
               )}
@@ -203,21 +305,39 @@ function QuickAction({
   icon,
   label,
   onClick,
+  hervorgehoben = false,
+  tonKlasse,
 }: {
   icon: ReactNode;
   label: string;
   onClick?: () => void;
+  /** Gefuellte Verlaufsschaltflaeche — genau EINE pro Kopfzeile. */
+  hervorgehoben?: boolean;
+  /** Farbe des Symbols, z. B. gruen beim Systemzustand. */
+  tonKlasse?: string;
 }) {
   return (
-    <Button
-      variant="outline"
-      size="sm"
+    <button
+      type="button"
       onClick={onClick}
-      className="h-8 px-2.5 gap-1.5 text-xs font-medium"
+      className={cn(
+        'inline-flex items-center gap-[7px] rounded-[10px] border border-overlay/[0.07] bg-overlay/[0.04]',
+        'px-3.5 py-2.5 text-[12px] font-semibold text-text-secondary transition-colors',
+        'hover:bg-overlay/[0.07] hover:text-text-primary',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        // Hervorgehobene Aktion: gefuellter Verlauf. Weiss auf accent-500
+        // ergibt nur 3,16 — deshalb laeuft der Verlauf von 600 nach 700
+        // (5,17 bzw. mehr gegen Weiss), siehe tokens.css.
+        hervorgehoben &&
+          // Verlauf STATISCH, nur der Schatten überblendet — ein Verlaufswechsel
+          // beim Überfahren springt hart und flackert beim Klick.
+          'border-transparent bg-gradient-to-br from-accent-600 to-accent-700 font-bold text-white',
+          'shadow-[0_6px_20px_hsl(var(--accent-500)/0.34)] hover:shadow-[0_8px_26px_hsl(var(--accent-500)/0.5)]',
+      )}
     >
-      {icon}
+      <span className={cn('flex shrink-0', tonKlasse)}>{icon}</span>
       {label}
-    </Button>
+    </button>
   );
 }
 
@@ -227,84 +347,23 @@ function CommandTrigger({ onClick }: { onClick?: () => void }) {
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-2 h-8 px-2.5 rounded-md',
-        'border border-[color:var(--border,#252A31)] bg-[color:var(--canvas,#0A0B0D)]',
-        'text-xs text-[color:var(--text-muted,#71717A)] hover:text-[color:var(--text-primary,#E5E7EB)]',
-        'hover:border-[color:var(--border-strong,#3A4049)] transition-colors',
+        'inline-flex items-center gap-[9px] rounded-[10px] px-3 py-2.5',
+        'border border-overlay/[0.07] bg-overlay/[0.04] transition-colors',
+        'hover:border-accent-500/40',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
+        'lg:min-w-[230px]',
       )}
       aria-label="Befehlspalette öffnen"
     >
-      <span className="hidden md:inline">Suche…</span>
-      <kbd className="hidden md:inline-flex items-center gap-0.5 font-mono text-[10px]">
-        <CommandIcon size={10} /> K
+      <Search size={16} className="shrink-0 text-text-muted" aria-hidden />
+      {/* Der Platzhaltertext nennt, wonach man suchen kann — "Suche…" liess
+          offen, ob damit Kunden, Tickets oder Teilenummern gemeint sind. */}
+      <span className="hidden flex-1 text-left text-[12px] font-medium text-text-muted lg:inline">
+        Kunden, Tickets, OE-Nummern…
+      </span>
+      <kbd className="hidden items-center rounded-[5px] bg-overlay/[0.06] px-1.5 py-[3px] font-mono text-[10px] font-medium text-text-muted md:inline-flex">
+        ⌘K
       </kbd>
-      <CommandIcon size={14} className="md:hidden" />
-    </button>
-  );
-}
-
-function NotificationsBell({ unread }: { unread: number }) {
-  return (
-    <button
-      type="button"
-      className="relative inline-flex items-center justify-center w-9 h-9 rounded-md text-[color:var(--text-secondary,#A1A1AA)] hover:text-[color:var(--text-primary,#E5E7EB)] hover:bg-[color:var(--elevated,#1A1E24)] transition-colors"
-      aria-label={unread > 0 ? `${unread} ungelesene Benachrichtigungen` : 'Benachrichtigungen'}
-    >
-      <Bell size={16} />
-      {unread > 0 && (
-        <span
-          aria-hidden
-          className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-[color:var(--accent-500,#1D6FE8)] text-[9px] font-mono font-semibold text-white flex items-center justify-center"
-        >
-          {unread > 99 ? '99+' : unread}
-        </span>
-      )}
-    </button>
-  );
-}
-
-const THEME_KEY = 'pu.admin.theme.v1';
-type Theme = 'dark' | 'light';
-
-function readTheme(): Theme {
-  if (typeof window === 'undefined') return 'dark';
-  try {
-    const v = window.localStorage.getItem(THEME_KEY);
-    if (v === 'light' || v === 'dark') return v;
-  } catch {
-    /* noop */
-  }
-  return 'dark';
-}
-
-function applyTheme(theme: Theme) {
-  if (typeof document === 'undefined') return;
-  const root = document.documentElement;
-  root.classList.toggle('dark', theme === 'dark');
-  root.dataset.theme = theme;
-}
-
-function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => readTheme());
-
-  useEffect(() => {
-    applyTheme(theme);
-    try {
-      window.localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      /* noop */
-    }
-  }, [theme]);
-
-  const isDark = theme === 'dark';
-  return (
-    <button
-      type="button"
-      onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className="inline-flex items-center justify-center w-9 h-9 rounded-md text-[color:var(--text-secondary,#A1A1AA)] hover:text-[color:var(--text-primary,#E5E7EB)] hover:bg-[color:var(--elevated,#1A1E24)] transition-colors duration-200"
-      aria-label={isDark ? 'Light Mode aktivieren' : 'Dark Mode aktivieren'}
-    >
-      {isDark ? <Sun size={16} /> : <Moon size={16} />}
     </button>
   );
 }
@@ -332,7 +391,7 @@ function UserMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center justify-center w-9 h-9 rounded-md bg-[color:var(--elevated,#1A1E24)] text-[color:var(--text-primary,#E5E7EB)] text-xs font-semibold hover:ring-2 hover:ring-[color:var(--accent-500,#1D6FE8)]/40 transition-all"
+          className="ml-1 inline-flex size-[34px] shrink-0 items-center justify-center rounded-full border border-overlay/10 bg-gradient-to-br from-elevated-hover to-surface font-display text-[12px] font-bold text-text-secondary transition-[color,box-shadow] duration-150 hover:text-text-primary hover:ring-2 hover:ring-accent-500/40"
           aria-label="Benutzermenü"
         >
           {initials}
@@ -341,7 +400,7 @@ function UserMenu({
       <DropdownMenuContent align="end" sideOffset={8} className="w-56">
         <DropdownMenuLabel className="flex flex-col">
           <span className="text-sm font-medium">{displayName}</span>
-          <span className="text-xs text-[color:var(--text-muted,#71717A)]">
+          <span className="text-xs text-text-muted">
             {user?.email ?? 'nicht angemeldet'}
           </span>
         </DropdownMenuLabel>
@@ -351,18 +410,13 @@ function UserMenu({
             <UserIcon size={14} /> Profil
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/" className="flex items-center gap-2 cursor-pointer">
-            <Settings size={14} /> Einstellungen
-          </Link>
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault();
             void onLogout();
           }}
-          className="flex items-center gap-2 text-[color:var(--danger-500,#F87171)] focus:text-[color:var(--danger-500,#F87171)]"
+          className="flex items-center gap-2 text-status-danger focus:text-status-danger"
         >
           <LogOut size={14} /> Abmelden
         </DropdownMenuItem>

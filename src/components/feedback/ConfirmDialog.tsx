@@ -61,7 +61,7 @@ export function ConfirmDialog({
         <DialogHeader>
           <div className="flex items-start gap-3">
             {tone === 'danger' && (
-              <div className="w-9 h-9 rounded-full bg-[color:var(--danger-muted,rgba(248,113,113,0.12))] text-[color:var(--danger-500,#F87171)] flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full bg-status-danger-muted text-status-danger flex items-center justify-center shrink-0">
                 <AlertTriangle size={18} aria-hidden />
               </div>
             )}
@@ -85,7 +85,7 @@ export function ConfirmDialog({
             disabled={isBusy}
             className={cn(
               tone === 'danger' &&
-                'bg-[color:var(--danger-500,#F87171)] text-white hover:bg-[color:var(--danger-500,#F87171)]/90',
+                'bg-status-danger text-white hover:bg-status-danger/90',
             )}
           >
             {isBusy ? 'Bitte warten…' : confirmLabel}

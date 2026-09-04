@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-dashboard-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     working-directory: .
@@ -43,3 +50,6 @@ jobs:
         env:
           VITE_API_BASE_URL: http://localhost:3000
           VITE_SCRAPER_BASE_URL: http://localhost:3001
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

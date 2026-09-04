@@ -73,7 +73,7 @@ export default function PasswordResetView(): JSX.Element {
                                 aria-invalid={token !== '' && !tokenValid}
                             />
                             {token && !tokenValid && (
-                                <p className="text-xs text-danger">Token-Format ungültig.</p>
+                                <p className="text-xs text-status-danger">Token-Format ungültig.</p>
                             )}
                         </div>
 
@@ -81,7 +81,7 @@ export default function PasswordResetView(): JSX.Element {
                             <Label htmlFor="r-pw">Neues Passwort</Label>
                             <Input id="r-pw" type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
                             {pw && !pwCheck.valid && (
-                                <ul className="text-xs text-danger space-y-0.5 list-disc list-inside">
+                                <ul className="text-xs text-status-danger space-y-0.5 list-disc list-inside">
                                     {pwCheck.errors.map((err, idx) => (
                                         <li key={idx}>{err}</li>
                                     ))}
@@ -92,11 +92,11 @@ export default function PasswordResetView(): JSX.Element {
                         <div className="space-y-2">
                             <Label htmlFor="r-pw2">Wiederholung</Label>
                             <Input id="r-pw2" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
-                            {pw2 && !matches && <p className="text-xs text-danger">Passwörter stimmen nicht überein.</p>}
+                            {pw2 && !matches && <p className="text-xs text-status-danger">Passwörter stimmen nicht überein.</p>}
                         </div>
 
                         {error && (
-                            <div role="alert" className="text-sm text-danger">
+                            <div role="alert" className="text-sm text-status-danger">
                                 {error}
                             </div>
                         )}

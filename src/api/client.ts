@@ -105,6 +105,12 @@ const REQUEST_TIMEOUT_MS = 30_000;
 // where corrupted or malformed tokens flip the auth header.
 const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 
+/** Build the exact Authorization value expected by the backend for a token. */
+export function getAuthorizationValue(token: string | null = getAuthToken()): string | null {
+    if (!token) return null;
+    return JWT_RE.test(token) ? `Bearer ${token}` : `Token ${token}`;
+}
+
 /** In-flight cache for GET-Deduplication. Key = METHOD + URL + body-hash. */
 const inFlightCache = new Map<string, Promise<unknown>>();
 
@@ -134,10 +140,8 @@ function buildHeaders(extra?: HeadersInit): Record<string, string> {
     // admin_sessions under `Token <token>`; `Bearer <token>` is reserved for
     // JWT / service tokens and would 403. JWTs (3-segment dot-separated)
     // still go via Bearer.
-    if (token) {
-        const looksLikeJwt = JWT_RE.test(token);
-        headers.Authorization = looksLikeJwt ? `Bearer ${token}` : `Token ${token}`;
-    }
+    const authorization = getAuthorizationValue(token);
+    if (authorization) headers.Authorization = authorization;
 
     if (extra) {
         const incoming = extra as Record<string, string>;
@@ -192,6 +196,16 @@ export interface ApiFetchOptions extends RequestInit {
     maxRetries?: number;
     /** If true, do not throw on 401 — let caller handle it. */
     silentAuth?: boolean;
+    /**
+     * Zeitgrenze fuer DIESEN Aufruf, in Millisekunden.
+     *
+     * Die Vorgabe von 30 Sekunden passt fuer alles, was eine Ansicht laedt.
+     * Sie passt NICHT fuer einen Rundmail-Versand: der laeuft im Backend
+     * nacheinander durch die Empfaengerliste, und bei 200 Adressen bricht der
+     * Browser sonst mittendrin ab — der Aufrufer wuesste dann nicht, wie weit
+     * der Versand gekommen ist, und der Naechste schickt alles noch einmal.
+     */
+    timeoutMs?: number;
 }
 
 async function executeRequest<T>(endpoint: string, options: ApiFetchOptions): Promise<T> {
@@ -205,7 +219,7 @@ async function executeRequest<T>(endpoint: string, options: ApiFetchOptions): Pr
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs ?? REQUEST_TIMEOUT_MS);
 
         let response: Response;
         try {
@@ -218,7 +232,7 @@ async function executeRequest<T>(endpoint: string, options: ApiFetchOptions): Pr
         } catch (err: unknown) {
             clearTimeout(timeoutId);
             if (err instanceof DOMException && err.name === 'AbortError') {
-                lastError = new ApiError(`Request timeout after ${REQUEST_TIMEOUT_MS / 1000}s: ${endpoint}`, 408, endpoint);
+                lastError = new ApiError(`Request timeout after ${(options.timeoutMs ?? REQUEST_TIMEOUT_MS) / 1000}s: ${endpoint}`, 408, endpoint);
                 if (isIdempotent && attempt < maxRetries - 1) {
                     await sleep(RETRY_DELAYS_MS[attempt] ?? 400);
                     continue;
