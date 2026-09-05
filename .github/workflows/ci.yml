@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Partsunion/crm-system
-          ref: b45ecccd75ef4fd01a4bc49e5f2f253817b6c3b4
+          ref: 1a6a0cd3e3548037979a2f3e81629e5b2c55d6ac
           path: CRM-System
           persist-credentials: false
 
