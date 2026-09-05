@@ -48,11 +48,22 @@ interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  tone: NavTone;
   end?: boolean;
   /** Only shown to SUPER_ADMIN — route is also SUPER_ADMIN-guarded. */
   superAdmin?: boolean;
   permission?: Permission;
 }
+
+type NavTone = 'accent' | 'info' | 'success' | 'warning' | 'danger';
+
+const NAV_TONES: Record<NavTone, string> = {
+  accent: 'bg-accent-500/[0.10] text-accent-500',
+  info: 'bg-info/10 text-info',
+  success: 'bg-success/10 text-success',
+  warning: 'bg-warning/10 text-warning',
+  danger: 'bg-danger/10 text-danger',
+};
 
 interface NavSection {
   id: string;
@@ -76,37 +87,37 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'top',
     label: 'Arbeitsplatz',
     items: [
-      { to: '/', label: 'Arbeitsübersicht', icon: LayoutDashboard, end: true },
-      { to: '/mail', label: 'E-Mail', icon: Mail, permission: 'inbox.read' },
-      { to: '/calendar', label: 'Kalender', icon: Calendar },
+      { to: '/', label: 'Arbeitsübersicht', icon: LayoutDashboard, tone: 'accent', end: true },
+      { to: '/mail', label: 'E-Mail', icon: Mail, tone: 'info', permission: 'inbox.read' },
+      { to: '/calendar', label: 'Kalender', icon: Calendar, tone: 'warning' },
     ],
   },
   {
     id: 'kunden',
     label: 'Händler betreuen',
     items: [
-      { to: '/tenants', label: 'Händlerübersicht', icon: Building2, permission: 'tenants.read' },
-      { to: '/onboarding', label: 'Einrichtungen', icon: ClipboardCheck, permission: 'tenants.read' },
-      { to: '/access-requests', label: 'Zugangsanfragen', icon: KeyRound, permission: 'tenants.read' },
-      { to: '/orders', label: 'Bestellungen', icon: ShoppingCart, permission: 'orders.read' },
+      { to: '/tenants', label: 'Händlerübersicht', icon: Building2, tone: 'success', permission: 'tenants.read' },
+      { to: '/onboarding', label: 'Einrichtungen', icon: ClipboardCheck, tone: 'accent', permission: 'tenants.read' },
+      { to: '/access-requests', label: 'Zugangsanfragen', icon: KeyRound, tone: 'warning', permission: 'tenants.read' },
+      { to: '/orders', label: 'Bestellungen', icon: ShoppingCart, tone: 'info', permission: 'orders.read' },
     ],
   },
   {
     id: 'werkzeuge',
     label: 'Werkzeuge',
     items: [
-      { to: '/oe-quality', label: 'Teilequalität', icon: ShieldCheck, permission: 'oem.read' },
-      { to: '/oem-finder', label: 'OEM-Finder', icon: Search, permission: 'oem.read' },
-      { to: '/outreach', label: 'Outreach', icon: Send, permission: 'emails.send' },
-      { to: '/notizen', label: 'Notizen', icon: NotebookPen },
-      { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
+      { to: '/oe-quality', label: 'Teilequalität', icon: ShieldCheck, tone: 'success', permission: 'oem.read' },
+      { to: '/oem-finder', label: 'OEM-Finder', icon: Search, tone: 'info', permission: 'oem.read' },
+      { to: '/outreach', label: 'Outreach', icon: Send, tone: 'accent', permission: 'emails.send' },
+      { to: '/notizen', label: 'Notizen', icon: NotebookPen, tone: 'warning' },
+      { to: '/feedback', label: 'Feedback', icon: MessageSquareText, tone: 'danger' },
     ],
   },
   {
     id: 'system',
     label: 'System',
     items: [
-      { to: '/einstellungen', label: 'Einstellungen', icon: Settings },
+      { to: '/einstellungen', label: 'Einstellungen', icon: Settings, tone: 'accent' },
     ],
   },
 ];
@@ -350,11 +361,14 @@ function SidebarLink({
               className="absolute inset-y-0 left-0 w-[2px] rounded-r-full bg-accent-500"
             />
           )}
-          <Icon
-            size={16}
-            className={cn('shrink-0 transition-colors', isActive ? 'text-accent-500' : 'text-text-faint group-hover:text-text-tertiary')}
-            aria-hidden
-          />
+          <span
+            className={cn(
+              'flex size-7 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,transform] group-hover:scale-105',
+              isActive ? 'bg-accent-600 text-white shadow-sm' : NAV_TONES[item.tone],
+            )}
+          >
+            <Icon size={15} aria-hidden />
+          </span>
           {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
         </>
       )}

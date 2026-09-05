@@ -48,6 +48,12 @@
  */
 export const KARTE_INNEN = 'p-4';
 
+/** Shared workspace hierarchy; compact tables retain KARTE_INNEN. */
+export const WORKSPACE_CARD_INNER = 'p-5';
+export const WORKSPACE_METRIC = 'min-h-[132px] p-3 sm:p-5';
+export const WORKSPACE_METRIC_VALUE = 'text-[clamp(1.65rem,2.3vw,2.15rem)]';
+export const WORKSPACE_METRIC_VALUE_LONG = 'text-[clamp(1rem,5.2vw,1.65rem)] sm:text-[clamp(1.65rem,2.3vw,2.15rem)]';
+
 /**
  * Kennzahl-Kachel: Symbol und Beschriftung oben, Wert darunter.
  *
@@ -97,7 +103,7 @@ export const BLOCK_ABSTAND = 'gap-3.5';
  *
  * Gleichlautend mit CRM-System/src/app/components/dichte.ts.
  */
-export const SEITEN_TITEL = 'text-[22px]';
+export const SEITEN_TITEL = 'text-[clamp(1.5rem,2.2vw,2rem)]';
 
 /**
  * Begrüssung im Kopfbereich der Übersicht.

@@ -29,8 +29,10 @@ import { I18nProvider } from './i18n';
 import { initSentry } from './services/sentry';
 import { serviceWorkerRegistrieren } from './lib/push';
 import App from './App';
-// Inter lokal laden: einheitliche Arbeitstypografie ohne externen Font-Abruf.
-import '@fontsource-variable/inter';
+// Zwei gezielt eingesetzte variable Schnitte statt einer austauschbaren
+// Systemoptik: Manrope fuer Arbeitsdaten, Space Grotesk fuer Hierarchie.
+import '@fontsource-variable/manrope';
+import '@fontsource-variable/space-grotesk';
 import './index.css';
 
 // Init Sentry before React mounts so boot-time errors are captured.

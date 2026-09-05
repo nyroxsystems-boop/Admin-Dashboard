@@ -94,7 +94,7 @@ export function SeitenKopf({
                     <p className="text-sm leading-relaxed text-text-secondary">{beileile}</p>
                 )}
             </div>
-            {aktionen && <div className="flex shrink-0 flex-wrap items-center gap-2">{aktionen}</div>}
+            {aktionen && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{aktionen}</div>}
         </header>
     );
 }
@@ -120,8 +120,8 @@ export const HAUPT_AKTION = cn(
        Verläufe kann kein Browser stufenlos überblenden, er springt hart, und
        beim Klick fallen Überfahren, Gedrückt und Fokusring zusammen. Im CRM war
        das deutlich zu sehen. */
-    'shadow-none',
-    'transition-colors duration-150',
+    'shadow-sm hover:shadow-glow-primary',
+    'transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
 );
 

@@ -61,9 +61,10 @@
        --glass-bg/--glass-blur/--glass-border (never in tokens.css) and was
        unused anywhere in the app. */
     .surface-card {
-        background: hsl(var(--card));
+        background: linear-gradient(180deg, var(--karte-von), var(--karte-bis));
         border: 1px solid hsl(var(--border));
         border-radius: var(--radius);
+        box-shadow: var(--shadow-card);
     }
 
     /**
@@ -95,10 +96,10 @@
          * Helle Oberflächen bauen Tiefe andersherum: getönter Grund, weisse
          * Karte, Abstand über den Schatten. Deshalb --karte-*.
          */
-        background: hsl(var(--bg-surface));
+        background: linear-gradient(180deg, var(--karte-von), var(--karte-bis));
         border: 1px solid var(--karte-rand);
         box-shadow: var(--karte-schatten);
-        transition: border-color 160ms ease, box-shadow 160ms ease;
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
 
     .karte {
@@ -112,6 +113,7 @@
     .karte:hover,
     .karte-klein:hover {
         border-color: var(--karte-rand-hover);
+        box-shadow: var(--shadow-card-hover);
     }
 }
 
@@ -181,10 +183,39 @@ body {
     /* Die Deckung der beiden Lichtquellen steckt in --schein-1/-2: auf hellem
        Grund wirkt derselbe Wert doppelt so stark und die Seite bekäme einen
        Blaustich. Werte siehe tokens.css. */
-    background: hsl(var(--bg-canvas));
+    background:
+        radial-gradient(1100px 560px at 8% -10%, hsl(var(--accent-500) / var(--schein-1)), transparent 62%),
+        radial-gradient(820px 500px at 96% 0%, hsl(var(--success) / var(--schein-2)), transparent 62%),
+        hsl(var(--bg-canvas));
+    background-attachment: fixed;
     color: hsl(var(--text-primary));
     font-size: 0.875rem;
     line-height: 1.5;
+}
+
+/* Breite Bestandsansichten profitieren ebenfalls von der neuen Tiefe, ohne
+   dass Tabellen, Formfelder oder Dialoge zu dekorativen Karten werden. */
+[data-workspace="admin"] main :is(section, article).rounded-lg.border.bg-surface,
+[data-workspace="admin"] main [data-slot="card"] {
+    box-shadow: var(--shadow-card);
+}
+
+[data-workspace="admin"] main :is(section, article).rounded-lg.border.bg-surface {
+    border-radius: var(--radius);
+}
+
+.admin-metric-card {
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.admin-metric-card::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 3px;
+    background: var(--metric-color, hsl(var(--accent-500)));
+    opacity: 0.82;
 }
 
 h1,

@@ -1,7 +1,19 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, RefreshCw } from 'lucide-react';
+import {
+    Activity,
+    ArrowUpRight,
+    Building2,
+    CalendarDays,
+    CircleDollarSign,
+    KeyRound,
+    Mail,
+    RefreshCw,
+    ServerCog,
+    ShoppingCart,
+    Users,
+} from 'lucide-react';
 import { listAppointments } from '@/api/appointments';
 import { getOnboardingPipeline } from '@/api/onboarding';
 import { getAccessRequestHistory } from '@/api/accessRequests';
@@ -12,13 +24,15 @@ import { useMailboxes } from '@/hooks/useInbox';
 import { zaehleUngeleseneMails } from '@/hooks/useOffeneSachen';
 import { usePermissions } from '@/auth/usePermissions';
 import { SEITEN_RAND, SeitenKopf, HAUPT_AKTION, NEBEN_AKTION } from '@/components/ui/seite';
+import { WORKSPACE_METRIC, WORKSPACE_METRIC_VALUE, WORKSPACE_METRIC_VALUE_LONG } from '@/components/ui/dichte';
 import { auditZeile } from '@/utils/auditLabels';
 import { formatRelative } from '@/utils/format/date';
 import { formatCurrency } from '@/utils/format/number';
 import { terminfenster } from './terminfenster';
 import { merchantNextStep, merchantQueue, nextAppointments } from './operationsQueue';
 
-const textLink = 'inline-flex items-center gap-1 text-sm font-medium text-accent-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
+const textLink = 'inline-flex items-center gap-1 text-sm font-semibold text-accent-500 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
+const sectionPanel = 'min-w-0 overflow-hidden rounded-xl border border-border bg-surface shadow-card';
 const sectionHeader = 'flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4';
 
 /** Keep return-to-dashboard timing without tying first paint to a data request. */
@@ -35,6 +49,10 @@ function DataMessage({ children, retry, alert = false }: { children: ReactNode; 
     return <div role={alert ? 'alert' : 'status'} className="flex flex-wrap items-center justify-between gap-3 px-5 py-6 text-sm text-text-secondary">
         <span>{children}</span>{retry && <button type="button" onClick={retry} className={textLink}>Erneut laden</button>}
     </div>;
+}
+
+function PanelTitle({ id, icon, tone, children }: { id: string; icon: ReactNode; tone: string; children: ReactNode }): JSX.Element {
+    return <div className="flex items-center gap-2.5"><span className={`flex size-8 items-center justify-center rounded-lg ${tone}`}>{icon}</span><h2 id={id} className="text-base font-bold">{children}</h2></div>;
 }
 
 export default function OverviewView(): JSX.Element {
@@ -62,51 +80,71 @@ export default function OverviewView(): JSX.Element {
         metrics.refetch(); health.refetch(); audit.refetch(); mailbox.refetch();
     };
     const facts = [
-        { label: 'Händler', value: metrics.metrics?.activeTenants, to: '/tenants' },
-        { label: 'Nutzer', value: metrics.metrics?.totalUsers, to: '/tenants' },
-        { label: 'Bestellungen heute', value: metrics.metrics?.ordersToday, to: '/orders' },
-        { label: 'Umsatz im laufenden Monat', value: metrics.metrics?.revenueMtd == null ? null : formatCurrency(metrics.metrics.revenueMtd), to: '/orders' },
+        { label: 'Händler', detail: 'auf der Plattform', value: metrics.metrics?.activeTenants, to: '/tenants', icon: Building2, color: 'hsl(var(--success))', iconClass: 'bg-success/10 text-success' },
+        { label: 'Nutzerkonten', detail: 'über alle Händler', value: metrics.metrics?.totalUsers, to: '/tenants', icon: Users, color: 'hsl(var(--info))', iconClass: 'bg-info/10 text-info' },
+        { label: 'Bestellungen heute', detail: 'aktueller Auftragseingang', value: metrics.metrics?.ordersToday, to: '/orders', icon: ShoppingCart, color: 'hsl(var(--warning))', iconClass: 'bg-warning/10 text-warning' },
+        { label: 'Monatsumsatz', detail: 'laufender Monat', value: metrics.metrics?.revenueMtd == null ? null : formatCurrency(metrics.metrics.revenueMtd), to: '/orders', icon: CircleDollarSign, color: 'hsl(var(--accent-500))', iconClass: 'bg-accent-500/[0.10] text-accent-500' },
     ];
 
-    return <div className={SEITEN_RAND}>
-        <SeitenKopf className="mb-6" titel="Arbeitsübersicht" beileile="Einrichtungen, Rückfragen und die nächsten Termine."
-            aktionen={<><button type="button" className={NEBEN_AKTION} disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Aktualisieren</button>{can('tenants.create') && <Link to="/tenants/new" className={HAUPT_AKTION}>Händler einrichten</Link>}</>} />
+    const serviceReady = !health.isLoading && !health.error && Boolean(health.zustand?.erreichbar);
 
-        <div className="mb-6 grid items-start gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
-            <section aria-labelledby="merchant-work-title" className="min-w-0 rounded-lg border border-border bg-surface">
-                <header className={sectionHeader}><div className="flex items-center gap-2"><h2 id="merchant-work-title" className="text-base font-semibold">Händler in Bearbeitung</h2>{pipeline.data && <span className="rounded border border-border px-1.5 py-0.5 text-xs tabular-nums text-text-secondary">{attention.length}</span>}</div><Link to="/onboarding" className={textLink}>Alle Einrichtungen<ArrowUpRight size={14} /></Link></header>
+    return <div className={SEITEN_RAND}>
+        <section className="relative mb-5 overflow-hidden rounded-2xl border border-accent-500/20 px-5 py-5 shadow-card md:px-6 md:py-6" style={{ background: 'var(--hero-verlauf)' }}>
+            <div className="relative">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-xs font-bold text-accent-500"><span className="flex size-6 items-center justify-center rounded-lg bg-accent-500/[0.12]"><ServerCog className="size-3.5" /></span>PLATTFORMBETRIEB</span>
+                    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${serviceReady ? 'border-success/20 bg-success/10 text-success' : 'border-warning/20 bg-warning/10 text-warning'}`}><span className={`size-2 rounded-full ${serviceReady ? 'bg-success' : 'bg-warning'}`} />{health.isLoading ? 'API wird geprüft' : serviceReady ? 'API erreichbar' : 'API-Status prüfen'}</span>
+                </div>
+                <SeitenKopf titel="Arbeitsübersicht" beileile="Einrichtungen, Rückfragen und die nächsten Termine – priorisiert für den heutigen Betrieb."
+                    aktionen={<><button type="button" className={NEBEN_AKTION} disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Aktualisieren</button>{can('tenants.create') && <Link to="/tenants/new" className={HAUPT_AKTION}>Händler einrichten</Link>}</>} />
+            </div>
+        </section>
+
+        <section aria-label="Plattformzahlen" className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            {facts.map(fact => {
+                const Icon = fact.icon;
+                return <Link key={fact.label} to={fact.to} className={`admin-metric-card karte group relative flex flex-col transition-transform hover:-translate-y-0.5 ${WORKSPACE_METRIC}`} style={{ '--metric-color': fact.color } as CSSProperties}>
+                    <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-text-secondary sm:text-sm">{fact.label}</span><span className={`flex size-7 shrink-0 items-center justify-center rounded-lg sm:size-9 sm:rounded-xl ${fact.iconClass}`}><Icon size={18} /></span></div>
+                    <span className={`mt-2 font-display font-bold leading-none tabular-nums text-text-primary ${fact.label === 'Monatsumsatz' ? WORKSPACE_METRIC_VALUE_LONG : WORKSPACE_METRIC_VALUE}`}>{metrics.isLoading ? '—' : fact.value ?? '—'}</span>
+                    <span className="mt-2 text-xs font-medium text-text-muted">{fact.detail}</span>
+                </Link>;
+            })}
+        </section>
+
+        {metrics.error ? <p role="alert" className="mb-5 text-sm text-warning">Plattformzahlen konnten nicht aktualisiert werden. Angezeigte Werte können veraltet sein. <button type="button" onClick={metrics.refetch} className={textLink}>Erneut laden</button></p> : !metrics.isLoading && facts.some(fact => fact.value == null) && <p className="mb-5 text-xs text-text-muted">Nicht verfügbare Kennzahlen werden als „—“ angezeigt.</p>}
+
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)]">
+            <div className="min-w-0 space-y-5">
+            <section aria-labelledby="merchant-work-title" className={sectionPanel}>
+                <header className={sectionHeader}><div className="flex items-center gap-2"><PanelTitle id="merchant-work-title" icon={<Building2 size={16} />} tone="bg-success/10 text-success">Händler in Bearbeitung</PanelTitle>{pipeline.data && <span className="rounded-full border border-border bg-elevated px-2 py-0.5 text-xs font-semibold tabular-nums text-text-secondary">{attention.length}</span>}</div><Link to="/onboarding" className={textLink}>Alle Einrichtungen<ArrowUpRight size={14} /></Link></header>
                 {pipeline.isLoading ? <DataMessage>Einrichtungen werden geladen…</DataMessage> : pipeline.error ? <DataMessage alert retry={() => void pipeline.refetch()}>Einrichtungen konnten nicht aktualisiert werden. Der Bearbeitungsstand ist unbekannt.</DataMessage> : attention.length === 0 ? <DataMessage>Aktuell keine Händler in Einrichtung.</DataMessage> : <div>
-                    <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_80px] gap-4 border-b border-border bg-canvas/50 px-5 py-2 text-xs font-medium text-text-muted md:grid"><span>Händler</span><span>Nächster Schritt</span><span>Offen seit</span></div>
-                    {attention.slice(0, 7).map(tenant => <Link key={tenant.tenantId} to={'/tenants/' + encodeURIComponent(tenant.tenantId) + '?tab=onboarding'} className="grid gap-2 border-b border-border px-5 py-4 last:border-0 hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_80px] md:items-center md:gap-4">
-                        <div className="min-w-0"><span className="block truncate font-medium text-text-primary">{tenant.name}</span>{tenant.risk === 'at-risk' && <span className="mt-1 block text-xs text-danger">Betreuung erforderlich</span>}</div>
-                        <span className="text-sm text-text-secondary">{merchantNextStep(tenant)}</span><span className="text-xs tabular-nums text-text-muted">{tenant.ageDays == null ? 'Unbekannt' : tenant.ageDays + ' Tage'}</span>
+                    <div className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_80px] gap-4 border-b border-border bg-elevated/50 px-5 py-2.5 text-xs font-semibold text-text-muted md:grid"><span>Händler</span><span>Nächster Schritt</span><span>Offen seit</span></div>
+                    {attention.slice(0, 7).map(tenant => <Link key={tenant.tenantId} to={'/tenants/' + encodeURIComponent(tenant.tenantId) + '?tab=onboarding'} className="grid gap-2 border-b border-border px-5 py-4 transition-colors last:border-0 hover:bg-accent-500/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_80px] md:items-center md:gap-4">
+                        <div className="flex min-w-0 items-center gap-3"><span className={`size-2.5 shrink-0 rounded-full ${tenant.risk === 'at-risk' ? 'bg-danger' : 'bg-success'}`} /><span className="min-w-0"><span className="block truncate font-semibold text-text-primary">{tenant.name}</span>{tenant.risk === 'at-risk' && <span className="mt-1 block text-xs font-medium text-danger">Betreuung erforderlich</span>}</span></div>
+                        <span className="text-sm text-text-secondary">{merchantNextStep(tenant)}</span><span className="text-xs font-medium tabular-nums text-text-muted">{tenant.ageDays == null ? 'Unbekannt' : tenant.ageDays + ' Tage'}</span>
                     </Link>)}
                 </div>}
-                {pipeline.dataUpdatedAt > 0 && <p className="border-t border-border px-5 py-2.5 text-xs text-text-muted">Datenstand {new Date(pipeline.dataUpdatedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} · Zuerst Betreuungsbedarf, dann älteste Einrichtung</p>}
+                {pipeline.dataUpdatedAt > 0 && <p className="border-t border-border bg-elevated/30 px-5 py-2.5 text-xs text-text-muted">Datenstand {new Date(pipeline.dataUpdatedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} · Zuerst Betreuungsbedarf, dann älteste Einrichtung</p>}
             </section>
-
-            <div className="space-y-5 xl:col-start-2 xl:row-span-3">
-                <section className="rounded-lg border border-border bg-surface" aria-labelledby="communications-title">
-                    <header className={sectionHeader}><h2 id="communications-title" className="text-base font-semibold">Kommunikation</h2></header>
-                    <Link to="/mail" className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-canvas"><span><span className="block font-medium">Posteingang</span><span className="mt-1 block text-xs text-text-muted">{unread == null ? 'Postfachstatus nicht verfügbar' : 'Ungelesene Nachrichten in deinen Postfächern'}</span></span><span className="text-lg font-semibold tabular-nums">{unread ?? '—'}</span></Link>
-                    <Link to="/access-requests" className="flex items-center justify-between gap-3 border-t border-border px-5 py-4 hover:bg-canvas"><span><span className="block font-medium">Zugangsanfragen</span><span className="mt-1 block text-xs text-text-muted">{access.error ? 'Versandstatus nicht verfügbar' : 'Fehlgeschlagene Zustellungen prüfen'}</span></span><span className={'text-lg font-semibold tabular-nums ' + (failedAccess.length ? 'text-danger' : '')}>{access.isLoading || access.error ? '—' : failedAccess.length}</span></Link>
+            <section aria-labelledby="activity-title" className={sectionPanel}>
+                <header className={sectionHeader}><PanelTitle id="activity-title" icon={<Activity size={16} />} tone="bg-accent-500/[0.10] text-accent-500">Letzte Änderungen</PanelTitle>{can('audit.read') && <Link to="/einstellungen/audit" className={textLink}>Protokoll öffnen<ArrowUpRight size={14} /></Link>}</header>
+                {audit.isLoading ? <DataMessage>Protokoll wird geladen…</DataMessage> : audit.error ? <DataMessage alert retry={audit.refetch}>Protokoll derzeit nicht verfügbar.</DataMessage> : !audit.entries.length ? <DataMessage>Keine Änderungen im aktuellen Abruf.</DataMessage> : <ul>{audit.entries.slice(0, 5).map(entry => <li key={entry.id} className="flex items-start justify-between gap-4 border-b border-border px-5 py-3.5 last:border-0"><span className="flex min-w-0 items-start gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent-500" /><span className="min-w-0 break-words text-sm"><strong>{entry.admin_username || 'System'}</strong> · {auditZeile(entry)}</span></span><time className="shrink-0 text-xs font-medium text-text-muted" dateTime={entry.created_at}>{entry.created_at ? formatRelative(entry.created_at) : 'Zeitpunkt unbekannt'}</time></li>)}</ul>}
+            </section>
+            </div>
+            <div className="min-w-0 space-y-5">
+                <section className={sectionPanel} aria-labelledby="communications-title">
+                    <header className={sectionHeader}><PanelTitle id="communications-title" icon={<Mail size={16} />} tone="bg-info/10 text-info">Kommunikation</PanelTitle></header>
+                    <Link to="/mail" className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-info/[0.04]"><span className="flex min-w-0 items-center gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-info/10 text-info"><Mail size={17} /></span><span><span className="block font-semibold">Posteingang</span><span className="mt-1 block text-xs text-text-muted">{mailbox.error ? 'Postfachstatus nicht verfügbar' : mailbox.isLoading ? 'Postfächer werden geladen…' : 'Ungelesene Nachrichten in deinen Postfächern'}</span></span></span><span className="rounded-xl bg-info/10 px-3 py-1.5 font-display text-xl font-bold tabular-nums text-info">{unread ?? '—'}</span></Link>
+                    <Link to="/access-requests" className="flex items-center justify-between gap-3 border-t border-border px-5 py-4 transition-colors hover:bg-warning/[0.04]"><span className="flex min-w-0 items-center gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning"><KeyRound size={17} /></span><span><span className="block font-semibold">Zugangsanfragen</span><span className="mt-1 block text-xs text-text-muted">{access.error ? 'Versandstatus nicht verfügbar' : access.isLoading ? 'Versandstatus wird geladen…' : 'Fehlgeschlagene Zustellungen prüfen'}</span></span></span><span className={`rounded-xl px-3 py-1.5 font-display text-xl font-bold tabular-nums ${failedAccess.length ? 'bg-danger/10 text-danger' : 'bg-elevated text-text-secondary'}`}>{access.isLoading || access.error ? '—' : failedAccess.length}</span></Link>
                 </section>
-                <section className="rounded-lg border border-border bg-surface" aria-labelledby="appointments-title">
-                    <header className={sectionHeader}><h2 id="appointments-title" className="text-base font-semibold">Nächste Termine</h2><Link to="/calendar" className={textLink}>Kalender<ArrowUpRight size={14} /></Link></header>
-                    {appointments.isLoading ? <DataMessage>Termine werden geladen…</DataMessage> : appointments.error ? <DataMessage alert retry={() => void appointments.refetch()}>Termine derzeit nicht verfügbar.</DataMessage> : !upcoming.length ? <DataMessage>Keine anstehenden Termine im aktuellen Zweiwochenfenster.</DataMessage> : <ul>{upcoming.map(appointment => <li key={appointment.id} className="border-b border-border last:border-0"><Link to="/calendar" className="block px-5 py-3.5 hover:bg-canvas"><span className="text-xs tabular-nums text-text-muted">{new Date(appointment.start_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}{appointment.status === 'proposed' ? ' · Bestätigung ausstehend' : ''}</span><span className="mt-1 block font-medium">{appointment.title || 'Termin'}</span><span className="mt-1 block text-xs text-text-muted">{[appointment.customer_name, appointment.assignee_name].filter(Boolean).join(' · ') || 'Noch nicht zugeordnet'}</span></Link></li>)}</ul>}
+
+                <section className={sectionPanel} aria-labelledby="appointments-title">
+                    <header className={sectionHeader}><PanelTitle id="appointments-title" icon={<CalendarDays size={16} />} tone="bg-warning/10 text-warning">Nächste Termine</PanelTitle><Link to="/calendar" className={textLink}>Kalender<ArrowUpRight size={14} /></Link></header>
+                    {appointments.isLoading ? <DataMessage>Termine werden geladen…</DataMessage> : appointments.error ? <DataMessage alert retry={() => void appointments.refetch()}>Termine derzeit nicht verfügbar.</DataMessage> : !upcoming.length ? <DataMessage>Keine anstehenden Termine im aktuellen Zweiwochenfenster.</DataMessage> : <ul>{upcoming.map(appointment => <li key={appointment.id} className="border-b border-border last:border-0"><Link to="/calendar" className="flex gap-3 px-5 py-3.5 transition-colors hover:bg-warning/[0.04]"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-warning/10 font-mono text-xs font-bold text-warning">{new Date(appointment.start_at).toLocaleDateString('de-DE', { day: '2-digit' })}</span><span className="min-w-0"><span className="text-xs font-medium tabular-nums text-text-muted">{new Date(appointment.start_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}{appointment.status === 'proposed' ? ' · Bestätigung ausstehend' : ''}</span><span className="mt-1 block truncate font-semibold">{appointment.title || 'Termin'}</span><span className="mt-1 block truncate text-xs text-text-muted">{[appointment.customer_name, appointment.assignee_name].filter(Boolean).join(' · ') || 'Noch nicht zugeordnet'}</span></span></Link></li>)}</ul>}
                 </section>
             </div>
-        <section aria-labelledby="platform-facts-title" className="rounded-lg border border-border bg-surface xl:col-start-1">
-            <header className={sectionHeader}><h2 id="platform-facts-title" className="text-sm font-semibold text-text-secondary">Plattformzahlen</h2>{Boolean(metrics.error) && <span role="status" className="text-xs text-warning">Aktualisierung fehlgeschlagen; vorhandene Werte können veraltet sein.</span>}</header>
-            <dl className="grid grid-cols-2 divide-x divide-border lg:grid-cols-4">{facts.map(fact => <div key={fact.label} className="px-5 py-4"><dt className="text-xs text-text-muted">{fact.label}</dt><dd className="mt-1.5 text-lg font-semibold tabular-nums"><Link to={fact.to} className="hover:text-accent-600">{fact.value ?? '—'}</Link></dd></div>)}</dl>
-            {!metrics.isLoading && facts.some(fact => fact.value == null) && <p className="border-t border-border px-5 py-2.5 text-xs text-text-muted">— bedeutet: keine belastbaren Daten verfügbar, nicht null Bestellungen oder Umsatz.</p>}
-        </section>
-
-        <section aria-labelledby="activity-title" className="rounded-lg border border-border bg-surface xl:col-start-1">
-            <header className={sectionHeader}><h2 id="activity-title" className="text-base font-semibold">Letzte Änderungen</h2>{can('audit.read') && <Link to="/einstellungen/audit" className={textLink}>Protokoll öffnen<ArrowUpRight size={14} /></Link>}</header>
-            {audit.isLoading ? <DataMessage>Protokoll wird geladen…</DataMessage> : audit.error ? <DataMessage alert retry={audit.refetch}>Protokoll derzeit nicht verfügbar.</DataMessage> : !audit.entries.length ? <DataMessage>Keine Änderungen im aktuellen Abruf.</DataMessage> : <ul>{audit.entries.slice(0, 5).map(entry => <li key={entry.id} className="flex items-start justify-between gap-4 border-b border-border px-5 py-3 last:border-0"><span className="min-w-0 break-words text-sm">{entry.admin_username || 'System'} · {auditZeile(entry)}</span><time className="shrink-0 text-xs text-text-muted" dateTime={entry.created_at}>{entry.created_at ? formatRelative(entry.created_at) : 'Zeitpunkt unbekannt'}</time></li>)}</ul>}
-        </section>
         </div>
-        <footer className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted"><span>{health.isLoading ? 'API-Erreichbarkeit wird geprüft…' : health.error || !health.zustand ? 'API-Erreichbarkeit unbekannt' : health.zustand.erreichbar ? 'API erreichbar' : 'API nicht erreichbar'} · Keine Aussage über einzelne Dienste</span><button type="button" className="hover:text-text-primary hover:underline" onClick={health.refetch}>Erneut prüfen</button></footer>
+
+        <footer className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted"><span>{health.isLoading ? 'API-Erreichbarkeit wird geprüft…' : health.error || !health.zustand ? 'API-Erreichbarkeit unbekannt' : health.zustand.erreichbar ? 'API erreichbar' : 'API nicht erreichbar'} · Keine Aussage über einzelne Dienste</span><button type="button" className="font-medium hover:text-text-primary hover:underline" onClick={health.refetch}>Erneut prüfen</button></footer>
     </div>;
 }

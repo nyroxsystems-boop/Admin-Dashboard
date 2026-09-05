@@ -1,10 +1,10 @@
-/** Internal workspace shell v1. Kept identical in Admin and CRM; see shell contract test. */
+/** Internal workspace shell v2. Kept identical in Admin and CRM; see shell contract test. */
 export const WORKSPACE_FRAME = 'flex h-screen h-dvh w-full overflow-hidden bg-canvas text-text-primary';
-export const WORKSPACE_HEADER = 'flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface px-4 md:px-7';
-export const WORKSPACE_BRAND = 'flex h-16 shrink-0 items-center gap-2.5 border-b border-border-subtle px-4';
-export const WORKSPACE_MARK = 'flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-600';
-export const WORKSPACE_NAV_ITEM = 'group relative mx-3 flex min-h-10 items-center rounded-md py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
-export const WORKSPACE_NAV_ACTIVE = 'bg-accent-500/[0.08] text-accent-500';
-export const WORKSPACE_SEARCH = 'inline-flex h-9 min-w-0 shrink-0 items-center gap-2 rounded-md border border-border bg-canvas px-3 text-sm text-text-secondary transition-colors hover:border-accent-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 lg:w-[240px]';
-export const WORKSPACE_ACTION = 'inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-border bg-surface px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
-export const WORKSPACE_AVATAR = 'ml-1 inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-elevated text-xs font-semibold text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
+export const WORKSPACE_HEADER = 'flex h-16 shrink-0 items-center gap-2 border-b border-border-subtle bg-surface px-4 shadow-sm md:px-7';
+export const WORKSPACE_BRAND = 'flex h-16 shrink-0 items-center gap-3 border-b border-border-subtle px-4';
+export const WORKSPACE_MARK = 'flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent-600 shadow-md ring-1 ring-inset ring-accent-400/30';
+export const WORKSPACE_NAV_ITEM = 'group relative mx-3 flex min-h-11 items-center rounded-xl py-2 text-sm font-semibold transition-[background-color,color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
+export const WORKSPACE_NAV_ACTIVE = 'bg-accent-500/[0.12] text-accent-500 ring-1 ring-inset ring-accent-500/20';
+export const WORKSPACE_SEARCH = 'inline-flex h-10 min-w-0 shrink-0 items-center gap-2 rounded-xl border border-border bg-canvas/70 px-3 text-sm text-text-secondary shadow-sm transition-[border-color,background-color,box-shadow] hover:border-accent-500/40 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 lg:w-[280px]';
+export const WORKSPACE_ACTION = 'inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 text-xs font-semibold text-text-secondary shadow-sm transition-[background-color,border-color,color,transform] hover:-translate-y-px hover:border-border-strong hover:bg-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
+export const WORKSPACE_AVATAR = 'ml-1 inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-accent-500/20 bg-accent-500/[0.10] text-xs font-bold text-accent-500 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';

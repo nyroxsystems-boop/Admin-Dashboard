@@ -52,7 +52,7 @@ vi.mock('@/hooks/useDashboardMetrics', () => ({
 }));
 vi.mock('@/hooks/useSystemHealth', () => ({
     useSystemHealth: () => ({
-        health: { db: 'ok', redis: 'ok', botApi: 'ok' },
+        zustand: { erreichbar: true },
         isLoading: false,
         error: null,
         refetch: () => {},
@@ -264,7 +264,10 @@ const TERMINE = [
 
 function rendern(inhalt: JSX.Element): string {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    qc.setQueryData(['admin', 'appointments', 'uebersicht'], { appointments: TERMINE });
+    qc.setQueryData(['admin', 'appointments', 'uebersicht'], { appointments: TERMINE.map((appointment, index) => ({
+        ...appointment, start_at: new Date(Date.now() + (index + 1) * 36e5).toISOString(),
+    })) });
+    qc.setQueryData(['admin', 'access-requests', 'verlauf'], []);
     const onboarding = {
         summary: { total: 4, live: 2, configured: 1, setup: 1, atRisk: 0 },
         tenants: [
@@ -292,11 +295,11 @@ function rendern(inhalt: JSX.Element): string {
 /** Ganzer Bildschirm: Leiste links, Kopfzeile oben, Übersicht darunter. */
 function ganzeSeite(): string {
     return rendern(
-        <div className="flex min-h-screen">
+        <div className="flex h-screen h-dvh w-full overflow-hidden bg-canvas text-text-primary" data-workspace="admin">
             <AdminSidebar />
             <div className="flex min-w-0 flex-1 flex-col">
                 <AdminTopbar />
-                <main className="min-w-0 flex-1">
+                <main className="min-w-0 flex-1 overflow-auto">
                     <OverviewView />
                 </main>
             </div>
@@ -317,6 +320,7 @@ describe('Bildprobe Redesign', () => {
 <html lang="de" class="dark">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Probe — Seitenleiste</title>
 <style>${css}</style>
 <style>aside.hidden { display: flex !important; }</style>
@@ -343,15 +347,11 @@ describe('Bildprobe Redesign', () => {
 <html lang="de" class="dark">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Probe — Admin-Dashboard</title>
 <style>${css}</style>
 <style>
-  aside.hidden { display: flex !important; }
   /* Die Schnellaktionen sind lg:flex — in der Probe immer zeigen. */
-  .hidden.lg\\:flex { display: flex !important; }
-  .hidden.lg\\:inline { display: inline !important; }
-  .hidden.md\\:inline-flex { display: inline-flex !important; }
-  .hidden.sm\\:flex { display: flex !important; }
 </style>
 </head>
 <body class="bg-canvas text-text-primary">${markup}</body>
@@ -378,6 +378,7 @@ describe('Bildprobe Redesign', () => {
 <html lang="de" class="dark">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Probe — Partsunion Mail</title>
 <style>${css}</style>
 <style>.hidden.sm\\:inline-flex { display: inline-flex !important; } .hidden.sm\\:inline { display: inline !important; }</style>
@@ -418,11 +419,6 @@ describe('Bildprobe Redesign', () => {
 <html lang="de" class="dark"><head><meta charset="utf-8"><title>Probe — Kunden</title>
 <style>${css}</style>
 <style>
-  aside.hidden { display: flex !important; }
-  .hidden.lg\\:flex { display: flex !important; }
-  .hidden.lg\\:inline { display: inline !important; }
-  .hidden.md\\:inline-flex { display: inline-flex !important; }
-  .hidden.sm\\:flex { display: flex !important; }
 </style>
 </head><body class="bg-canvas text-text-primary">${markup}</body></html>`, 'utf8');
 
@@ -448,11 +444,6 @@ describe('Bildprobe Redesign', () => {
 <html lang="de" class="dark"><head><meta charset="utf-8"><title>Probe — Onboarding</title>
 <style>${css}</style>
 <style>
-  aside.hidden { display: flex !important; }
-  .hidden.lg\\:flex { display: flex !important; }
-  .hidden.lg\\:inline { display: inline !important; }
-  .hidden.md\\:inline-flex { display: inline-flex !important; }
-  .hidden.sm\\:flex { display: flex !important; }
 </style>
 </head><body class="bg-canvas text-text-primary">${markup}</body></html>`, 'utf8');
 
