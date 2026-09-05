@@ -85,7 +85,7 @@ export default function FeedbackView(): JSX.Element {
         onError: () => toast.error('Feedback konnte nicht aktualisiert werden.'),
     });
 
-    const all = feedbackQuery.data?.feedback ?? [];
+    const all = useMemo(() => feedbackQuery.data?.feedback ?? [], [feedbackQuery.data?.feedback]);
     const counts = useMemo(() => ({
         new: all.filter((item) => item.status === 'new').length,
         seen: all.filter((item) => item.status === 'seen').length,

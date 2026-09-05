@@ -21,10 +21,10 @@ import { getAdminStats } from '@/api/tenants';
 import type { AdminStats } from '@/api/types';
 
 export interface DashboardMetrics {
-    activeTenants: number;
-    totalUsers: number;
-    ordersToday: number;
-    revenueMtd: number;
+    activeTenants: number | null;
+    totalUsers: number | null;
+    ordersToday: number | null;
+    revenueMtd: number | null;
     seriesOrders7d: number[];
     seriesRevenue7d: number[];
 }
@@ -35,10 +35,10 @@ function adapt(stats: AdminStats): DashboardMetrics {
     const history = stats.history ?? [];
     const tail = history.slice(-7);
     return {
-        activeTenants: team?.tenantCount ?? stats.total_tenants ?? 0,
-        totalUsers: team?.activeUsers ?? stats.total_users ?? 0,
-        ordersToday: sales?.ordersToday ?? 0,
-        revenueMtd: sales?.revenue ?? 0,
+        activeTenants: team?.tenantCount ?? stats.total_tenants ?? null,
+        totalUsers: team?.activeUsers ?? stats.total_users ?? null,
+        ordersToday: sales?.ordersToday ?? null,
+        revenueMtd: sales?.revenue ?? null,
         seriesOrders7d: tail.map((h) => h.orders),
         seriesRevenue7d: tail.map((h) => h.revenue),
     };

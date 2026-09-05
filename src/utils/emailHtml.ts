@@ -20,3 +20,18 @@ export function plainTextToEmailHtml(value: string): string {
     wrapper.textContent = value;
     return `<p>${wrapper.innerHTML.replace(/\n/g, '<br>')}</p>`;
 }
+
+/** Plain-text equivalent when the editor is hidden behind the mobile context tab. */
+export function emailHtmlToPlainText(value: string): string {
+    const content = document.createElement('div');
+    content.innerHTML = sanitizeEmailEditorHtml(value);
+    content.querySelectorAll('br').forEach(element => element.replaceWith('\n'));
+    content.querySelectorAll('p,div,li,blockquote,h1,h2,h3').forEach(element => {
+        // Chrome inserts <div> after a plain-text first line when Enter is pressed.
+        // A trailing separator alone would concatenate that first and second line.
+        const previous = element.previousSibling?.textContent;
+        if (previous && !previous.endsWith('\n')) element.before('\n');
+        element.append('\n');
+    });
+    return (content.textContent || '').replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trimEnd();
+}

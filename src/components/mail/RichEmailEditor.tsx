@@ -2,6 +2,8 @@ import {
     useEffect,
     useRef,
     useState,
+    forwardRef,
+    useImperativeHandle,
     type ClipboardEvent as ReactClipboardEvent,
     type MouseEvent as ReactMouseEvent,
     type ReactNode,
@@ -21,12 +23,21 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { sanitizeEmailEditorHtml } from '@/utils/emailHtml';
+import { emailHtmlToPlainText, sanitizeEmailEditorHtml } from '@/utils/emailHtml';
 
 interface RichEmailEditorProps {
     initialHtml?: string;
     onChange: (value: { html: string; text: string }) => void;
     invalid?: boolean;
+    disabled?: boolean;
+    compact?: boolean;
+    onDirty?: () => void;
+}
+
+export interface RichEmailEditorHandle {
+    read: () => { html: string; text: string };
+    focus: () => void;
+    insertText: (text: string) => void;
 }
 
 interface ToolbarButtonProps {
@@ -38,7 +49,6 @@ interface ToolbarButtonProps {
 function ToolbarButton({ label, onPress, children }: ToolbarButtonProps): JSX.Element {
     function handleMouseDown(event: ReactMouseEvent<HTMLButtonElement>): void {
         event.preventDefault();
-        onPress();
     }
 
     return (
@@ -47,6 +57,7 @@ function ToolbarButton({ label, onPress, children }: ToolbarButtonProps): JSX.El
             title={label}
             aria-label={label}
             onMouseDown={handleMouseDown}
+            onClick={onPress}
             className="flex size-8 shrink-0 items-center justify-center rounded text-text-secondary transition-colors hover:bg-elevated hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
         >
             {children}
@@ -91,10 +102,19 @@ const AUSWAHL_FELD = cn(
     'bg-[length:9px_6px] bg-[right_0.5rem_center] bg-no-repeat',
 );
 
-export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }: RichEmailEditorProps): JSX.Element {
+export const RichEmailEditor = forwardRef<RichEmailEditorHandle, RichEmailEditorProps>(function RichEmailEditor({ initialHtml = '', onChange, invalid = false, disabled = false, compact = false, onDirty }: RichEmailEditorProps, ref): JSX.Element {
     const editorRef = useRef<HTMLDivElement>(null);
     const savedRangeRef = useRef<Range | null>(null);
     const [empty, setEmpty] = useState(!initialHtml.trim());
+    const [advanced, setAdvanced] = useState(!compact);
+    useImperativeHandle(ref, () => ({
+        read: () => {
+            const element = editorRef.current;
+            return { html: element?.innerHTML || '', text: element?.getClientRects().length ? element.innerText.replace(/\u00a0/g, ' ') : emailHtmlToPlainText(element?.innerHTML || '') };
+        },
+        focus: () => editorRef.current?.focus(),
+        insertText: (text: string) => command('insertText', text),
+    }));
 
     useEffect(() => {
         if (!editorRef.current) return;
@@ -141,6 +161,7 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
     function melden(sofort = false): void {
         const editor = editorRef.current;
         if (!editor) return;
+        onDirty?.();
         const text = editor.innerText.replace(/\u00a0/g, ' ');
         setEmpty(!text.trim());
         saveSelection();
@@ -162,6 +183,7 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
     }
 
     function command(name: string, value?: string): void {
+        if (disabled) return;
         const editor = editorRef.current;
         if (!editor) return;
         editor.focus();
@@ -198,7 +220,9 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
             'overflow-hidden rounded-lg border bg-canvas transition-colors focus-within:border-accent-500',
             invalid ? 'border-danger' : 'border-border-strong',
         )}>
-            <div className="flex flex-wrap items-center gap-0.5 border-b border-border-subtle bg-surface px-2 py-1.5">
+            <fieldset disabled={disabled} className="flex min-w-0 flex-wrap items-center gap-0.5 border-b border-border-subtle bg-surface px-2 py-1.5 disabled:opacity-50" aria-label="Text formatieren">
+                {compact && <button type="button" className="mr-1 rounded px-2 py-1.5 text-xs text-text-secondary hover:bg-elevated" aria-expanded={advanced} onClick={() => setAdvanced(value => !value)}>Schrift</button>}
+                <div className={cn('flex flex-wrap gap-0.5', !advanced && 'hidden')}>
                 <select
                     aria-label="Textstil"
                     defaultValue="p"
@@ -233,6 +257,7 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
                     <option value="5">Groß</option>
                 </select>
 
+                </div>
                 <span className="mx-1 h-5 w-px bg-border-subtle" />
                 <ToolbarButton label="Fett" onPress={() => command('bold')}><Bold className="size-4" /></ToolbarButton>
                 <ToolbarButton label="Kursiv" onPress={() => command('italic')}><Italic className="size-4" /></ToolbarButton>
@@ -246,7 +271,7 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
                 <ToolbarButton label="Link einfügen" onPress={createLink}><Link className="size-4" /></ToolbarButton>
 
                 <span className="mx-1 h-5 w-px bg-border-subtle" />
-                {['black', 'royalblue', 'seagreen', 'firebrick'].map((color) => (
+                {advanced && ['black', 'royalblue', 'seagreen', 'firebrick'].map((color) => (
                     <button
                         key={color}
                         type="button"
@@ -254,8 +279,8 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
                         aria-label={`Textfarbe ${color}`}
                         onMouseDown={(event) => {
                             event.preventDefault();
-                            command('foreColor', color);
                         }}
+                        onClick={() => command('foreColor', color)}
                         className="flex size-7 items-center justify-center rounded hover:bg-elevated"
                     >
                         <span className="size-3.5 rounded-full border border-overlay/20" style={{ backgroundColor: color }} />
@@ -266,7 +291,7 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
                 <ToolbarButton label="Rückgängig" onPress={() => command('undo')}><Undo2 className="size-4" /></ToolbarButton>
                 <ToolbarButton label="Wiederholen" onPress={() => command('redo')}><Redo2 className="size-4" /></ToolbarButton>
                 <ToolbarButton label="Formatierung entfernen" onPress={() => command('removeFormat')}><RemoveFormatting className="size-4" /></ToolbarButton>
-            </div>
+            </fieldset>
 
             <div className="relative">
                 {empty && (
@@ -280,7 +305,9 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
                 )}
                 <div
                     ref={editorRef}
-                    contentEditable
+                    contentEditable={!disabled}
+                    aria-disabled={disabled}
+                    aria-invalid={invalid}
                     suppressContentEditableWarning
                     role="textbox"
                     aria-multiline="true"
@@ -304,4 +331,4 @@ export function RichEmailEditor({ initialHtml = '', onChange, invalid = false }:
             </div>
         </div>
     );
-}
+});

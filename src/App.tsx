@@ -17,6 +17,8 @@ import { AuthProvider } from './context/AuthContext';
 import { LoadingState } from '@/components/feedback/LoadingState';
 import { ChunkErrorBoundary } from '@/components/ChunkErrorBoundary';
 import { shouldRetryQuery } from '@/lib/queryRetry';
+import { StepUpDialog } from '@/components/auth/StepUpDialog';
+import { UnsavedChangesProvider } from '@/components/forms/UnsavedChangesProvider';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -58,11 +60,14 @@ export default function App(): JSX.Element {
     return (
         <QueryClientProvider client={queryClient}>
             <AuthProvider>
+                <UnsavedChangesProvider>
+                <StepUpDialog />
                 <ChunkErrorBoundary>
                     <Suspense fallback={<LoadingState label="Lade Anwendung…" />}>
                         <AdminRoutes />
                     </Suspense>
                 </ChunkErrorBoundary>
+                </UnsavedChangesProvider>
             </AuthProvider>
         </QueryClientProvider>
     );

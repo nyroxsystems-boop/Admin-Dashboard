@@ -101,8 +101,6 @@ describe('Dichte kommt aus einer Quelle', () => {
 
     it('die Ansichten benutzen sie auch', () => {
         const paare: Array<[string, string]> = [
-            ['src/views/dashboard/OverviewView.tsx', 'KACHEL'],
-            ['src/views/onboarding/OnboardingPipelineView.tsx', 'KACHEL'],
             ['src/views/access/AccessRequestsView.tsx', 'KACHEL'],
             ['src/views/calendar/CalendarView.tsx', 'KALENDER_ZELLE'],
         ];

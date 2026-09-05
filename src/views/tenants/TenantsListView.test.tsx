@@ -58,6 +58,7 @@ vi.mock('@/hooks/useImpersonate', () => ({
 vi.mock('@/hooks/useDebounce', () => ({
     useDebounce: (value: unknown) => value,
 }));
+vi.mock('@/auth/usePermissions', () => ({ usePermissions: () => ({ can: () => true }) }));
 
 // The production dialog primitive is covered independently; keep this view
 // test focused on the lifecycle state machine rather than portal animations.
@@ -108,7 +109,8 @@ describe('TenantsListView lifecycle actions', () => {
             </MemoryRouter>,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: 'Deaktivieren' }));
+        fireEvent.keyDown(screen.getByRole('button', { name: 'Aktionen für Musterteile GmbH' }), { key: 'Enter' });
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Deaktivieren' }));
         expect(mocks.deactivate).not.toHaveBeenCalled();
 
         const dialog = await screen.findByRole('dialog');
@@ -129,7 +131,8 @@ describe('TenantsListView lifecycle actions', () => {
             </MemoryRouter>,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: 'Deaktivieren' }));
+        fireEvent.keyDown(screen.getByRole('button', { name: 'Aktionen für Musterteile GmbH' }), { key: 'Enter' });
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Deaktivieren' }));
         const dialog = await screen.findByRole('dialog');
         fireEvent.click(within(dialog).getByRole('button', { name: 'Deaktivieren' }));
 

@@ -19,6 +19,7 @@
  */
 
 import { errorTracker } from '../services/errorTracker';
+import { requestStepUp } from '@/lib/stepUp';
 
 // ──────────────────────────────────────────────────────────────────────────
 //  ENV
@@ -133,6 +134,7 @@ function buildHeaders(extra?: HeadersInit): Record<string, string> {
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        'X-Partsunion-App': 'admin',
     };
     if (csrf) headers['X-CSRF-Token'] = csrf;
     // Admin-session tokens (random hex from /api/admin-auth/login) MUST use
@@ -196,6 +198,8 @@ export interface ApiFetchOptions extends RequestInit {
     maxRetries?: number;
     /** If true, do not throw on 401 — let caller handle it. */
     silentAuth?: boolean;
+    /** Internal guard: never loop when the server rejects renewed assurance. */
+    stepUpAttempted?: boolean;
     /**
      * Zeitgrenze fuer DIESEN Aufruf, in Millisekunden.
      *
@@ -274,10 +278,11 @@ async function executeRequest<T>(endpoint: string, options: ApiFetchOptions): Pr
 
         // 401 — Session expired
         if (response.status === 401) {
+            const body = await response.json().catch(() => ({}));
             if (!options.silentAuth) {
                 fireAuthExpired(endpoint);
             }
-            throw new ApiError('Sitzung abgelaufen – bitte erneut anmelden', 401, endpoint);
+            throw new ApiError(body.message || body.error || 'Sitzung abgelaufen – bitte erneut anmelden', 401, endpoint, body);
         }
 
         // 403 — Permission denied (NOT auth failure, don't trigger forced logout)
@@ -295,6 +300,15 @@ async function executeRequest<T>(endpoint: string, options: ApiFetchOptions): Pr
                     ?? detail;
             } catch { /* not json */ }
             throw new ApiError(detail, 403, endpoint);
+        }
+
+        if (response.status === 428 && !options.stepUpAttempted && endpoint !== '/api/admin-auth/step-up') {
+            const body = await response.json().catch(() => ({}));
+            if (body.code === 'ADMIN_STEP_UP_REQUIRED') {
+                await requestStepUp();
+                return executeRequest<T>(endpoint, { ...options, stepUpAttempted: true });
+            }
+            throw new ApiError(body.error || 'Sicherheitsbestätigung erforderlich.', 428, endpoint, body);
         }
 
         // 4xx (other) — never retry

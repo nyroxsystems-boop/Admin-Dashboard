@@ -12,7 +12,7 @@
 #   docker run -p 8080:8080 partsunion-admin-dashboard
 
 # ─── Stage 1: Build ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22.23.2-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./

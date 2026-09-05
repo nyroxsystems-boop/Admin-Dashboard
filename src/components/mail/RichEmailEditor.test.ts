@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { plainTextToEmailHtml, sanitizeEmailEditorHtml } from '../../utils/emailHtml';
+import { emailHtmlToPlainText, plainTextToEmailHtml, sanitizeEmailEditorHtml } from '../../utils/emailHtml';
 
 describe('RichEmailEditor HTML safety', () => {
+    it('preserves paragraphs and line breaks for a hidden mobile editor', () => {
+        expect(emailHtmlToPlainText('<p>Erster Absatz</p><p>Zweiter<br>Nachtrag</p><script>bad()</script>')).toBe('Erster Absatz\nZweiter\nNachtrag');
+        expect(emailHtmlToPlainText('Erster Absatz<div>Zweiter Absatz</div>')).toBe('Erster Absatz\nZweiter Absatz');
+    });
     it('keeps supported professional formatting and removes executable markup', () => {
         const clean = sanitizeEmailEditorHtml(`
             <h2>Angebot</h2>

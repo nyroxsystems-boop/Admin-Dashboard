@@ -8,9 +8,10 @@
  *   - Status-LED per row
  *   - Quick-Action: + New Tenant (routes to /tenants/new)
  */
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Plus, Search, MoreHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
 import {
@@ -25,6 +26,7 @@ import {
 } from '@/hooks/useTenants';
 import { useImpersonate } from '@/hooks/useImpersonate';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePermissions } from '@/auth/usePermissions';
 import { LoadingState } from '@/components/feedback/LoadingState';
 import { ErrorState } from '@/components/feedback/ErrorState';
 import {
@@ -38,7 +40,6 @@ import {
     TABELLE_ZEILE,
     TABELLE_ZELLE,
     TabellenKarte,
-    ZeilenMarke,
 } from '@/components/ui/seite';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog';
@@ -54,8 +55,8 @@ import {
 } from './tenantLifecycle';
 import { SEITEN_RAND } from '@/components/ui/seite';
 import { cn } from '@/lib/utils';
+import { filterDirectory, setupComplete, setupLabel, csvField, type DirectoryStatus as StatusFilter, type DirectorySetup, type DirectoryKind } from './tenantDirectory';
 
-type StatusFilter = 'all' | 'active' | 'inactive' | 'trial' | 'overdue' | 'deleted';
 type LifecycleAction = 'activate' | 'deactivate';
 
 
@@ -91,7 +92,7 @@ const STATUS_FILTER: { wert: StatusFilter; label: string }[] = [
     { wert: 'active', label: 'Aktiv' },
     { wert: 'inactive', label: 'Inaktiv' },
     { wert: 'trial', label: 'Trial' },
-    { wert: 'overdue', label: 'Überfällig' },
+    { wert: 'overdue', label: 'Zahlung klären' },
     { wert: 'deleted', label: 'Gelöscht' },
 ];
 
@@ -101,12 +102,6 @@ const STATUS_FILTER: { wert: StatusFilter; label: string }[] = [
  * Zwei Buchstaben aus den ersten beiden Wörtern; bei einem Wort die ersten
  * zwei Zeichen. "A-V-G Autozubehör" wird so zu "AA" und nicht zu "A-".
  */
-function initialen(name: string): string {
-    const teile = name.split(/[\s\-_.]+/).filter(Boolean);
-    if (teile.length === 0) return '—';
-    if (teile.length === 1) return teile[0].slice(0, 2).toUpperCase();
-    return (teile[0][0] + teile[1][0]).toUpperCase();
-}
 
 /**
  * Auslastungszelle: Zahl über einem 4-px-Balken.
@@ -114,29 +109,35 @@ function initialen(name: string): string {
  * Steht so im Entwurf. Der Balken trägt die Aussage, die die Zahl allein nicht
  * hat: "4/10" und "4/6" lesen sich fast gleich, sind aber 40 % gegen 67 %.
  */
-function Auslastung({ wert, von, balken }: { wert: number; von: number; balken: string }): JSX.Element {
-    const anteil = von > 0 ? Math.min(100, Math.round((wert / von) * 100)) : 0;
-    return (
-        <span className="flex flex-col gap-[5px]">
-            <span className="font-mono text-xs tabular-nums text-text-secondary">
-                {wert}/{von}
-            </span>
-            <span
-                className="flex h-1 overflow-hidden rounded-sm bg-overlay/[0.06]"
-                role="img"
-                aria-label={`${anteil} Prozent belegt`}
-            >
-                <span className={cn('h-full rounded-sm', balken)} style={{ width: `${anteil}%` }} />
-            </span>
-        </span>
-    );
+function Auslastung({ wert, von }: { wert: number; von: number; balken: string }): JSX.Element {
+    return <span className="whitespace-nowrap text-sm tabular-nums text-text-secondary">{wert} <span className="text-text-muted">/ {von}</span></span>;
 }
 
 export default function TenantsListView(): JSX.Element {
     const nav = useNavigate();
-    const [search, setSearch] = useState('');
+    const { can } = usePermissions();
+    const [params, setParams] = useSearchParams();
+    const latestParams = useRef(params);
+    useEffect(() => { latestParams.current = params; }, [params]);
+    const search = params.get('q') ?? '';
+    // Router parameter setters do not queue updates like React state. Merge
+    // rapid consecutive controls against the last requested URL, not a stale render.
+    const changeFilter = (key: string, value: string) => {
+        const next = new URLSearchParams(latestParams.current);
+        if (!value || value === 'all') next.delete(key); else next.set(key, value);
+        next.delete('page');
+        latestParams.current = next;
+        setParams(next, { replace: true });
+    };
+    const setSearch = (value: string) => changeFilter('q', value);
     const debounced = useDebounce(search, 200);
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const statusFilter: StatusFilter = STATUS_FILTER.some(filter => filter.wert === params.get('status')) ? params.get('status') as StatusFilter : 'all';
+    const setStatusFilter = (value: StatusFilter) => changeFilter('status', value);
+    const sort = ['name', 'attention', 'newest'].includes(params.get('sort') ?? '') ? params.get('sort')! : 'name';
+    const setSort = (value: string) => changeFilter('sort', value);
+    const setup: DirectorySetup = ['open', 'completed'].includes(params.get('setup') ?? '') ? params.get('setup') as DirectorySetup : 'all';
+    const kind: DirectoryKind = ['customer', 'demo'].includes(params.get('kind') ?? '') ? params.get('kind') as DirectoryKind : 'all';
+    const pageSize = [25, 50, 100].includes(Number(params.get('size'))) ? Number(params.get('size')) : 25;
     // Der "Gelöscht"-Filter lädt die Liste inkl. Soft-Deleted-Tombstones,
     // damit Restore möglich ist; alle anderen Filter sehen sie nie.
     const showDeleted = statusFilter === 'deleted';
@@ -162,27 +163,14 @@ export default function TenantsListView(): JSX.Element {
     const [confirmBulkDeactivate, setConfirmBulkDeactivate] = useState(false);
     const [bulkLifecycleBusy, setBulkLifecycleBusy] = useState(false);
 
-    const filtered = useMemo(() => {
-        return tenants.filter((t) => {
-            if (showDeleted) {
-                if (!t.deleted) return false;
-            } else if (t.deleted) {
-                return false;
-            }
-            if (statusFilter === 'active' && !t.is_active) return false;
-            if (statusFilter === 'inactive' && t.is_active) return false;
-            const paymentStatus = t.payment_status?.trim().toLowerCase();
-            if (statusFilter === 'trial' && paymentStatus !== 'trial') return false;
-            if (statusFilter === 'overdue' && paymentStatus !== 'overdue') return false;
-            if (
-                debounced &&
-                !t.name.toLowerCase().includes(debounced.toLowerCase()) &&
-                !t.slug.includes(debounced.toLowerCase())
-            )
-                return false;
-            return true;
-        });
-    }, [tenants, debounced, statusFilter, showDeleted]);
+    const filtered = useMemo(() => filterDirectory(tenants, { search: debounced, status: statusFilter, setup, kind, sort }), [tenants, debounced, statusFilter, setup, kind, sort]);
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const requestedPage = Number(params.get('page'));
+    const page = Math.min(pages, Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1);
+    const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+    const setPage = (value: number) => { const next = new URLSearchParams(latestParams.current); next.set('page', String(value)); latestParams.current = next; setParams(next, { replace: true }); };
+    const hasFilters = Boolean(search || statusFilter !== 'all' || setup !== 'all' || kind !== 'all');
+    const listState = { tenantListSearch: params.toString() };
 
     const selectableFiltered = useMemo(
         () => filtered.filter((tenant) => !tenant.deleted),
@@ -307,15 +295,11 @@ export default function TenantsListView(): JSX.Element {
      */
     const csvExportieren = () => {
         const kopf = ['Name', 'Slug', 'Status', 'Nutzer', 'Max Nutzer', 'Geräte', 'Max Geräte', 'Onboarding'];
-        const feld = (v: unknown) => {
-            const t = String(v ?? '');
-            return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-        };
         const zeilen = filtered.map((t) => [
             t.name, t.slug, t.is_active ? 'Aktiv' : 'Inaktiv',
             t.user_count, t.max_users, t.device_count, t.max_devices,
             t.onboarding_status ?? '',
-        ].map(feld).join(';'));
+        ].map(csvField).join(';'));
         const inhalt = '\uFEFF' + [kopf.join(';'), ...zeilen].join('\r\n');
         const url = URL.createObjectURL(new Blob([inhalt], { type: 'text/csv;charset=utf-8' }));
         const a = document.createElement('a');
@@ -333,29 +317,35 @@ export default function TenantsListView(): JSX.Element {
         <div className={cn(SEITEN_RAND)} onClick={() => setCtxMenu(null)}>
             <SeitenKopf
                 className="mb-[22px]"
-                titel="Kunden"
+                titel="Händlerübersicht"
                 // Der Entwurf nennt hier "2 Mandanten · 3 Nutzer · 8 Geräte
                 // gebunden" — dieselbe Zeile, aber gerechnet statt geschrieben.
-                beileile={`${tenants.length} ${tenants.length === 1 ? 'Mandant' : 'Mandanten'} · ${nutzerGesamt} ${nutzerGesamt === 1 ? 'Nutzer' : 'Nutzer'} · ${geraeteGesamt} ${geraeteGesamt === 1 ? 'Gerät' : 'Geräte'} gebunden`}
+                beileile={`${tenants.filter(t => !t.deleted).length} Händlerkonten · ${tenants.filter(t => !t.deleted && !setupComplete(t)).length} Einrichtungen offen · ${nutzerGesamt} Nutzer · ${geraeteGesamt} Geräte`}
                 aktionen={
-                    <Link to="/tenants/new" className={HAUPT_AKTION}>
-                        <Plus className="size-[15px]" /> Neuer Kunde
+                    can('tenants.create') && <Link to="/tenants/new" className={HAUPT_AKTION}>
+                        <Plus className="size-[15px]" /> Händler einrichten
                     </Link>
                 }
             />
 
-            <div className="mb-[18px] flex flex-wrap items-center gap-2.5">
+            <section aria-label="Händler filtern" className="mb-4 rounded-lg border border-border bg-surface p-4">
+            <div className="flex flex-wrap items-center gap-2.5">
                 <label className={SUCH_FELD}>
                     <Search className="size-4 shrink-0 text-text-muted" aria-hidden />
                     <input
                         type="search"
-                        placeholder="Suche nach Name oder Slug"
+                        placeholder="Name, Kennung oder WhatsApp suchen"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className={SUCH_EINGABE}
                         aria-label="Kunden durchsuchen"
                     />
                 </label>
+                <select aria-label="Händler sortieren" value={sort} onChange={event => setSort(event.target.value)} className="h-10 rounded-md border border-border bg-surface px-3 text-sm"><option value="name">Name A–Z</option><option value="attention">Zahlungsprobleme zuerst</option><option value="newest">Zuletzt angelegt</option></select>
+                <label className="flex items-center gap-2 text-xs text-text-muted">Einrichtung<select aria-label="Einrichtung filtern" value={setup} onChange={event => changeFilter('setup', event.target.value)} className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-text-primary"><option value="all">Alle Stände</option><option value="open">Noch offen</option><option value="completed">Abgeschlossen</option></select></label>
+                <label className="flex items-center gap-2 text-xs text-text-muted">Kontotyp<select aria-label="Kontotyp filtern" value={kind} onChange={event => changeFilter('kind', event.target.value)} className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-text-primary"><option value="all">Alle Konten</option><option value="customer">Händler</option><option value="demo">Demo</option></select></label>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
                 {/* Pillen statt Auswahlliste — so steht es im Entwurf. Der
                     Vorteil ist nicht nur Optik: man sieht die gewählte Lage,
                     ohne die Liste aufzuklappen, und wechselt mit einem Klick
@@ -369,7 +359,8 @@ export default function TenantsListView(): JSX.Element {
                         {f.label}
                     </FilterPille>
                 ))}
-                {selectedLifecycleIds.length > 0 && (
+                {hasFilters && <Button variant="ghost" size="sm" onClick={() => setParams({}, { replace: true })}>Filter zurücksetzen</Button>}
+                {selectedLifecycleIds.length > 0 && can('tenants.deactivate') && (
                     <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-md bg-elevated border border-accent-500/40">
                         <span className="text-xs font-mono">
                             {selectedLifecycleIds.length} ausgewählt
@@ -385,30 +376,35 @@ export default function TenantsListView(): JSX.Element {
                     </div>
                 )}
             </div>
+            </section>
 
             {filtered.length === 0 ? (
                 <EmptyState
                     title="Keine Kunden gefunden"
-                    description="Passe deine Filter an oder erstelle einen neuen Kunden."
-                    actionLabel="Neuer Kunde"
-                    onAction={() => nav('/tenants/new')}
+                    description={hasFilters ? 'Für diese Kombination sind keine Händler vorhanden. Setze die Filter zurück, um alle Konten zu sehen.' : 'Richte den ersten Händler über den geführten Einrichtungsprozess ein.'}
+                    actionLabel={hasFilters ? 'Alle Händler anzeigen' : can('tenants.create') ? 'Händler einrichten' : undefined}
+                    onAction={() => hasFilters ? setParams({}) : nav('/tenants/new')}
                 />
             ) : (
+                <div className="space-y-3">
+                <p role="status" className="text-xs text-text-muted">{filtered.length} Treffer · {visible.length} auf dieser Seite{selectedLifecycleIds.length > visible.length ? ` · ${selectedLifecycleIds.length} über alle Ergebnisse ausgewählt` : ''}</p>
                 <TabellenKarte>
                     <table className="w-full min-w-[940px] text-sm">
+                        <caption className="sr-only">Händler mit Kontostatus, Nutzung, Zahlung und Einrichtungsstand</caption>
                         <thead className={TABELLE_KOPF}>
                             <tr>
                                 <th className={cn(TABELLE_KOPF_ZELLE, 'w-6 pr-0')}>
                                     <input
                                         type="checkbox"
                                         aria-label="Alle auswählen"
+                                        title="Alle gefilterten Händler über sämtliche Seiten auswählen"
                                         checked={
                                             selectableFiltered.length > 0
                                             && selectableFiltered.every((tenant) =>
                                                 selected.has(tenant.id),
                                             )
                                         }
-                                        disabled={bulkLifecycleBusy || selectableFiltered.length === 0}
+                                        disabled={!can('tenants.deactivate') || bulkLifecycleBusy || selectableFiltered.length === 0}
                                         onChange={(e) =>
                                             setSelected(
                                                 e.target.checked
@@ -418,21 +414,21 @@ export default function TenantsListView(): JSX.Element {
                                         }
                                     />
                                 </th>
-                                <th className={TABELLE_KOPF_ZELLE}>Kunde</th>
+                                <th className={TABELLE_KOPF_ZELLE}>Händler</th>
                                 <th className={TABELLE_KOPF_ZELLE}>Status</th>
                                 <th className={TABELLE_KOPF_ZELLE}>Nutzer</th>
                                 <th className={TABELLE_KOPF_ZELLE}>Geräte</th>
                                 <th className={TABELLE_KOPF_ZELLE}>Zahlung</th>
                                 <th className={TABELLE_KOPF_ZELLE}>Onboarding</th>
-                                <th className={cn(TABELLE_KOPF_ZELLE, "text-right")}>Zugang</th>
+                                <th className={cn(TABELLE_KOPF_ZELLE, "text-right")}>Aktionen</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((t) => (
+                            {visible.map((t) => (
                                 <tr
                                     key={t.id}
                                     className={cn(TABELLE_ZEILE, 'cursor-pointer')}
-                                    onClick={() => nav(`/tenants/${t.id}`)}
+                                    onClick={() => nav(`/tenants/${encodeURIComponent(t.id)}`, { state: listState })}
                                     onContextMenu={(e) => handleContextMenu(e, t.id)}
                                 >
                                     <td className={cn(TABELLE_ZELLE, 'pr-0')} onClick={(e) => e.stopPropagation()}>
@@ -440,7 +436,7 @@ export default function TenantsListView(): JSX.Element {
                                             type="checkbox"
                                             aria-label={`Kunde ${t.name} auswählen`}
                                             checked={selected.has(t.id)}
-                                            disabled={bulkLifecycleBusy || t.deleted}
+                                            disabled={!can('tenants.deactivate') || bulkLifecycleBusy || t.deleted}
                                             onChange={() => toggleSelect(t.id)}
                                         />
                                     </td>
@@ -449,33 +445,23 @@ export default function TenantsListView(): JSX.Element {
                                             Betriebsanzeige sitzt als Punkt darauf, statt
                                             eine eigene Spalte zu brauchen. */}
                                         <div className="flex min-w-0 items-center gap-3">
-                                            <span className="relative shrink-0">
-                                                <ZeilenMarke>{initialen(t.name)}</ZeilenMarke>
-                                                <span
-                                                    aria-hidden
-                                                    className={cn(
-                                                        'absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-canvas',
-                                                        t.is_active ? 'bg-success' : 'bg-text-faint',
-                                                    )}
-                                                />
-                                            </span>
                                             <div className="flex min-w-0 flex-col gap-1">
                                                 <div className="flex min-w-0 items-center gap-1.5">
-                                                    <span className="truncate text-[12.5px] font-bold text-text-primary">{t.name}</span>
+                                                    <Link to={'/tenants/' + encodeURIComponent(t.id)} state={listState} onClick={event => event.stopPropagation()} className="truncate text-sm font-medium text-text-primary hover:text-accent-600 hover:underline">{t.name}</Link>
                                                     {t.is_demo && (
-                                                        <span className="shrink-0 rounded-md bg-accent-500/[0.16] px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-accent-500">
+                                                        <span className="shrink-0 rounded-md bg-accent-500/[0.16] px-1.5 py-0.5 text-xs font-medium text-accent-500">
                                                             Demo
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="truncate font-mono text-[11px] text-text-muted">{t.slug}</div>
+                                                <div className="truncate text-xs text-text-muted">{t.slug}</div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className={TABELLE_ZELLE}>
                                         <span
                                             className={cn(
-                                                'inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase',
+                                                'inline-flex items-center gap-1.5 text-xs font-medium',
                                                 t.is_active ? 'text-success' : 'text-text-muted',
                                             )}
                                         >
@@ -484,7 +470,7 @@ export default function TenantsListView(): JSX.Element {
                                                 className={cn(
                                                     'size-1.5 shrink-0 rounded-full',
                                                     t.is_active
-                                                        ? 'bg-success shadow-[0_0_8px_hsl(var(--success))]'
+                                                        ? 'bg-success'
                                                         : 'bg-text-faint',
                                                 )}
                                             />
@@ -505,15 +491,19 @@ export default function TenantsListView(): JSX.Element {
                                         <PaymentStatusBadge tenant={t} />
                                     </td>
                                     <td className={cn(TABELLE_ZELLE, 'text-[12px] text-text-muted')}>
-                                        {t.onboarding_status ?? '—'}
+                                        {setupLabel(t.onboarding_status)}
                                     </td>
                                     <td
                                         className={cn(TABELLE_ZELLE, 'text-right')}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <div className="flex items-center justify-end gap-[7px]">
-                                            {!t.deleted ? (
-                                                <Button
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild><Button size="sm" variant="ghost" aria-label={`Aktionen für ${t.name}`}><MoreHorizontal size={18} /></Button></DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-52">
+                                            <DropdownMenuItem onSelect={() => nav(`/tenants/${encodeURIComponent(t.id)}`, { state: listState })}>Kundenakte öffnen</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => nav(`/tenants/${encodeURIComponent(t.id)}?tab=onboarding`, { state: listState })}>Einrichtung öffnen</DropdownMenuItem>
+                                            {!t.deleted && can(t.is_active ? 'tenants.deactivate' : 'tenants.activate') ? (
+                                                <DropdownMenuItem asChild><Button
                                                     size="sm"
                                                     variant="outline"
                                                     disabled={
@@ -531,10 +521,10 @@ export default function TenantsListView(): JSX.Element {
                                                     }
                                                 >
                                                     {t.is_active ? 'Deaktivieren' : 'Aktivieren'}
-                                                </Button>
+                                                </Button></DropdownMenuItem>
                                             ) : null}
-                                            {t.deleted ? (
-                                                <Button
+                                            {t.deleted && can('tenants.delete') ? (
+                                                <DropdownMenuItem asChild><Button
                                                     size="sm"
                                                     variant="outline"
                                                     disabled={restoreMut.isPending}
@@ -554,10 +544,10 @@ export default function TenantsListView(): JSX.Element {
                                                     }
                                                 >
                                                     Wiederherstellen
-                                                </Button>
+                                                </Button></DropdownMenuItem>
                                             ) : null}
-                                            {t.deleted ? (
-                                                <Button
+                                            {can('tenants.delete') && t.deleted ? (
+                                                <DropdownMenuItem asChild><Button
                                                     size="sm"
                                                     variant="outline"
                                                     className="ml-2 text-status-danger"
@@ -565,37 +555,40 @@ export default function TenantsListView(): JSX.Element {
                                                     onClick={() => setConfirmPurge(t)}
                                                 >
                                                     Endgültig löschen
-                                                </Button>
-                                            ) : isSuspended(t) ? (
-                                                <Button
+                                                </Button></DropdownMenuItem>
+                                            ) : !t.deleted && can('tenants.update') && (isSuspended(t) ? (
+                                                <DropdownMenuItem asChild><Button
                                                     size="sm"
                                                     variant="outline"
                                                     disabled={unsuspendMut.isPending}
                                                     onClick={() => handleUnsuspend(t)}
                                                 >
                                                     Reaktivieren
-                                                </Button>
+                                                </Button></DropdownMenuItem>
                                             ) : (
-                                                <Button
+                                                <DropdownMenuItem asChild><Button
                                                     size="sm"
                                                     variant="outline"
                                                     onClick={() => setConfirmSuspend(t)}
                                                 >
                                                     Sperren
-                                                </Button>
-                                            )}
-                                        </div>
+                                                </Button></DropdownMenuItem>
+                                            ))}
+</DropdownMenuContent></DropdownMenu>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                </TabellenKarte>
                     {/* Fusszeile wie im Entwurf: Zählung links, Ausgabe rechts. */}
-                    <div className="flex min-w-[940px] items-center gap-3 px-5 py-4">
-                        <span className="text-[11px] font-medium text-text-faint">
-                            {filtered.length} von {tenants.length} {tenants.length === 1 ? 'Mandant' : 'Mandanten'}
+                    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+                        <span className="text-xs font-medium text-text-muted">
+                            {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} von {filtered.length} Händlern
                         </span>
                         <span className="flex-1" />
+                        <select aria-label="Händler pro Seite" className="h-9 rounded-md border border-border bg-surface px-2 text-xs" value={pageSize} onChange={event => changeFilter('size', event.target.value)}><option value={25}>25 pro Seite</option><option value={50}>50 pro Seite</option><option value={100}>100 pro Seite</option></select>
+                        <nav aria-label="Ergebnisseiten" className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage(page - 1)}>Zurück</Button><span className="text-xs tabular-nums">{page} / {pages}</span><Button size="sm" variant="outline" disabled={page === pages} onClick={() => setPage(page + 1)}>Weiter</Button></nav>
                         <button
                             type="button"
                             onClick={csvExportieren}
@@ -604,7 +597,7 @@ export default function TenantsListView(): JSX.Element {
                             CSV exportieren
                         </button>
                     </div>
-                </TabellenKarte>
+                </div>
             )}
 
             {ctxMenu && contextTenant && (
@@ -622,7 +615,7 @@ export default function TenantsListView(): JSX.Element {
                     >
                         Bearbeiten
                     </button>
-                    {!contextTenant.deleted && (
+                    {!contextTenant.deleted && can(contextTenant.is_active ? 'tenants.deactivate' : 'tenants.activate') && (
                         <button
                             className="w-full text-left px-3 py-1.5 hover:bg-elevated"
                             onClick={() => {
@@ -637,10 +630,12 @@ export default function TenantsListView(): JSX.Element {
                         </button>
                     )}
                     <button
+                        disabled={!can('tenants.update') || contextTenant.deleted}
                         className="w-full text-left px-3 py-1.5 hover:bg-elevated"
                         onClick={() => {
                             const t = tenants.find((x) => x.id === ctxMenu.tenantId);
                             if (t) {
+                                if (!can('tenants.update') || t.deleted) return;
                                 if (isSuspended(t)) handleUnsuspend(t);
                                 else setConfirmSuspend(t);
                             }
@@ -659,6 +654,7 @@ export default function TenantsListView(): JSX.Element {
                         Audit anzeigen
                     </button>
                     <button
+                        disabled={!can('tenants.impersonate') || contextTenant.deleted}
                         className="w-full text-left px-3 py-1.5 hover:bg-elevated"
                         onClick={() => {
                             handleImpersonate(ctxMenu.tenantId);
@@ -668,6 +664,7 @@ export default function TenantsListView(): JSX.Element {
                         Impersonate
                     </button>
                     <button
+                        disabled={!can('tenants.delete') || contextTenant.deleted}
                         className="w-full text-left px-3 py-1.5 hover:bg-elevated text-status-danger"
                         onClick={() => {
                             const t = tenants.find((x) => x.id === ctxMenu.tenantId);

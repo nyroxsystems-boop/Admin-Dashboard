@@ -14,10 +14,11 @@ import {
     type PasswordResetResponse,
 } from './types';
 
-export async function adminLogin(username: string, password: string): Promise<LoginResponse> {
+export async function adminLogin(username: string, password: string, totpCode?: string): Promise<LoginResponse> {
     const raw = await apiFetch<unknown>('/api/admin-auth/login', {
         method: 'POST',
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, app: 'admin', ...(totpCode ? { totp_code: totpCode } : {}) }),
+        silentAuth: true,
     });
     const parsed = parseApiResponseStrict(LoginResponseSchema, raw);
     if (parsed.access) {
@@ -34,7 +35,7 @@ export async function adminLogout(authorization?: string | null): Promise<void> 
 }
 
 export async function getAdminMe(): Promise<Admin> {
-    const raw = await apiFetch<unknown>('/api/admin-auth/me');
+    const raw = await apiFetch<unknown>('/api/admin-auth/me?app=admin');
     return parseApiResponseStrict(AdminSchema, raw);
 }
 
@@ -50,7 +51,7 @@ export async function refreshAccessToken(): Promise<{ access: string; expiresIn?
 export async function requestPasswordReset(username: string): Promise<PasswordResetResponse> {
     const raw = await apiFetch<unknown>('/api/admin-auth/request-reset', {
         method: 'POST',
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username, app: 'admin' }),
     });
     return parseApiResponse(PasswordResetResponseSchema, raw);
 }

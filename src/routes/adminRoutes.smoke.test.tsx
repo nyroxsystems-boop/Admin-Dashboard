@@ -15,17 +15,17 @@
  * oder Fehlerzustand. Das genügt: geprüft wird, dass die Route trägt, nicht
  * dass die API antwortet.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Admin } from '@/api/types';
 
 const superadmin: Admin = {
     id: 'admin-1',
-    username: 'Aaron',
-    email: 'aaron.vogt@partsunion.de',
+    username: 'Fecat',
+    email: 'operator@example.test',
     role: 'superadmin',
     must_change_password: false,
 };
@@ -49,6 +49,10 @@ vi.mock('@/context/AuthContext', async () => {
 // Netzwerk stilllegen: die Ansichten sollen ihren Lade-/Fehlerzustand zeigen,
 // statt auf echte Antworten zu warten.
 vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline im Test'))));
+
+// Route rendering is tested here; idle prefetch has its own contract tests.
+// Otherwise its delayed imports may outlive the test environment.
+vi.mock('./vorwaermen', () => ({ ansichtenVorwaermen: vi.fn() }));
 
 import { AdminRoutes } from './adminRoutes';
 
@@ -89,10 +93,13 @@ const REDIRECTS: Array<[string, string]> = [
     ['/maintenance', 'Einstellungen'],
 ];
 
+const clients: QueryClient[] = [];
+
 function renderAt(path: string) {
     const client = new QueryClient({
         defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
+    clients.push(client);
     return render(
         <QueryClientProvider client={client}>
             <MemoryRouter initialEntries={[path]}>
@@ -107,24 +114,36 @@ describe('Dashboard-Routen', () => {
         vi.clearAllMocks();
     });
 
+    afterEach(() => {
+        cleanup();
+        for (const client of clients.splice(0)) client.clear();
+    });
+
     it.each(ROUTES)('rendert %s ohne Absturz', async (path) => {
         const { container } = renderAt(path);
+
+        // Sidebar text alone is not evidence that the requested lazy view rendered.
+        await act(async () => { await vi.dynamicImportSettled(); });
 
         // Lazy-Loading: erst nach dem Auflösen des Chunks steht der Inhalt.
         await waitFor(() => {
             expect(container.textContent).toBeTruthy();
+            // The resolved view may legitimately show its own API loading state.
+            expect(container.querySelector('main')?.textContent ?? container.textContent).toBeTruthy();
         }, { timeout: 5000 });
 
         // Die Fehlergrenze zeigt diesen Text — sie darf nicht ausgelöst haben.
         expect(screen.queryByText(/Etwas ist schiefgelaufen/i)).toBeNull();
         expect(screen.queryByText(/Unerwarteter Fehler/i)).toBeNull();
-    });
+    }, 15_000);
 
     it.each(REDIRECTS)('leitet %s weiter', async (path) => {
         const { container } = renderAt(path);
+        await act(async () => { await vi.dynamicImportSettled(); });
         await waitFor(() => {
             expect(container.textContent).toBeTruthy();
+            expect(container.querySelector('main')?.textContent ?? container.textContent).toBeTruthy();
         }, { timeout: 5000 });
         expect(screen.queryByText(/Seite nicht gefunden/i)).toBeNull();
-    });
+    }, 15_000);
 });

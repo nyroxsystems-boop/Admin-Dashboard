@@ -23,10 +23,12 @@ import {
   NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
-  Rocket,
+  ClipboardCheck,
   Search,
   Send,
   Settings,
+  ShoppingCart,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,9 +38,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { usePermissions } from '@/auth/usePermissions';
-import { useSystemHealth } from '@/hooks/useSystemHealth';
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { WORKSPACE_BRAND, WORKSPACE_MARK, WORKSPACE_NAV_ITEM, WORKSPACE_NAV_ACTIVE } from './workspaceShell';
+import { usePermissions, type Permission } from '@/auth/usePermissions';
 
 const STORAGE_KEY = 'pu.admin.sidebar.collapsed.v1';
 
@@ -49,6 +51,7 @@ interface NavItem {
   end?: boolean;
   /** Only shown to SUPER_ADMIN — route is also SUPER_ADMIN-guarded. */
   superAdmin?: boolean;
+  permission?: Permission;
 }
 
 interface NavSection {
@@ -71,30 +74,32 @@ interface NavSection {
 const NAV_SECTIONS: NavSection[] = [
   {
     id: 'top',
-    label: 'Übersicht',
+    label: 'Arbeitsplatz',
     items: [
-      { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+      { to: '/', label: 'Arbeitsübersicht', icon: LayoutDashboard, end: true },
+      { to: '/mail', label: 'E-Mail', icon: Mail, permission: 'inbox.read' },
       { to: '/calendar', label: 'Kalender', icon: Calendar },
-      { to: '/notizen', label: 'Notizen', icon: NotebookPen },
-      { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
     ],
   },
   {
     id: 'kunden',
-    label: 'Kunden',
+    label: 'Händler betreuen',
     items: [
-      { to: '/tenants', label: 'Kundenliste', icon: Building2 },
-      { to: '/onboarding', label: 'Onboarding', icon: Rocket },
-      { to: '/access-requests', label: 'Zugänge beantragen', icon: KeyRound },
+      { to: '/tenants', label: 'Händlerübersicht', icon: Building2, permission: 'tenants.read' },
+      { to: '/onboarding', label: 'Einrichtungen', icon: ClipboardCheck, permission: 'tenants.read' },
+      { to: '/access-requests', label: 'Zugangsanfragen', icon: KeyRound, permission: 'tenants.read' },
+      { to: '/orders', label: 'Bestellungen', icon: ShoppingCart, permission: 'orders.read' },
     ],
   },
   {
     id: 'werkzeuge',
     label: 'Werkzeuge',
     items: [
-      { to: '/mail', label: 'E-Mail', icon: Mail },
-      { to: '/oem-finder', label: 'OEM-Finder', icon: Search },
-      { to: '/outreach', label: 'Outreach', icon: Send },
+      { to: '/oe-quality', label: 'Teilequalität', icon: ShieldCheck, permission: 'oem.read' },
+      { to: '/oem-finder', label: 'OEM-Finder', icon: Search, permission: 'oem.read' },
+      { to: '/outreach', label: 'Outreach', icon: Send, permission: 'emails.send' },
+      { to: '/notizen', label: 'Notizen', icon: NotebookPen },
+      { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
     ],
   },
   {
@@ -166,7 +171,7 @@ export function AdminSidebar({
         // Leiste sitzt damit auf dem Lichtverlauf der Seite, statt ihn zu
         // verdecken.
         'border-r border-border-subtle',
-        'bg-gradient-to-b from-overlay/[0.028] to-overlay/[0.006]',
+        'bg-surface',
         'transition-[width] duration-200 ease-out',
         collapsed ? 'w-16' : 'w-64',
         className,
@@ -187,6 +192,8 @@ export function AdminSidebar({
           side="left"
           className="w-64 p-0 bg-surface border-r border-border-subtle"
         >
+          <SheetTitle className="sr-only">Admin-Navigation</SheetTitle>
+          <SheetDescription className="sr-only">Arbeitsbereich auswählen</SheetDescription>
           <div className="flex flex-col h-full">
             <SidebarBrand collapsed={false} />
             <SidebarNav collapsed={false} onNavigate={() => onMobileOpenChange?.(false)} />
@@ -214,11 +221,11 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center gap-2.5 px-4 pb-4 pt-5',
+        WORKSPACE_BRAND,
         collapsed && 'justify-center px-0',
       )}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br from-accent-500 to-accent-700">
+      <span className={WORKSPACE_MARK}>
         <img
           src="/partsunion-symbol-weiss.png"
           alt="Partsunion"
@@ -232,8 +239,8 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
           <span className="truncate font-display text-sm font-bold tracking-[0.02em] text-text-primary">
             Partsunion
           </span>
-          <span className="font-mono text-[9px] font-semibold tracking-[0.18em] text-accent-500">
-            ADMIN CONSOLE
+          <span className="text-xs font-medium text-text-muted">
+            Admin · Betrieb
           </span>
         </span>
       )}
@@ -248,17 +255,17 @@ function SidebarNav({
   collapsed: boolean;
   onNavigate?: () => void;
 }) {
-  const { isSuperAdmin } = usePermissions();
+  const { isSuperAdmin, can } = usePermissions();
   // Hide SUPER_ADMIN-only entries from non-super admins so they don't click a
   // link that dead-ends at the 403 ForbiddenView (the route guard still enforces it).
   const sections = NAV_SECTIONS
     .map((section) => ({
       ...section,
-      items: section.items.filter((it) => !it.superAdmin || isSuperAdmin),
+      items: section.items.filter((it) => (!it.superAdmin || isSuperAdmin) && (!it.permission || can(it.permission))),
     }))
     .filter((section) => section.items.length > 0);
   return (
-    <nav className="flex-1 overflow-y-auto px-0 pb-3 pt-1.5" aria-label="Navigation">
+    <nav className="flex-1 overflow-y-auto px-0 pb-3 pt-5" aria-label="Navigation">
       {sections.map((section) => (
         <SidebarSection
           key={section.id}
@@ -281,9 +288,9 @@ function SidebarSection({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="mb-5">
+    <div className="mb-4">
       {!collapsed && (
-        <div className="mb-2 px-[22px] font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-text-muted">
+        <div className="mb-2 px-[22px] text-xs font-medium text-text-muted">
           {section.label}
         </div>
       )}
@@ -312,14 +319,14 @@ function SidebarLink({
   const link = (
     <NavLink
       to={item.to}
+      aria-label={collapsed ? item.label : undefined}
       end={item.end}
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
           // Redesign: 10 px Radius, Manrope halbfett, durchscheinende
           // Auflage beim Ueberfahren statt deckender Flaeche.
-          'group relative mx-3 flex items-center rounded-[10px] text-[12.5px] font-semibold transition-colors',
-          'py-[9px]',
+          WORKSPACE_NAV_ITEM,
           'text-text-tertiary',
           'hover:bg-overlay/[0.05] hover:text-text-primary',
           collapsed ? 'justify-center px-0' : 'gap-[11px] px-[11px]',
@@ -330,7 +337,7 @@ function SidebarLink({
             // text-text-primary, NICHT text-white: der Verlauf ist
             // durchscheinend, und im Hellmodus wäre weisse Schrift darauf
             // unsichtbar. Am Bild nachgemessen.
-            'bg-gradient-to-r from-accent-500/[0.16] via-accent-500/[0.03] to-transparent text-text-primary',
+            WORKSPACE_NAV_ACTIVE,
         )
       }
     >
@@ -396,7 +403,6 @@ function SidebarFooter({
 
   return (
     <div className="shrink-0 border-t border-border-subtle p-3.5">
-      {!collapsed && <SidebarStatus />}
       {collapsed ? (
         <Tooltip>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
@@ -407,65 +413,6 @@ function SidebarFooter({
       ) : (
         button
       )}
-    </div>
-  );
-}
-
-/**
- * Statusfeld der Vorlage.
- *
- * Zwei Abweichungen von der Vorlage, beide mit Absicht:
- *
- * 1. KEINE "99,98 %". Das war eine Zahl im Entwurf, die niemand berechnet. Eine
- *    erfundene Verfügbarkeit ist im Betrieb schlimmer als keine — man verlässt
- *    sich darauf. Sie kommt, sobald es einen Messwert dafür gibt.
- * 2. Der Zustand ist nicht fest "normal", sondern kommt aus /health. Ein
- *    Statusfeld, das immer grün leuchtet, ist eine Lampe ohne Kabel.
- */
-function SidebarStatus() {
-    const { zustand: lebenszeichen, isLoading } = useSystemHealth();
-
-    /**
-     * Nur noch EINE Aussage, weil nur eine belegbar ist.
-     *
-     * Hier standen drei Einzelampeln fuer Datenbank, Redis und Warteschlange.
-     * Die Adresse dahinter (`/api/admin/health`) gab es nie — die Anzeige
-     * stand deshalb dauerhaft auf "Status wird geprueft". Erreichbar ist von
-     * aussen allein `/health/live`, und das liefert ein Lebenszeichen, sonst
-     * nichts. Aus einem Lebenszeichen drei Einzelampeln abzuleiten waere die
-     * Lampe ohne Kabel, vor der der Kommentar oben warnt.
-     */
-    const stufe = isLoading && !lebenszeichen
-        ? 'unbekannt'
-        : lebenszeichen?.erreichbar
-            ? 'ok'
-            : 'gestoert';
-
-    const farben = {
-        ok: 'border-success/[0.16] bg-success/[0.06] text-success',
-        gestoert: 'border-danger/20 bg-danger/[0.07] text-danger',
-        unbekannt: 'border-border-subtle bg-overlay/[0.03] text-text-muted',
-    }[stufe];
-
-    const text = {
-        ok: 'API erreichbar',
-        gestoert: 'API nicht erreichbar',
-        unbekannt: 'Status wird geprüft',
-    }[stufe];
-
-    const punkt = {
-        ok: 'bg-success shadow-[0_0_10px_hsl(var(--success))] motion-safe:animate-pulse',
-        gestoert: 'bg-danger shadow-[0_0_10px_hsl(var(--danger))] motion-safe:animate-pulse',
-        unbekannt: 'bg-text-faint',
-    }[stufe];
-
-  return (
-    <div
-      className={cn('mb-2.5 flex items-center gap-2.5 rounded-[11px] border px-3 py-2.5', farben)}
-      role="status"
-    >
-      <span aria-hidden className={cn('size-[7px] shrink-0 rounded-full', punkt)} />
-      <span className="flex-1 text-[11px] font-semibold leading-tight">{text}</span>
     </div>
   );
 }

@@ -107,11 +107,32 @@ describe('Erscheinungsbild des Mailinhalts', () => {
         expect(srcdoc).toContain('color:black');
     });
 
-    it('rechnet dieselbe Mail im Dunkelmodus weiterhin um', () => {
-        const { container } = render(<MailHtmlFrame message={nachricht('dunkel', farbigeMail)} />);
+    it('behaelt Originalfarben und bietet eine bewusste dunkle Leseflaeche', () => {
+        const { container, getByRole } = render(<MailHtmlFrame message={nachricht('dunkel', farbigeMail)} />);
+        expect(container.querySelector('iframe')?.getAttribute('srcdoc')).toContain('background:white');
+        fireEvent.click(getByRole('button', { name: 'Dunkle Lesefläche' }));
         const srcdoc = container.querySelector('iframe')?.getAttribute('srcdoc') ?? '';
-
         expect(srcdoc).not.toContain('background:white');
         expect(srcdoc).not.toContain('color:black');
     });
+});
+
+it('gibt externe Bilder nur fuer die ausgewaehlte Nachricht frei', () => {
+    const html = '<img src="https://sender.example/banner.png" alt="Banner">';
+    const { container, getByRole, rerender } = render(<MailHtmlFrame message={nachricht('first', html)} />);
+    const body = () => new DOMParser().parseFromString(container.querySelector('iframe')!.srcdoc, 'text/html').body;
+    expect(body().querySelector('img')?.getAttribute('src')).toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Bilder laden' }));
+    expect(body().querySelector('img')?.getAttribute('src')).toBe('https://sender.example/banner.png');
+    rerender(<MailHtmlFrame message={nachricht('second', html)} />);
+    expect(body().querySelector('img')?.getAttribute('src')).toBeNull();
+});
+
+it('zeigt reine Textmails vollstaendig und maskiert darin enthaltene HTML-Zeichen', () => {
+    const message = { ...nachricht('text', ''), html: null, body: 'Guten Tag\n<script>kein HTML</script>' };
+    const { container } = render(<MailHtmlFrame message={message} />);
+    const document = new DOMParser().parseFromString(container.querySelector('iframe')!.srcdoc, 'text/html');
+    expect(document.body.textContent).toContain('Guten Tag');
+    expect(document.body.textContent).toContain('<script>kein HTML</script>');
+    expect(document.querySelector('script')).toBeNull();
 });

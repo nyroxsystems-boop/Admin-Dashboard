@@ -56,6 +56,9 @@ export const KARTE_INNEN = 'p-4';
  */
 export const KACHEL = 'min-h-[68px] gap-2.5 p-4';
 
+/** Zweizeilige Kennzahlkarte mit Platz für lange Beschriftungen und Verlauf. */
+export const KACHEL_METRIK = `${KACHEL} min-h-[112px]`;
+
 /**
  * Schriftgrad der grossen Zahl in einer Kachel.
  *
@@ -94,7 +97,7 @@ export const BLOCK_ABSTAND = 'gap-3.5';
  *
  * Gleichlautend mit CRM-System/src/app/components/dichte.ts.
  */
-export const SEITEN_TITEL = 'text-[clamp(1.375rem,2.4vw,1.75rem)]';
+export const SEITEN_TITEL = 'text-[22px]';
 
 /**
  * Begrüssung im Kopfbereich der Übersicht.

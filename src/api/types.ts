@@ -72,6 +72,9 @@ export const AdminSchema = z.object({
     email: z.string().email().or(z.string()),
     role: z.union([AdminRoleSchema, LegacyAdminRoleSchema]).optional(),
     must_change_password: z.boolean().optional(),
+    mfa_enabled: z.boolean().optional(),
+    app_access: z.object({ admin: z.boolean(), crm: z.boolean() }).optional(),
+    crm_role: z.string().nullish(),
     signature: z.string().nullish(),
     created_at: z.string().optional(),
     last_login_at: z.string().nullish(),
@@ -363,19 +366,24 @@ export type AuditLogPage = z.infer<typeof AuditLogPageSchema>;
  */
 const zahl = z.coerce.number().catch(0);
 
+/** A missing or malformed operating metric is unknown, never a synthetic zero. */
+const knownMetric = z.preprocess(value =>
+    value == null || (typeof value !== 'number' && typeof value !== 'string') || (typeof value === 'string' && !value.trim()) ? null : value,
+z.coerce.number().finite().nullable().catch(null));
+
 export const AdminStatsKpisSchema = z.object({
     sales: z
         .object({
             totalOrders: zahl,
-            ordersToday: zahl,
-            revenue: zahl,
+            ordersToday: knownMetric,
+            revenue: knownMetric,
             conversionRate: zahl,
         })
         .optional(),
     team: z
         .object({
-            activeUsers: zahl,
-            tenantCount: zahl,
+            activeUsers: knownMetric,
+            tenantCount: knownMetric,
             messagesSent: zahl,
         })
         .optional(),
@@ -388,9 +396,9 @@ export const AdminStatsKpisSchema = z.object({
 });
 
 export const AdminStatsSchema = z.object({
-    total_tenants: z.number().default(0),
-    total_users: z.number().default(0),
-    total_devices: z.number().default(0),
+    total_tenants: knownMetric,
+    total_users: knownMetric,
+    total_devices: knownMetric,
     tenants: z.array(TenantSchema).default([]),
     history: z
         .array(z.object({ name: z.string(), orders: z.number(), revenue: z.number() }))
@@ -546,6 +554,9 @@ export const InboxMessageSchema = z.object({
         content_id: z.string().nullish().optional(),
     })).default([]),
     status: z.string().optional(),
+    assigned_to: z.string().nullish(),
+    assignment_status: z.enum(['open', 'in_progress', 'done']).optional(),
+    assignment_notes: z.string().nullish(),
 });
 export type InboxMessage = z.infer<typeof InboxMessageSchema>;
 

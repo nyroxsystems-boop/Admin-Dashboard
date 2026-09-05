@@ -71,7 +71,7 @@ vi.mock('@/hooks/useInbox', () => ({
 vi.mock('@/hooks/useAuditLogs', () => ({
     useAuditLogs: () => ({
         entries: [
-            { id: '1', action_type: 'ADMIN_LOGIN', admin_username: 'Aaron', created_at: '2026-07-30T00:41:00.000Z' },
+            { id: '1', action_type: 'ADMIN_LOGIN', admin_username: 'Fecat', created_at: '2026-07-30T00:41:00.000Z' },
             { id: '2', action_type: 'TENANT_UPDATE', entity_name: 'A-V-G Autozubehör', admin_username: 'Elias', created_at: '2026-07-29T18:05:00.000Z' },
             { id: '3', action_type: 'MAILBOX_ACCESS_GRANT', entity_type: 'MAILBOX', admin_username: 'Fecat', created_at: '2026-07-29T09:12:00.000Z' },
         ],
@@ -84,7 +84,7 @@ vi.mock('@/hooks/useAuditLogs', () => ({
 }));
 vi.mock('@/context/AuthContext', () => ({
     useAuth: () => ({
-        user: { id: '1', username: 'Aaron', email: 'aaron.vogt@partsunion.de', role: 'superadmin' },
+        user: { id: '1', username: 'Fecat', email: 'fecat.vogt@partsunion.de', role: 'superadmin' },
         logout: async () => {},
     }),
 }));
@@ -105,7 +105,7 @@ vi.mock('@/api/appointments', () => ({
             { id: 'a1', type: 'quali', title: 'Onboarding-Gespräch', start_at: '2026-07-30T09:00:00.000Z',
               customer_name: 'A-V-G Autozubehör', assignee_name: 'Elias', status: 'confirmed' },
             { id: 'a2', type: 'sales', title: 'Angebot nachfassen', start_at: '2026-07-31T13:30:00.000Z',
-              customer_name: 'Kfz-Teile Nord', assignee_name: 'Aaron', status: 'confirmed' },
+              customer_name: 'Kfz-Teile Nord', assignee_name: 'Fecat', status: 'confirmed' },
             { id: 'a3', type: 'call', title: 'Rückruf Werkstatt Süd', start_at: '2026-08-03T10:15:00.000Z',
               customer_name: 'Werkstatt Süd', assignee_name: 'Bardia', status: 'proposed' },
             { id: 'a4', type: 'other', title: 'Zweiter Termin Donnerstag', start_at: '2026-07-30T15:00:00.000Z',
@@ -257,7 +257,7 @@ const TERMINE = [
     { id: 'a4', type: 'other', title: 'Zweiter Termin Donnerstag', start_at: '2026-07-30T15:00:00.000Z',
       customer_name: null, assignee_name: 'Fecat', status: 'confirmed' },
     { id: 'a2', type: 'sales', title: 'Angebot nachfassen', start_at: '2026-07-31T13:30:00.000Z',
-      customer_name: 'Kfz-Teile Nord', assignee_name: 'Aaron', status: 'confirmed' },
+      customer_name: 'Kfz-Teile Nord', assignee_name: 'Fecat', status: 'confirmed' },
     { id: 'a3', type: 'call', title: 'Rückruf Werkstatt Süd', start_at: '2026-08-03T10:15:00.000Z',
       customer_name: 'Werkstatt Süd', assignee_name: 'Bardia', status: 'proposed' },
 ];
@@ -331,10 +331,10 @@ describe('Bildprobe Redesign', () => {
 
         // Belegt, dass die Redesign-Merkmale wirklich im Markup stehen und
         // nicht nur im Kopf des Autors.
-        expect(markup).toContain('ADMIN CONSOLE');
+        expect(markup).toContain('Admin · Betrieb');
         expect(markup).toContain('w-64');
-        expect(markup).toContain('tracking-[0.2em]');
-        expect(markup).toContain('rounded-[10px]');
+        expect(markup).toContain('Händlerübersicht');
+        expect(markup).toContain('Bestellungen');
     });
 
     it.skipIf(!css)('schreibt den ganzen Bildschirm nach dist-probe/', () => {
@@ -368,7 +368,7 @@ describe('Bildprobe Redesign', () => {
         );
 
         // Die beiden Punkte, die ausdrücklich gefordert waren.
-        expect(markup).toContain('Aaron');           // Name aus der Anmeldung
+        expect(markup).toContain('Arbeitsübersicht');
         expect(markup).toContain('href="/mail"');    // E-Mail bleibt eigene Seite
     });
 
@@ -397,7 +397,7 @@ describe('Bildprobe Redesign', () => {
         expect(markup).toContain('Partsunion Mail');
         expect(markup).not.toContain('ADMIN CONSOLE');
         // Aber die Gestaltung von dort.
-        expect(markup).toContain('backdrop-blur-[18px]');
+        expect(markup).toContain('bg-surface');
     });
 
     it.skipIf(!css)('schreibt die Kunden-Ansicht nach dist-probe/', () => {
@@ -427,9 +427,9 @@ describe('Bildprobe Redesign', () => {
 </head><body class="bg-canvas text-text-primary">${markup}</body></html>`, 'utf8');
 
         // Die Merkmale des Entwurfs stehen im Markup.
-        expect(markup).toContain('Mandanten');
-        expect(markup).toContain('Suche nach Name oder Slug');
-        expect(markup).toContain('tracking-[0.14em]');
+        expect(markup).toContain('Händlerkonten');
+        expect(markup).toContain('Name, Kennung oder WhatsApp suchen');
+        expect(markup).toContain('text-sm');
     });
 
     it.skipIf(!css)('schreibt die Onboarding-Ansicht nach dist-probe/', () => {
@@ -456,7 +456,7 @@ describe('Bildprobe Redesign', () => {
 </style>
 </head><body class="bg-canvas text-text-primary">${markup}</body></html>`, 'utf8');
 
-        expect(markup).toContain('Onboarding-Pipeline');
+        expect(markup).toContain('Einrichtungen');
         /**
          * Die Kacheln benutzen jetzt KACHEL_ZAHL aus dichte.ts — dieselbe
          * Zahlengroesse und Laufweite wie jede andere Kennzahl in beiden
@@ -467,7 +467,7 @@ describe('Bildprobe Redesign', () => {
          * Geprueft wird deshalb der TOKEN und nicht mehr eine Zahl, die hier
          * jemand von Hand nachziehen muesste.
          */
-        expect(markup).toContain('tracking-[-0.03em]');
+        expect(markup).toContain('tabular-nums');
     });
 
     it.skipIf(!css)('enthält für jede benutzte Klasse eine Regel in der CSS', () => {

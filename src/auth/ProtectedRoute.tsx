@@ -29,7 +29,7 @@ export function ProtectedRoute({
     requiredPermission,
     fallback,
 }: ProtectedRouteProps): JSX.Element {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, user } = useAuth();
     const { hasRole, can } = usePermissions();
     const location = useLocation();
 
@@ -42,6 +42,9 @@ export function ProtectedRoute({
         return <Navigate to={`/login?redirect=${redirect}`} replace />;
     }
 
+    if (user?.app_access?.admin === false) {
+        return <ForbiddenView />;
+    }
     if (requiredRole && !hasRole(requiredRole)) {
         return <>{fallback ?? <ForbiddenView />}</>;
     }

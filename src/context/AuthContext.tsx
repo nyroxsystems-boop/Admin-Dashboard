@@ -71,7 +71,7 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-    login: (username: string, password: string) => Promise<void>;
+    login: (username: string, password: string, totpCode?: string) => Promise<void>;
     logout: () => Promise<void>;
     refresh: () => Promise<void>;
     setImpersonatedTenant: (tenantId: number | null) => void;
@@ -213,8 +213,8 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     // ── Public Methods ───────────────────────────────────────────────────
 
     const login = useCallback(
-        async (username: string, password: string): Promise<void> => {
-            const res = await apiAdminLogin(username, password);
+        async (username: string, password: string, totpCode?: string): Promise<void> => {
+            const res = await apiAdminLogin(username, password, totpCode);
             const expiresIn = res.expiresIn ?? res.expires_in ?? DEFAULT_EXPIRY_SEC;
             const expiresAt = Date.now() + expiresIn * 1000;
 
@@ -388,47 +388,18 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
                 } else {
                     setAccessToken(null);
                 }
-                setUser(session.user);
+                // Confirm server-side app access before rendering an internal workspace.
+                // Cached identities are display data, never proof of current authorization.
+                const me = mergeMustChangePassword(await apiGetMe(), session.user);
+                if (me.app_access?.admin === false) {
+                    handleForcedLogout();
+                    return;
+                }
+                setUser(me);
+                saveSession({ ...session, user: me });
                 scheduleHardLogout(session.expiresAt);
                 resetAuthExpired();
-
-                /**
-                 * ─── Die Oberflaeche wartet NICHT auf /me ─────────────────
-                 *
-                 * Hier stand ein `await apiGetMe()` VOR dem Ende des Boots.
-                 * Der Nutzer war zu dem Zeitpunkt laengst aus der lokalen
-                 * Sitzung wiederhergestellt — trotzdem stand die ganze
-                 * Anwendung hinter dem bildschirmfuellenden "Authenticating",
-                 * bis die Antwort da war. In der Netzwerkansicht des Nutzers:
-                 * 939 ms, weil die allererste Anfrage den Verbindungsaufbau
-                 * bezahlt.
-                 *
-                 * Und dieser Weg laeuft nicht nur beim Anmelden: NACH JEDEM
-                 * DEPLOY laedt die Seite einmal hart neu (ChunkErrorBoundary,
-                 * alte Code-Stuecke sind weg). Jede Auslieferung bescherte dem
-                 * offenen Tab also eine Sekunde Vollbild-Spinner — das ist ein
-                 * grosser Teil der "der Knopf ist immer noch langsam"-Runden.
-                 *
-                 * Jetzt prueft /me im HINTERGRUND. Faellt die Pruefung durch,
-                 * wird genauso abgemeldet wie vorher — nur eben ohne dass die
-                 * gueltige Mehrheit der Sitzungen darauf wartet. Ein
-                 * unguelitges Token scheitert ohnehin an der ersten echten
-                 * Abfrage; hier laeuft nichts ungeprueft weiter.
-                 */
-                void (async () => {
-                    try {
-                        const me = mergeMustChangePassword(await apiGetMe(), session.user);
-                        setUser(me);
-                        saveSession({ ...session, user: me });
-                        errorTracker.setUser({
-                            id: String(me.id),
-                            email: me.email,
-                            role: typeof me.role === 'string' ? me.role : undefined,
-                        });
-                    } catch {
-                        handleForcedLogout();
-                    }
-                })();
+                errorTracker.setUser({ id: String(me.id), email: me.email, role: me.role });
             } catch (bootErr) {
                 errorTracker.captureException(bootErr, { phase: 'auth-boot' });
                 // Last-ditch: nuke local state and fall back to logged-out.

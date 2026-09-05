@@ -43,3 +43,23 @@ export async function getTenantOnboardingHealth(tenantId: number | string): Prom
     );
     return raw?.health ?? null;
 }
+
+export type ProvisioningStage = 'draft' | 'provisioning' | 'integration' | 'review' | 'live';
+export interface ProvisioningCase {
+    ownerName: string | null;
+    dueAt: string | null;
+    stage: ProvisioningStage;
+    checks: Record<string, boolean>;
+    notes: string;
+    updatedAt: string | null;
+    version: number;
+    readiness: { ready: boolean; blockers: string[] };
+}
+
+export function getProvisioningCase(tenantId: string): Promise<ProvisioningCase> {
+    return apiFetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/provisioning`);
+}
+
+export function saveProvisioningCase(tenantId: string, value: Omit<ProvisioningCase, 'updatedAt' | 'readiness'>): Promise<ProvisioningCase> {
+    return apiFetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/provisioning`, { method: 'PATCH', body: JSON.stringify(value) });
+}

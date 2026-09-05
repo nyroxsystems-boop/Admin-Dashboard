@@ -77,9 +77,11 @@ export default function LoginView(): JSX.Element {
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [mfaRequired, setMfaRequired] = useState(false);
+    const [totpCode, setTotpCode] = useState('');
 
     const trimmed = identifier.trim();
-    const canSubmit = trimmed.length >= 3 && password.length > 0 && !busy;
+    const canSubmit = trimmed.length >= 3 && password.length > 0 && !busy && (!mfaRequired || totpCode.trim().length >= 6);
 
     useEffect(() => {
         // Re-arm the auth-expired latch when user reaches the login page,
@@ -93,15 +95,18 @@ export default function LoginView(): JSX.Element {
         setBusy(true);
         setError(null);
         try {
-            await login(trimmed, password);
+            await login(trimmed, password, totpCode.trim() || undefined);
             const redirectParam = params.get('redirect');
             let redirect = '/';
             if (redirectParam) {
                 try {
                     const decoded = decodeURIComponent(redirectParam);
-                    // Sicherheits-Check: nur same-origin path, kein vollständiger URL
-                    if (decoded.startsWith('/') && !decoded.startsWith('//')) {
-                        redirect = decoded;
+                    const target = new URL(decoded, window.location.origin);
+                    if (decoded.startsWith('/') && !decoded.startsWith('//')
+                        && !decoded.includes('\\')
+                        && !Array.from(decoded).some(character => character.charCodeAt(0) < 32)
+                        && target.origin === window.location.origin) {
+                        redirect = target.pathname + target.search + target.hash;
                     }
                 } catch {
                     // malformed → fallback /
@@ -109,7 +114,11 @@ export default function LoginView(): JSX.Element {
             }
             nav(redirect, { replace: true });
         } catch (err) {
-            setError(anmeldeFehler(err));
+            const parsed = parseError(err);
+            if (parsed.code === 'MFA_REQUIRED' || parsed.code === 'MFA_INVALID') {
+                setMfaRequired(true);
+                setError(parsed.code === 'MFA_INVALID' ? 'Der Sicherheitscode ist ungültig oder wurde bereits verwendet.' : null);
+            } else setError(anmeldeFehler(err));
         } finally {
             setBusy(false);
         }
@@ -205,6 +214,7 @@ export default function LoginView(): JSX.Element {
                         </div>
                     </div>
 
+                    {mfaRequired && <div className="space-y-2"><Label htmlFor="login-mfa">Sicherheitscode oder Wiederherstellungscode</Label><Input id="login-mfa" autoComplete="one-time-code" value={totpCode} onChange={e => setTotpCode(e.target.value)} autoFocus /><p className="text-xs text-text-muted">Öffne deine Authenticator-App oder verwende einen unbenutzten Wiederherstellungscode.</p></div>}
                     {error && (
                         <div role="alert" className="text-sm" style={{ color: 'hsl(var(--danger))' }}>
                             {error}
@@ -216,7 +226,7 @@ export default function LoginView(): JSX.Element {
                         disabled={!canSubmit}
                         className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                         style={{
-                            background: 'hsl(var(--accent-500))',
+                            background: 'hsl(var(--accent-600))',
                             color: 'hsl(0 0% 100%)',
                             height: '40px',
                             paddingLeft: '16px',

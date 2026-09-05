@@ -6,15 +6,13 @@
  */
 
 import { Fragment, type ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Briefcase,
   LogOut,
   Menu,
-  Plus,
   Search,
   ShieldAlert,
-  ShieldCheck,
   User as UserIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,15 +28,19 @@ import { useAuth } from '@/context/AuthContext';
 import { useActiveImpersonation } from '@/hooks/useActiveImpersonation';
 import { clearActiveImpersonation } from '@/lib/impersonationSession';
 import { apiFetch } from '@/api/client';
-import { usePermissions } from '@/auth/usePermissions';
 import { useOffeneSachen } from '@/hooks/useOffeneSachen';
 import { NotificationsBell } from './NotificationsBell';
 import { ErscheinungsbildKnopf } from './ErscheinungsbildKnopf';
 import type { Admin } from '@/api/types';
+import { useConfirmDiscard } from '@/hooks/useUnsavedChanges';
+import { WORKSPACE_HEADER, WORKSPACE_SEARCH, WORKSPACE_ACTION, WORKSPACE_AVATAR } from './workspaceShell';
 
 const ROUTE_LABELS: Record<string, string> = {
-  '': 'Dashboard',
-  tenants: 'Kunden',
+  '': 'Arbeitsübersicht',
+  tenants: 'Händler',
+  onboarding: 'Onboarding & Einrichtung',
+  calendar: 'Kalender',
+  einstellungen: 'Einstellungen',
   'access-requests': 'Zugänge beantragen',
   support: 'Support-Konsole',
   admins: 'Admins',
@@ -54,7 +56,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'e2e-runner': 'E2E-Flow-Runner',
   'live-sim': 'Live-Simulation',
   inbox: 'Inbox',
-  orders: 'Orders',
+  orders: 'Bestellungen',
   maintenance: 'Maintenance',
   settings: 'Settings',
   profile: 'Profil',
@@ -82,14 +84,14 @@ interface BreadcrumbCrumb {
 function buildBreadcrumbs(pathname: string): BreadcrumbCrumb[] {
   const parts = pathname.split('/').filter(Boolean);
   if (parts.length === 0) {
-    return [{ label: 'Dashboard', to: '/', isLast: true }];
+    return [{ label: 'Arbeitsübersicht', to: '/', isLast: true }];
   }
-  const crumbs: BreadcrumbCrumb[] = [{ label: 'Dashboard', to: '/', isLast: false }];
+  const crumbs: BreadcrumbCrumb[] = [{ label: 'Arbeitsübersicht', to: '/', isLast: false }];
   let acc = '';
   parts.forEach((seg, idx) => {
     acc += `/${seg}`;
     crumbs.push({
-      label: humanize(seg),
+      label: parts[0] === 'tenants' && idx === 1 ? (seg === 'new' ? 'Händler einrichten' : 'Händlerakte') : humanize(seg),
       to: acc,
       isLast: idx === parts.length - 1,
     });
@@ -104,13 +106,6 @@ function buildBreadcrumbs(pathname: string): BreadcrumbCrumb[] {
  * Komponenten kostet in dieser Datei das schnelle Neuladen im Entwicklungslauf.
  * Das Gegenstück im CRM steht dort ebenfalls dateiintern.
  */
-const NEBEN_PILLE = cn(
-  'inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[10px]',
-  'border border-overlay/[0.07] bg-overlay/[0.04] px-3.5 py-2.5',
-  'text-[12px] font-semibold text-text-secondary transition-colors',
-  'hover:bg-overlay/[0.07] hover:text-text-primary',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-);
 
 /**
  * Feste Breite des Wechselknopfs.
@@ -139,11 +134,9 @@ export function AdminTopbar({
   className,
 }: AdminTopbarProps) {
   const location = useLocation();
-  const navigate = useNavigate();
   const crumbs = buildBreadcrumbs(location.pathname);
   const { ungeleseneMails, fehlgeschlageneAnfragen } = useOffeneSachen();
   const { user, logout } = useAuth();
-  const { can, isSuperAdmin } = usePermissions();
   const impersonation = useActiveImpersonation();
 
   const handleLogout = async (): Promise<void> => {
@@ -196,13 +189,12 @@ export function AdminTopbar({
       )}
       <header
         className={cn(
-          'flex items-center gap-2.5 px-3 py-3.5 md:px-8',
+          WORKSPACE_HEADER,
           // Redesign: die Kopfzeile schwebt ueber dem Inhalt statt ihn
           // abzuschneiden — durchscheinend mit Weichzeichner. `supports` sorgt
           // dafuer, dass sie ohne backdrop-filter deckend bleibt und der Text
           // darunter nicht durchscheint.
-          'border-b border-border-subtle bg-canvas/95',
-          'supports-[backdrop-filter]:bg-canvas/[0.82] supports-[backdrop-filter]:backdrop-blur-[18px]',
+          'border-b border-border bg-surface',
         )}
         role="banner"
       >
@@ -222,25 +214,6 @@ export function AdminTopbar({
 
       <CommandTrigger onClick={onOpenCommandPalette} />
 
-      {/* Quick-Action Pills (hidden on small screens) */}
-      <div className="hidden lg:flex items-center gap-1.5">
-        {can('tenants.create') && (
-          <QuickAction
-            icon={<Plus size={15} />}
-            label="Neuer Kunde"
-            onClick={() => navigate('/tenants/new')}
-            hervorgehoben
-          />
-        )}
-        {isSuperAdmin && (
-          <QuickAction
-            icon={<ShieldCheck size={15} />}
-            label="System Health"
-            onClick={() => navigate('/maintenance')}
-            tonKlasse="text-success"
-          />
-        )}
-      </div>
 
       <ErscheinungsbildKnopf />
 
@@ -257,7 +230,8 @@ export function AdminTopbar({
           WECHSEL_BREITE; wer ihn ändert, muss es dort auch tun. */}
       <a
         href="https://crm.partsunion.de"
-        className={cn(NEBEN_PILLE, WECHSEL_BREITE)}
+        className={cn(WORKSPACE_ACTION, WECHSEL_BREITE)}
+        aria-label="Zum CRM wechseln"
         title="Zum CRM wechseln"
       >
         <Briefcase size={15} className="shrink-0 text-text-tertiary" />
@@ -301,64 +275,19 @@ function Breadcrumbs({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
   );
 }
 
-function QuickAction({
-  icon,
-  label,
-  onClick,
-  hervorgehoben = false,
-  tonKlasse,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-  /** Gefuellte Verlaufsschaltflaeche — genau EINE pro Kopfzeile. */
-  hervorgehoben?: boolean;
-  /** Farbe des Symbols, z. B. gruen beim Systemzustand. */
-  tonKlasse?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-[7px] rounded-[10px] border border-overlay/[0.07] bg-overlay/[0.04]',
-        'px-3.5 py-2.5 text-[12px] font-semibold text-text-secondary transition-colors',
-        'hover:bg-overlay/[0.07] hover:text-text-primary',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-        // Hervorgehobene Aktion: gefuellter Verlauf. Weiss auf accent-500
-        // ergibt nur 3,16 — deshalb laeuft der Verlauf von 600 nach 700
-        // (5,17 bzw. mehr gegen Weiss), siehe tokens.css.
-        hervorgehoben &&
-          // Verlauf STATISCH, nur der Schatten überblendet — ein Verlaufswechsel
-          // beim Überfahren springt hart und flackert beim Klick.
-          'border-transparent bg-gradient-to-br from-accent-600 to-accent-700 font-bold text-white',
-          'shadow-[0_6px_20px_hsl(var(--accent-500)/0.34)] hover:shadow-[0_8px_26px_hsl(var(--accent-500)/0.5)]',
-      )}
-    >
-      <span className={cn('flex shrink-0', tonKlasse)}>{icon}</span>
-      {label}
-    </button>
-  );
-}
 
 function CommandTrigger({ onClick }: { onClick?: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-[9px] rounded-[10px] px-3 py-2.5',
-        'border border-overlay/[0.07] bg-overlay/[0.04] transition-colors',
-        'hover:border-accent-500/40',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
-        'lg:min-w-[230px]',
-      )}
+      className={WORKSPACE_SEARCH}
       aria-label="Befehlspalette öffnen"
     >
       <Search size={16} className="shrink-0 text-text-muted" aria-hidden />
       {/* Der Platzhaltertext nennt, wonach man suchen kann — "Suche…" liess
           offen, ob damit Kunden, Tickets oder Teilenummern gemeint sind. */}
-      <span className="hidden flex-1 text-left text-[12px] font-medium text-text-muted lg:inline">
+      <span className="hidden min-w-0 flex-1 truncate text-left text-xs font-medium text-text-muted lg:inline">
         Kunden, Tickets, OE-Nummern…
       </span>
       <kbd className="hidden items-center rounded-[5px] bg-overlay/[0.06] px-1.5 py-[3px] font-mono text-[10px] font-medium text-text-muted md:inline-flex">
@@ -376,6 +305,7 @@ function UserMenu({
   onLogout: () => void | Promise<void>;
 }) {
   const displayName = user?.username ?? 'Admin';
+  const confirmDiscard = useConfirmDiscard();
   const initials = user
     ? displayName
         .split(/[\s._-]+/)
@@ -391,7 +321,7 @@ function UserMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="ml-1 inline-flex size-[34px] shrink-0 items-center justify-center rounded-full border border-overlay/10 bg-gradient-to-br from-elevated-hover to-surface font-display text-[12px] font-bold text-text-secondary transition-[color,box-shadow] duration-150 hover:text-text-primary hover:ring-2 hover:ring-accent-500/40"
+          className={WORKSPACE_AVATAR}
           aria-label="Benutzermenü"
         >
           {initials}
@@ -414,7 +344,7 @@ function UserMenu({
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault();
-            void onLogout();
+            if (confirmDiscard()) void onLogout();
           }}
           className="flex items-center gap-2 text-status-danger focus:text-status-danger"
         >

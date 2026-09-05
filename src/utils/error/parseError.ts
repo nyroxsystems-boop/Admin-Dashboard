@@ -22,6 +22,7 @@ interface MaybeApiError {
     code?: string;
     status?: number;
     message?: string;
+    body?: { code?: string };
 }
 
 export function parseError(err: unknown): ParsedError {
@@ -41,7 +42,8 @@ export function parseError(err: unknown): ParsedError {
                 cause: err,
             };
         }
-        return { message: err.message, cause: err };
+        const api = err as Error & MaybeApiError;
+        return { message: err.message, cause: err, status: api.status, code: api.code ?? api.body?.code };
     }
     if (typeof err === 'object') {
         const o = err as MaybeApiError;

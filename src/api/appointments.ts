@@ -6,6 +6,15 @@ import { apiFetch } from './client';
 
 export type AppointmentType = 'quali' | 'sales' | 'call' | 'other';
 export type AppointmentStatus = 'proposed' | 'confirmed' | 'declined' | 'cancelled' | 'completed' | 'no_show';
+export type BookingEmailStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'uncertain';
+export interface WebsiteBooking {
+    confirmationStatus: BookingEmailStatus;
+    teamStatus: BookingEmailStatus;
+    confirmationSentAt?: string;
+    confirmationError?: string;
+    teamError?: string;
+    consentGivenAt: string;
+}
 
 export interface Appointment {
     id: string;
@@ -40,6 +49,11 @@ export interface Appointment {
     updated_at: string;
     source?: string | null;
     external_calendar_user?: string | null;
+    website_booking?: WebsiteBooking | null;
+}
+
+export function retryWebsiteConfirmation(id: string): Promise<{ok: boolean}> {
+    return apiFetch(`/api/admin/consultations/${encodeURIComponent(id)}/confirmation`, {method:'POST',body:JSON.stringify({})});
 }
 
 export interface MicrosoftCalendarState {

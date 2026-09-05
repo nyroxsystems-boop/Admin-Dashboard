@@ -3,8 +3,12 @@ const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function parseEmailAddresses(value: string): string[] {
     return [...new Set(
         value
-            .split(/[;,]/)
-            .map((address) => address.trim().toLowerCase())
+            .split(/[,;\n\r]+(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+            .map((address) => {
+                const value = address.trim();
+                const named = value.match(/^[^<>]*<([^<>]+)>$/);
+                return (named ? named[1] : value).trim().toLowerCase();
+            })
             .filter(Boolean),
     )];
 }

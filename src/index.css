@@ -95,18 +95,18 @@
          * Helle Oberflächen bauen Tiefe andersherum: getönter Grund, weisse
          * Karte, Abstand über den Schatten. Deshalb --karte-*.
          */
-        background: linear-gradient(180deg, var(--karte-von), var(--karte-bis));
+        background: hsl(var(--bg-surface));
         border: 1px solid var(--karte-rand);
         box-shadow: var(--karte-schatten);
         transition: border-color 160ms ease, box-shadow 160ms ease;
     }
 
     .karte {
-        border-radius: 18px;
+        border-radius: var(--radius);
     }
 
     .karte-klein {
-        border-radius: 14px;
+        border-radius: var(--radius);
     }
 
     .karte:hover,
@@ -181,13 +181,9 @@ body {
     /* Die Deckung der beiden Lichtquellen steckt in --schein-1/-2: auf hellem
        Grund wirkt derselbe Wert doppelt so stark und die Seite bekäme einen
        Blaustich. Werte siehe tokens.css. */
-    background:
-        radial-gradient(1200px 620px at 12% -8%, hsl(var(--accent-500) / var(--schein-1)), transparent 62%),
-        radial-gradient(900px 520px at 96% 4%, hsl(var(--success) / var(--schein-2)), transparent 60%),
-        hsl(var(--bg-canvas));
-    background-attachment: fixed;
+    background: hsl(var(--bg-canvas));
     color: hsl(var(--text-primary));
-    font-size: 1rem;
+    font-size: 0.875rem;
     line-height: 1.5;
 }
 
@@ -215,9 +211,9 @@ samp {
 }
 
 .label-technical {
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-family: var(--font-body);
+    text-transform: none;
+    letter-spacing: normal;
     font-size: 0.75rem;
     font-weight: 500;
 }
@@ -252,4 +248,10 @@ samp {
 
 ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--text-muted));
+}
+
+.merchant-sections > section[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

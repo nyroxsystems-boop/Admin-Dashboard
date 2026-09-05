@@ -26,7 +26,6 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useBeforeUnload } from '@/hooks/useBeforeUnload';
 import type { CreateTenantResult, TenantBillingInput } from '@/api/tenants';
 import { validateEmail } from '@/utils/validation/email';
-import { generateSecurePassword, validatePassword } from '@/utils/validation/password';
 import { copyToClipboard } from '@/utils/clipboard';
 import { buildTenantTaxInput } from './tenantProvisioning';
 import { SEITEN_RAND_OHNE_BREITE } from '@/components/ui/seite';
@@ -90,7 +89,7 @@ const INITIAL: WizardState = {
     dpaAccepted: false,
 };
 
-const STEPS = ['Stammdaten', 'Admin-Account', 'Limits', 'Rechnung & Steuer', 'Bestätigung'];
+const STEPS = ['Stammdaten', 'Kontoinhaber', 'Nutzung', 'Rechnung & Steuer', 'Prüfen'];
 
 /** Gleiche Normalisierung + Regex wie das Backend (400 bei Mismatch). */
 const WHATSAPP_RE = /^\+?\d{10,15}$/;
@@ -102,13 +101,11 @@ export default function TenantWizard(): JSX.Element {
     const nav = useNavigate();
     const [state, setState] = useLocalStorage<WizardState>('admin.tenantWizard.draft', INITIAL);
     // Passwort NUR im Memory — niemals in den localStorage-Draft.
-    const [adminPassword, setAdminPassword] = useState('');
     // Logo NUR im Memory (base64 kann groß sein) — nicht in den localStorage-Draft.
     const [logoBase64, setLogoBase64] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const submittingRef = useRef(false);
     const [result, setResult] = useState<CreateTenantResult | null>(null);
-    const [credsCopied, setCredsCopied] = useState(false);
     const [setupLinkCopied, setSetupLinkCopied] = useState(false);
     const createMut = useCreateTenant();
 
@@ -178,14 +175,10 @@ export default function TenantWizard(): JSX.Element {
     useBeforeUnload(
         result
             ? Boolean(result.user_created?.initial_password || result.setup_link)
-            : Boolean(adminPassword || logoBase64 || isDirty),
+            : Boolean(logoBase64 || isDirty),
     );
 
     const emailCheck = useMemo(() => validateEmail(state.adminEmail), [state.adminEmail]);
-    const pwCheck = useMemo(
-        () => (adminPassword ? validatePassword(adminPassword) : null),
-        [adminPassword],
-    );
     const whatsappNormalized = normalizeWhatsapp(state.whatsapp ?? '');
     const whatsappValid = whatsappNormalized === '' || WHATSAPP_RE.test(whatsappNormalized);
 
@@ -194,7 +187,7 @@ export default function TenantWizard(): JSX.Element {
             case 0:
                 return state.name.trim().length >= 2 && whatsappValid;
             case 1:
-                return emailCheck.valid && (pwCheck === null || pwCheck.valid);
+                return emailCheck.valid;
             case 2:
                 return (
                     Number.isInteger(state.usersLimit) &&
@@ -232,7 +225,7 @@ export default function TenantWizard(): JSX.Element {
         const invalidStep =
             state.name.trim().length < 2 || !whatsappValid
                 ? 0
-                : !emailCheck.valid || (pwCheck !== null && !pwCheck.valid)
+                : !emailCheck.valid
                   ? 1
                   : !Number.isInteger(state.usersLimit) ||
                       state.usersLimit < 1 ||
@@ -275,7 +268,6 @@ export default function TenantWizard(): JSX.Element {
                 email: state.adminEmail.trim(),
                 max_users: state.usersLimit,
                 max_devices: state.devicesLimit,
-                ...(adminPassword ? { password: adminPassword } : {}),
                 ...(whatsappNormalized ? { whatsapp_number: whatsappNormalized } : {}),
                 ...(Object.keys(billing).length ? { billing } : {}),
                 ...(tax ? { tax } : {}),
@@ -296,14 +288,12 @@ export default function TenantWizard(): JSX.Element {
     // Erfolgs-Screen (persistent — Initial-Passwort wird nur einmal geliefert)
     // ------------------------------------------------------------------
     if (result) {
-        const user = result.user_created;
-        const oneTimePassword = user?.initial_password;
 
         return (
             <div className={cn(SEITEN_RAND_OHNE_BREITE, 'mx-auto max-w-3xl')}>
                 <header className="mb-6">
                     <h1 className="text-2xl font-display font-semibold tracking-tight">
-                        Kunde angelegt
+                        Händlerdatensatz angelegt
                     </h1>
                     <p className="text-sm text-text-secondary">
                         „{result.name}" wurde erfolgreich erstellt.
@@ -382,71 +372,12 @@ export default function TenantWizard(): JSX.Element {
                         </div>
                     )}
 
-                    {user && oneTimePassword ? (
-                        <div className="space-y-2">
-                            <Label>Zugangsdaten für den Händler</Label>
-                            <div className="rounded-md border border-border bg-surface p-3 font-mono text-sm space-y-1">
-                                <div>
-                                    <span className="text-text-secondary">Benutzername: </span>
-                                    {user.username}
-                                </div>
-                                <div>
-                                    <span className="text-text-secondary">Initial-Passwort: </span>
-                                    {oneTimePassword}
-                                </div>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                    const ok = await copyToClipboard(
-                                        `Benutzername: ${user.username}\nPasswort: ${oneTimePassword}`,
-                                    );
-                                    if (ok) {
-                                        setCredsCopied(true);
-                                        toast.success('Zugangsdaten kopiert.');
-                                        setTimeout(() => setCredsCopied(false), 2000);
-                                    } else {
-                                        toast.error('Kopieren fehlgeschlagen — bitte manuell kopieren.');
-                                    }
-                                }}
-                            >
-                                {credsCopied ? (
-                                    <>
-                                        <Check className="size-3" /> Kopiert
-                                    </>
-                                ) : (
-                                    <>
-                                        <Copy className="size-3" /> Kopieren
-                                    </>
-                                )}
-                            </Button>
-                            <p className="text-xs text-warning font-medium">
-                                Dieses Passwort wird nur EINMAL angezeigt — jetzt sicher an den
-                                Händler übermitteln.
-                            </p>
-                        </div>
-                    ) : user ? (
-                        <p className="text-sm text-text-secondary">
-                            {user.password_was_set
-                                ? 'Der Händler-Account wurde mit dem im Wizard gesetzten Passwort angelegt.'
-                                : 'Für den Händler-Account wurde kein Initial-Passwort in der Antwort geliefert.'}{' '}
-                            {result.setup_link
-                                ? 'Bevorzugt setzt der Händler sein Passwort selbst über den Setup-Link.'
-                                : 'Bitte prüfe den Mailversand und erzeuge bei Bedarf im Kundendetail einen neuen Setup-Link.'}
-                        </p>
-                    ) : (
-                        <p className="text-sm text-status-danger">
-                            Der Kunde wurde angelegt, aber die Antwort enthält keine Informationen
-                            zum Händler-Account. Bitte den Account im Kundendetail prüfen, bevor du
-                            den Vorgang wiederholst.
-                        </p>
-                    )}
+                    <p className="text-sm text-text-secondary">Der Händler legt sein Passwort selbst über den einmaligen Einladungslink fest. Die Anlage ist der erste Schritt; Einrichtung und Freigabe werden im Händlerdatensatz fortgeführt.</p>
                 </div>
 
                 <div className="flex justify-end mt-6">
-                    <Button onClick={() => nav('/tenants')}>
-                        Zu den Kunden <ArrowRight className="size-4" />
+                    <Button onClick={() => nav(`/tenants/${result.id}?tab=onboarding`)}>
+                        Einrichtung fortsetzen <ArrowRight className="size-4" />
                     </Button>
                 </div>
             </div>
@@ -456,17 +387,17 @@ export default function TenantWizard(): JSX.Element {
     return (
         <div className={cn(SEITEN_RAND_OHNE_BREITE, 'mx-auto max-w-3xl')}>
             <header className="mb-6">
-                <h1 className="text-2xl font-display font-semibold tracking-tight">Neuer Kunde</h1>
-                <p className="text-sm text-text-secondary">Mehrstufiger Onboarding-Wizard.</p>
+                <h1 className="text-2xl font-display font-semibold tracking-tight">Händler einrichten</h1>
+                <p className="text-sm text-text-secondary">Stammdaten und Zugang vorbereiten. Anschließend folgen Integration, Prüfung und Freigabe.</p>
             </header>
 
             {/* Stepper */}
-            <ol className="flex items-center gap-2 mb-8" aria-label="Wizard Steps">
+            <ol className="grid grid-cols-2 gap-3 mb-8 sm:grid-cols-5" aria-label="Wizard Steps">
                 {STEPS.map((label, idx) => (
                     <li
                         key={label}
                         className={cn(
-                            'flex-1 flex items-center gap-2 text-xs font-mono uppercase tracking-widest',
+                            'flex items-center gap-2 text-xs font-medium',
                             idx === state.step && 'text-text-primary',
                             idx < state.step && 'text-accent-500',
                             idx > state.step && 'text-text-muted',
@@ -531,7 +462,7 @@ export default function TenantWizard(): JSX.Element {
                 {state.step === 1 && (
                     <>
                         <div className="space-y-2">
-                            <Label htmlFor="t-email">Admin-Email</Label>
+                            <Label htmlFor="t-email">E-Mail des Kontoinhabers</Label>
                             <Input
                                 id="t-email"
                                 type="email"
@@ -544,49 +475,7 @@ export default function TenantWizard(): JSX.Element {
                                 <p className="text-xs text-status-danger">{emailCheck.errors[0]}</p>
                             )}
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="t-pw">
-                                Passwort{' '}
-                                <span className="text-xs text-text-muted font-mono">(optional)</span>
-                            </Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    id="t-pw"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    value={adminPassword}
-                                    onChange={(e) => setAdminPassword(e.target.value)}
-                                    className="font-mono"
-                                    placeholder="Leer lassen für automatisches Initial-Passwort"
-                                />
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={!adminPassword}
-                                    onClick={async () => {
-                                        const ok = await copyToClipboard(adminPassword);
-                                        if (ok) toast.success('Passwort kopiert.');
-                                    }}
-                                >
-                                    <Copy className="size-3" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setAdminPassword(generateSecurePassword())}
-                                >
-                                    Generieren
-                                </Button>
-                            </div>
-                            {adminPassword && pwCheck && !pwCheck.valid && (
-                                <p className="text-xs text-status-danger">{pwCheck.errors[0]}</p>
-                            )}
-                            <p className="text-xs text-text-muted">
-                                Leer lassen, damit das System ein Initial-Passwort generiert — es
-                                wird nach dem Anlegen genau einmal angezeigt. Das Passwort wird
-                                nicht im Browser zwischengespeichert.
-                            </p>
-                        </div>
+                        <div className="rounded-md border border-border bg-elevated p-4 text-sm text-text-secondary">Der Kontoinhaber erhält eine persönliche Einladung per E-Mail und legt sein Passwort selbst fest. Prüfe die Adresse mit dem Händler vor der Anlage.</div>
                     </>
                 )}
 
@@ -861,7 +750,7 @@ export default function TenantWizard(): JSX.Element {
                         <dt className="text-text-secondary">Admin-Email</dt>
                         <dd>{state.adminEmail}</dd>
                         <dt className="text-text-secondary">Passwort</dt>
-                        <dd>{adminPassword ? 'Selbst gesetzt' : 'Wird automatisch generiert'}</dd>
+                        <dd>Persönliche Einladung per E-Mail</dd>
                         <dt className="text-text-secondary">User-Limit</dt>
                         <dd className="font-mono">{state.usersLimit}</dd>
                         <dt className="text-text-secondary">Device-Limit</dt>

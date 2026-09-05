@@ -21,6 +21,8 @@ export interface InboxQuery {
     cursor?: string;
     unreadOnly?: boolean;
     search?: string;
+    assignmentStatus?: 'open' | 'in_progress' | 'done';
+    assignedToMe?: boolean;
 }
 
 const InboxPageSchema = z.object({
@@ -73,6 +75,8 @@ export async function listInboxMessages(query: InboxQuery = {}): Promise<InboxPa
     if (query.cursor) params.set('offset', query.cursor);
     if (query.unreadOnly) params.set('unread', '1');
     if (query.search) params.set('search', query.search);
+    if (query.assignmentStatus) params.set('assignmentStatus', query.assignmentStatus);
+    if (query.assignedToMe) params.set('assignedToMe', '1');
 
     const raw = await apiFetch<unknown>(`/api/inbox/emails?${params.toString()}`);
     const parsed = InboxPageSchema.parse(raw);
@@ -93,6 +97,18 @@ export async function markInboxRead(id: string, isRead = true): Promise<{ succes
         method: 'PATCH',
         body: JSON.stringify({ read: isRead }),
     });
+}
+
+export async function getInboxThread(id: string): Promise<{ messages: InboxMessage[]; hasMore: boolean }> {
+    const raw = await apiFetch<unknown>(`/api/inbox/email/${encodeURIComponent(id)}/thread`);
+    const parsed = InboxPageSchema.parse(raw);
+    return { messages: parsed.emails, hasMore: parsed.hasMore };
+}
+
+export async function updateInboxAssignment(id: string, input: { assignedTo?: string; status?: 'open' | 'in_progress' | 'done'; notes?: string; expectedNotes?: string | null }): Promise<{ success: boolean }> {
+    return z.object({ success: z.literal(true) }).parse(await apiFetch(`/api/inbox/email/${encodeURIComponent(id)}/assign`, {
+        method: 'POST', body: JSON.stringify({ messageId: id, ...input }),
+    }));
 }
 
 export async function listMailboxes(): Promise<{
@@ -407,14 +423,14 @@ export interface DraftInput {
 }
 
 export async function createDraft(input: DraftInput): Promise<{ success: boolean; id: string }> {
-    return apiFetch('/api/inbox/drafts', { method: 'POST', body: JSON.stringify(input) });
+    return z.object({ success: z.literal(true), id: z.string().min(1) }).parse(await apiFetch('/api/inbox/drafts', { method: 'POST', body: JSON.stringify(input) }));
 }
 
 export async function updateDraft(id: string, input: DraftInput): Promise<{ success: boolean }> {
-    return apiFetch(`/api/inbox/drafts/${encodeURIComponent(id)}`, {
+    return z.object({ success: z.literal(true) }).parse(await apiFetch(`/api/inbox/drafts/${encodeURIComponent(id)}`, {
         method: 'PUT',
         body: JSON.stringify(input),
-    });
+    }));
 }
 
 export async function deleteDraft(id: string): Promise<{ success: boolean }> {
@@ -485,10 +501,10 @@ export async function sendInboxEmail(input: SendInboxEmailInput): Promise<{
     success: boolean;
     messageId: string;
 }> {
-    return apiFetch('/api/inbox/email/send', {
+    return z.object({ success: z.literal(true), messageId: z.string().min(1) }).parse(await apiFetch('/api/inbox/email/send', {
         method: 'POST',
         body: JSON.stringify(input),
-    });
+    }));
 }
 
 export type EmailDraftTone = 'professional' | 'friendly' | 'formal' | 'brief';
@@ -539,16 +555,7 @@ export async function downloadInboxAttachment(
     attachmentId: string,
     filename: string,
 ): Promise<void> {
-    const authorization = getAuthorizationValue(getAuthToken());
-    const response = await fetch(
-        `${API_BASE_URL}/api/inbox/email/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
-        {
-            credentials: 'include',
-            headers: authorization ? { Authorization: authorization } : undefined,
-        },
-    );
-    if (!response.ok) throw new Error('Anhang konnte nicht geladen werden.');
-    const blob = await response.blob();
+    const blob = await fetchInboxAttachment(messageId, attachmentId);
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -557,6 +564,21 @@ export async function downloadInboxAttachment(
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+}
+
+/** Authenticated bytes for explicitly selected forward attachments; never fetch message URLs. */
+export async function fetchInboxAttachment(messageId: string, attachmentId: string): Promise<Blob> {
+    const authorization = getAuthorizationValue(getAuthToken());
+    const response = await fetch(
+        `${API_BASE_URL}/api/inbox/email/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
+        {
+            credentials: 'include',
+            headers: authorization ? { Authorization: authorization } : undefined,
+            signal: AbortSignal.timeout(30_000),
+        },
+    );
+    if (!response.ok) throw new Error('Anhang konnte nicht geladen werden.');
+    return response.blob();
 }
 
 /* ── Push-Benachrichtigungen ──────────────────────────────────────────── */

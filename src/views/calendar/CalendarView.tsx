@@ -34,6 +34,7 @@ import {
 } from '@/api/appointments';
 import { cn } from '@/lib/utils';
 import { KALENDER_ZELLE } from '@/components/ui/dichte';
+import { WebsiteBookingStatus } from './WebsiteBookingStatus';
 
 // ── Anzeige-Maps ──────────────────────────────────────────────────────────────
 
@@ -127,7 +128,7 @@ export default function CalendarView(): JSX.Element {
         queryKey: ['admin', 'appointments', rangeStart, rangeEnd, assigneeId ?? 'all'],
         queryFn: () => listAppointments({ from: rangeStart, to: rangeEnd, assigneeId }),
         staleTime: 15_000,
-        refetchInterval: 60_000,
+        refetchInterval: 15_000,
     });
     const adminsQ = useQuery({
         queryKey: ['admin', 'appointment-admins'],
@@ -477,7 +478,7 @@ export default function CalendarView(): JSX.Element {
                                             const tm = TYPE_META[a.type] || TYPE_META.other;
                                             return (
                                                 <div key={a.id} className={['truncate rounded border px-1 py-0.5 text-[10px] leading-tight', tm.chip, a.status === 'cancelled' ? 'line-through opacity-60' : ''].join(' ')}>
-                                                    <span className="font-medium">{timeOf(a.start_at)}</span> {a.customer_name || a.title}
+                                                    <span className="font-medium">{timeOf(a.start_at)}</span> {a.website_booking ? 'Website · ' : ''}{a.customer_name || a.title}
                                                 </div>
                                             );
                                         })}
@@ -730,7 +731,8 @@ export default function CalendarView(): JSX.Element {
                                     )}
                                     {!detail.meeting_link && detail.location && <Row icon={<MapPin className="size-4" />} text={detail.location} />}
                                     {detail.notes && <div className="break-words [overflow-wrap:anywhere] rounded-lg border bg-muted/30 p-2.5 text-sm text-muted-foreground">{detail.notes}</div>}
-                                    {(detail.external_calendar_user || detail.source === 'microsoft' || detail.meeting_link || detail.customer_email) && (
+                                    {detail.website_booking && <WebsiteBookingStatus appointment={detail} />}
+                                    {!detail.website_booking && (detail.external_calendar_user || detail.source === 'microsoft' || detail.meeting_link || detail.customer_email) && (
                                         <OfficeFlow appointment={detail} />
                                     )}
                                 </div>

@@ -85,13 +85,13 @@ export function SeitenKopf({
     className?: string;
 }): JSX.Element {
     return (
-        <header className={cn('flex flex-wrap items-end gap-6', className)}>
-            <div className="flex min-w-[min(100%,17.5rem)] flex-1 flex-col gap-2.5">
+        <header className={cn('flex flex-wrap items-center gap-4', className)}>
+            <div className="flex min-w-[min(100%,17.5rem)] flex-1 flex-col gap-1.5">
                 <h1 className={cn('font-display font-semibold leading-[1.1] tracking-[-0.02em] text-text-primary', SEITEN_TITEL)}>
                     {titel}
                 </h1>
                 {beileile && (
-                    <p className="text-[13.5px] leading-[1.5] text-text-tertiary">{beileile}</p>
+                    <p className="text-sm leading-relaxed text-text-secondary">{beileile}</p>
                 )}
             </div>
             {aktionen && <div className="flex shrink-0 flex-wrap items-center gap-2">{aktionen}</div>}
@@ -112,24 +112,24 @@ export function SeitenKopf({
  * darauf. Nachgerechnet in design-system/kontrast.test.ts.
  */
 export const HAUPT_AKTION = cn(
-    'inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[10px]',
-    'bg-gradient-to-br from-accent-600 to-accent-700 px-4 py-[11px]',
-    'text-[12px] font-bold text-white',
+    'inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-md',
+    'bg-accent-600 hover:bg-accent-700 px-3.5 py-2.5',
+    'text-sm font-semibold text-white',
     /* Der Verlauf bleibt UNVERÄNDERT und es wird nur der Schatten überblendet.
        `transition-all` mit einem Verlaufswechsel beim Überfahren flackert:
        Verläufe kann kein Browser stufenlos überblenden, er springt hart, und
        beim Klick fallen Überfahren, Gedrückt und Fokusring zusammen. Im CRM war
        das deutlich zu sehen. */
-    'shadow-[0_6px_20px_hsl(var(--accent-500)/0.34)]',
-    'transition-shadow duration-150 hover:shadow-[0_8px_26px_hsl(var(--accent-500)/0.5)]',
+    'shadow-none',
+    'transition-colors duration-150',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
 );
 
 /** Zurückhaltende Aktion: durchscheinende Fläche, wie die Pillen der Kopfzeile. */
 export const NEBEN_AKTION = cn(
-    'inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-[10px]',
-    'border border-overlay/[0.07] bg-overlay/[0.04] px-3.5 py-2.5',
-    'text-[12px] font-semibold text-text-secondary transition-colors',
+    'inline-flex shrink-0 items-center gap-[7px] whitespace-nowrap rounded-md',
+    'border border-border bg-surface px-3 py-2.5',
+    'text-sm font-medium text-text-secondary transition-colors',
     'hover:bg-overlay/[0.07] hover:text-text-primary',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
     'disabled:pointer-events-none disabled:opacity-60',
@@ -141,14 +141,14 @@ export const NEBEN_AKTION = cn(
 
 /** Suchfeld der Filterleiste — im Entwurf mindestens 300 px breit. */
 export const SUCH_FELD = cn(
-    'flex min-w-0 flex-1 items-center gap-[9px] rounded-[10px]',
+    'flex min-w-0 flex-1 items-center gap-[9px] rounded-md',
     'border border-overlay/[0.08] bg-overlay/[0.04] px-3.5 py-2.5',
     'transition-colors focus-within:border-accent-500/50 sm:max-w-[26rem] sm:flex-none sm:min-w-[300px]',
 );
 
 /** Das nackte Eingabefeld darin — ohne eigenen Rahmen, der Rahmen ist aussen. */
 export const SUCH_EINGABE = cn(
-    'min-w-0 flex-1 bg-transparent text-[12px] font-medium text-text-primary',
+    'min-w-0 flex-1 bg-transparent text-sm font-medium text-text-primary',
     'placeholder:text-text-muted focus:outline-none',
 );
 
@@ -168,7 +168,7 @@ export function FilterPille({
             type="button"
             aria-pressed={aktiv}
             className={cn(
-                'shrink-0 rounded-[9px] border px-3.5 py-2.5 text-xs font-semibold transition-colors',
+                'shrink-0 rounded-md border px-3 py-2 text-sm font-medium transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50',
                 aktiv
                     ? 'border-accent-500/40 bg-accent-500/[0.14] text-accent-500'
@@ -215,10 +215,10 @@ export function AbschnittMarke({
                     {nummer}
                 </span>
             )}
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+            <span className="text-sm font-semibold text-text-tertiary">
                 {children}
             </span>
-            <span aria-hidden className="h-px flex-1 bg-gradient-to-r from-overlay/[0.09] to-transparent" />
+            <span aria-hidden className="h-px flex-1 bg-border" />
             {aktion}
         </div>
     );
@@ -289,7 +289,7 @@ export function SpaltenMarke({
     return (
         <span
             className={cn(
-                'truncate font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted',
+                'truncate text-xs font-semibold text-text-muted',
                 rechts && 'text-right',
                 className,
             )}
@@ -348,10 +348,10 @@ export function ZeilenMarke({
         <span
             aria-hidden
             className={cn(
-                'flex size-[34px] shrink-0 items-center justify-center rounded-[10px] border',
+                'flex size-[34px] shrink-0 items-center justify-center rounded-md border',
                 'font-display text-xs font-bold',
                 ton === 'accent'
-                    ? 'border-accent-500/[0.22] bg-gradient-to-br from-accent-500/[0.28] to-accent-500/[0.08] text-accent-500'
+                    ? 'border-accent-500/[0.22] bg-accent-500/[0.08] text-accent-500'
                     : 'border-overlay/[0.07] bg-overlay/[0.055] text-text-tertiary',
                 className,
             )}
@@ -376,15 +376,15 @@ export function ZeilenMarke({
 export const TABELLE_KOPF = 'border-b border-overlay/[0.07] bg-overlay/[0.02] text-left';
 
 export const TABELLE_KOPF_ZELLE = cn(
-    'whitespace-nowrap px-5 py-3.5 font-mono text-[10px] font-bold uppercase',
-    'tracking-[0.14em] text-text-muted',
+    'whitespace-nowrap px-4 py-3 text-xs font-semibold',
+    'text-text-muted',
 );
 
 export const TABELLE_ZEILE = cn(
     'border-b border-overlay/[0.045] transition-colors last:border-b-0 hover:bg-overlay/[0.025]',
 );
 
-export const TABELLE_ZELLE = 'px-5 py-4 align-middle text-[12.5px] text-text-secondary';
+export const TABELLE_ZELLE = 'px-4 py-3 align-middle text-sm text-text-secondary';
 
 /** Leerzustand innerhalb einer Tabellenkarte — gestrichelt wie im Entwurf. */
 export function LeerZeile({
@@ -404,7 +404,7 @@ export function LeerZeile({
                 </span>
             )}
             <span className="text-sm font-semibold text-text-tertiary">{titel}</span>
-            {hinweis && <span className="max-w-sm text-[12px] text-text-muted">{hinweis}</span>}
+            {hinweis && <span className="max-w-sm text-sm text-text-muted">{hinweis}</span>}
         </div>
     );
 }

@@ -1,8 +1,6 @@
 /**
- * TenantDetailView — slide-in Drawer for tenant detail.
- *
- * Implementation uses Radix Sheet (right side) — closes on ESC, click-outside,
- * and on route change. Wires:
+ * TenantDetailView — full-page merchant workspace with URL-addressable tabs.
+ * Wires:
  *   - Rich detail (users, settings) via useTenant → GET /api/admin/tenants/:id/detail
  *   - Active devices via useTenantDevices + useRemoveDevice
  *   - Limits-Editor (max_users/max_devices) via useUpdateTenantLimits
@@ -11,16 +9,16 @@
  *   - Impersonation via useImpersonate
  */
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-} from '@/components/ui/sheet';
+import { TenantProvisioning } from './TenantProvisioningPanel';
+import { TenantOperations } from './TenantOperations';
+import { TenantOverview } from './TenantOverview';
+import { TenantReadinessProfile } from './TenantReadinessProfile';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { SEITEN_RAND } from '@/components/ui/seite';
+import { SEITEN_TITEL } from '@/components/ui/dichte';
 import {
     Dialog,
     DialogContent,
@@ -107,7 +105,18 @@ function findOwnerUser(users: TenantUser[]): TenantUser | undefined {
 
 export default function TenantDetailView(): JSX.Element {
     const { id } = useParams<{ id: string }>();
+    const [params] = useSearchParams();
+    return <TenantDetailWorkspace key={`${id}:${params.get('tab') ?? 'overview'}`} />;
+}
+
+function TenantDetailWorkspace(): JSX.Element {
+    const { id } = useParams<{ id: string }>();
+    const location = useLocation();
+    const listSearch = typeof location.state?.tenantListSearch === 'string' ? new URLSearchParams(location.state.tenantListSearch).toString() : '';
     const nav = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tabs = [{ id: 'overview', label: 'Übersicht' }, { id: 'profile', label: 'Firmendaten' }, { id: 'onboarding', label: 'Einrichtung & Freigabe' }, { id: 'operations', label: 'Bestellungen & ERP' }, { id: 'integrations', label: 'Integrationen' }, { id: 'access', label: 'Zugänge & Sicherheit' }];
+    const activeTab = tabs.some(tab => tab.id === searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
     const {
         tenants,
         isLoading,
@@ -129,7 +138,7 @@ export default function TenantDetailView(): JSX.Element {
     const updateTenantMut = useUpdateTenant();
     const updateLimitsMut = useUpdateTenantLimits();
     const impersonateMut = useImpersonate();
-    const { isSuperAdmin } = usePermissions();
+    const { isSuperAdmin, can } = usePermissions();
     const [confirmSuspend, setConfirmSuspend] = useState(false);
     const [deviceToRemove, setDeviceToRemove] = useState<{
         tenantId: string;
@@ -234,6 +243,11 @@ export default function TenantDetailView(): JSX.Element {
 
     const whatsappNormalized = normalizeWhatsapp(whatsappInput);
     const whatsappValid = WHATSAPP_RE.test(whatsappNormalized);
+    useUnsavedChanges('Händler-Stammdaten', Boolean(
+        (nameDraft !== null && nameDraft !== tenant?.name)
+        || (activeLimitsDraft && (maxUsersValue !== detail?.settings.max_users || maxDevicesValue !== detail?.settings.max_devices))
+        || (activeWhatsappDraft && whatsappNormalized !== (detail?.settings.whatsapp_number ?? ''))
+    ), updateTenantMut.isPending || updateLimitsMut.isPending);
 
     function handleUnsuspend(): void {
         if (!tenant) return;
@@ -364,23 +378,29 @@ export default function TenantDetailView(): JSX.Element {
 
     return (
         <>
-        <Sheet open onOpenChange={(open) => !open && nav('/tenants')}>
-            <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
-                <SheetHeader className="px-6 py-4 border-b border-border">
-                    <SheetTitle className="flex items-center gap-2">
+        <div className={SEITEN_RAND}>
+                <Link to={'/tenants' + (listSearch ? '?' + listSearch : '')} className="mb-4 inline-block text-sm text-text-muted hover:text-accent-500">← Händlerübersicht</Link>
+                <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0"><p className="mb-1 text-xs font-medium text-text-muted">Kundenakte · {tenant?.is_demo ? 'Demozugang' : 'Händler'}</p><h1 className={'flex flex-wrap items-center gap-3 break-words font-semibold ' + SEITEN_TITEL}>
                         {tenant?.name ?? 'Kunde'}
                         {tenant?.is_demo && (
-                            <span className="rounded-full bg-accent-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-500">
+                            <span className="rounded-full bg-accent-500/12 px-2 py-0.5 text-xs font-medium text-accent-500">
                                 Demo-Zugang
                             </span>
                         )}
-                    </SheetTitle>
-                    <SheetDescription>
-                        {tenant ? <span className="font-mono text-xs">{tenant.slug}</span> : 'Lade…'}
-                    </SheetDescription>
-                </SheetHeader>
+                    </h1><p className="mt-2 text-sm text-text-muted">{tenant ? `${tenant.slug} · ${tenant.is_active ? 'Konto aktiv' : 'Konto inaktiv'}` : 'Wird geladen…'}</p></div>
+                    {tenant && activeTab === 'overview' && can('tenants.update') && <Button variant="outline" onClick={() => setSearchParams({ tab: 'profile' })}>Firmendaten bearbeiten</Button>}
+                </header>
+                <label className="mb-5 block sm:hidden"><span className="sr-only">Händlerbereich</span><select value={activeTab ?? 'overview'} onChange={event => setSearchParams({ tab: event.target.value })} className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm">{tabs.map(tab => <option key={tab.id} value={tab.id}>{tab.label}</option>)}</select></label>
+                <nav aria-label="Händlerbereiche" className="mb-6 hidden gap-1 overflow-x-auto border-b border-border sm:flex">
+                    {tabs.map(tab => <button key={tab.id} type="button" aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => setSearchParams({ tab: tab.id })} className={`shrink-0 border-b-2 px-4 py-3 text-sm font-medium ${activeTab === tab.id ? 'border-accent-500 text-accent-500' : 'border-transparent text-text-secondary hover:text-text-primary'}`}>{tab.label}</button>)}
+                </nav>
+                {id && tenant && activeTab === 'onboarding' && <TenantProvisioning tenantId={id} />}
+                {id && tenant && activeTab === 'operations' && <TenantOperations tenantId={id} />}
+                {tenant && activeTab === 'overview' && <TenantOverview tenant={tenant} detail={detail} detailLoading={detailQ.isLoading} detailError={detailQ.isError} retryDetail={() => void detailQ.refetch()} onSection={tab => setSearchParams({ tab })} />}
+                {id && tenant && activeTab === 'profile' && <div className="mb-5"><TenantReadinessProfile tenantId={id} readOnly={!can('tenants.update')} /></div>}
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="merchant-sections grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
                     {isLoading && <LoadingState label="Lade Kunde…" />}
                     {!isLoading && Boolean(tenantsError) && (
                         <ErrorState
@@ -395,14 +415,14 @@ export default function TenantDetailView(): JSX.Element {
                     )}
                     {tenant && (
                         <>
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'profile'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     Stammdaten
                                 </h3>
                                 <dl className="grid grid-cols-2 gap-2 text-sm">
                                     <dt className="text-text-secondary">Status</dt>
                                     <dd>{tenant.is_active ? 'Aktiv' : 'Inaktiv'}</dd>
-                                    <dt className="text-text-secondary">Payment</dt>
+                                    <dt className="text-text-secondary">Zahlung</dt>
                                     <dd>
                                         <span
                                             className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${PAYMENT_TONE_CLASS[payment.tone]}`}
@@ -416,12 +436,12 @@ export default function TenantDetailView(): JSX.Element {
                                     </dd>
                                     <dt className="text-text-secondary">Onboarding</dt>
                                     <dd>{tenant.onboarding_status ?? '—'}</dd>
-                                    <dt className="text-text-secondary">User</dt>
-                                    <dd className="font-mono">
+                                    <dt className="text-text-secondary">Nutzer</dt>
+                                    <dd className="tabular-nums">
                                         {tenant.user_count}/{detail?.settings.max_users ?? tenant.max_users}
                                     </dd>
-                                    <dt className="text-text-secondary">Devices</dt>
-                                    <dd className="font-mono">
+                                    <dt className="text-text-secondary">Geräte</dt>
+                                    <dd className="tabular-nums">
                                         {tenant.device_count}/{detail?.settings.max_devices ?? tenant.max_devices}
                                     </dd>
                                     {tenant.created_at && (
@@ -433,8 +453,8 @@ export default function TenantDetailView(): JSX.Element {
                                 </dl>
                             </section>
 
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'profile'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     Anzeigename
                                 </h3>
                                 <div className="flex items-end gap-2">
@@ -446,14 +466,14 @@ export default function TenantDetailView(): JSX.Element {
                                             id="tenant-name"
                                             value={nameValue}
                                             onChange={(e) => setNameDraft(e.target.value)}
-                                            disabled={updateTenantMut.isPending}
+                                            disabled={!can('tenants.update') || updateTenantMut.isPending}
                                         />
                                     </div>
                                     <Button
                                         size="sm"
                                         variant="outline"
                                         disabled={
-                                            updateTenantMut.isPending ||
+                                            !can('tenants.update') || updateTenantMut.isPending ||
                                             nameValue.trim().length < 2 ||
                                             nameValue.trim() === (tenant.name ?? '')
                                         }
@@ -464,8 +484,8 @@ export default function TenantDetailView(): JSX.Element {
                                 </div>
                             </section>
 
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'profile'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     Limits
                                 </h3>
                                 {detailQ.isLoading ? (
@@ -492,7 +512,7 @@ export default function TenantDetailView(): JSX.Element {
                                                             maxDevices: maxDevicesInput,
                                                         });
                                                     }}
-                                                    disabled={!detail || updateLimitsMut.isPending}
+                                                    disabled={!can('tenants.update') || !detail || updateLimitsMut.isPending}
                                                 />
                                             </div>
                                             <div className="flex-1 space-y-1">
@@ -514,13 +534,13 @@ export default function TenantDetailView(): JSX.Element {
                                                             maxDevices: e.target.value,
                                                         });
                                                     }}
-                                                    disabled={!detail || updateLimitsMut.isPending}
+                                                    disabled={!can('tenants.update') || !detail || updateLimitsMut.isPending}
                                                 />
                                             </div>
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                disabled={!detail || !limitsValid || updateLimitsMut.isPending}
+                                                disabled={!can('tenants.update') || !detail || !limitsValid || updateLimitsMut.isPending}
                                                 onClick={handleSaveLimits}
                                             >
                                                 {updateLimitsMut.isPending ? 'Speichert…' : 'Speichern'}
@@ -537,8 +557,8 @@ export default function TenantDetailView(): JSX.Element {
                             </section>
 
                             {obHealth && (
-                                <section>
-                                    <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                                <section hidden={activeTab !== 'onboarding'} className="rounded-lg border border-border bg-surface p-5">
+                                    <h3 className="text-base font-semibold text-text-primary mb-4">
                                         Onboarding-Status
                                     </h3>
                                     <div className="space-y-1.5 text-xs">
@@ -563,8 +583,8 @@ export default function TenantDetailView(): JSX.Element {
                                 </section>
                             )}
 
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'integrations'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     WhatsApp-Nummer
                                 </h3>
                                 {detailQ.isLoading ? (
@@ -613,8 +633,8 @@ export default function TenantDetailView(): JSX.Element {
                                 )}
                             </section>
 
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'integrations'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     WhatsApp-Aktivierung (Meta Cloud)
                                 </h3>
                                 <div className="space-y-2">
@@ -666,8 +686,8 @@ export default function TenantDetailView(): JSX.Element {
                                 </div>
                             </section>
 
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'access'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     Benutzer
                                 </h3>
                                 {detailQ.isLoading ? (
@@ -688,7 +708,7 @@ export default function TenantDetailView(): JSX.Element {
                                                 className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface/30 px-3 py-2 text-xs"
                                             >
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="font-mono truncate">
+                                                    <div className="font-medium truncate">
                                                         {u.name || u.username}
                                                     </div>
                                                     <div className="text-text-muted truncate">
@@ -696,7 +716,7 @@ export default function TenantDetailView(): JSX.Element {
                                                     </div>
                                                 </div>
                                                 <div className="flex shrink-0 items-center gap-1.5">
-                                                    <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-text-secondary">
+                                                    <span className="rounded border border-border px-2 py-0.5 text-xs text-text-secondary">
                                                         {u.role}
                                                     </span>
                                                     <span
@@ -715,8 +735,8 @@ export default function TenantDetailView(): JSX.Element {
                                 )}
                             </section>
 
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'access'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     Aktive Geräte
                                 </h3>
                                 {devicesLoading ? (
@@ -749,7 +769,7 @@ export default function TenantDetailView(): JSX.Element {
                                                     className="flex items-start justify-between gap-3 rounded-md border border-border bg-surface/30 px-3 py-2 text-xs"
                                                 >
                                                     <div className="min-w-0 flex-1 space-y-0.5">
-                                                        <div className="font-mono truncate">{d.user}</div>
+                                                        <div className="font-medium truncate">{d.user}</div>
                                                         <div className="flex flex-wrap gap-x-3 text-text-muted">
                                                             <span>
                                                                 Letzte Aktivität:{' '}
@@ -796,8 +816,8 @@ export default function TenantDetailView(): JSX.Element {
                                 )}
                             </section>
 
-                            <section>
-                                <h3 className="text-xs font-mono uppercase tracking-widest text-text-secondary mb-2">
+                            <section hidden={activeTab !== 'access'} className="rounded-lg border border-border bg-surface p-5">
+                                <h3 className="text-base font-semibold text-text-primary mb-4">
                                     Aktionen
                                 </h3>
                                 <div className="flex gap-2 flex-wrap">
@@ -811,7 +831,7 @@ export default function TenantDetailView(): JSX.Element {
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => nav(`/audit?tenant=${tenant.id}`)}
+                                        onClick={() => nav(`/einstellungen/audit?tenant=${tenant.id}`)}
                                     >
                                         Audit anzeigen
                                     </Button>
@@ -824,7 +844,7 @@ export default function TenantDetailView(): JSX.Element {
                                         Passwort zurücksetzen
                                     </Button>
                                     <Button size="sm" variant="outline" onClick={handleImpersonate}>
-                                        Impersonate
+                                        Händleransicht öffnen
                                     </Button>
                                     {suspended ? (
                                         <Button
@@ -849,8 +869,7 @@ export default function TenantDetailView(): JSX.Element {
                         </>
                     )}
                 </div>
-            </SheetContent>
-        </Sheet>
+        </div>
 
         <ConfirmDialog
             open={deviceToRemove !== null}

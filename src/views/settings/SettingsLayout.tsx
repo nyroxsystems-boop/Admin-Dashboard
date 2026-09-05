@@ -105,12 +105,12 @@ export default function SettingsLayout(): JSX.Element {
             <SeitenKopf
                 className="mb-6"
                 titel="Einstellungen"
-                beileile="Verwaltung, Zugriffe und Diagnose — alles, was nicht ins Tagesgeschäft gehört."
+                beileile="Persönliches Konto, Berechtigungen und Systemverwaltung."
             />
 
             {/* 296 px links wie im Entwurf (war 220): die Einträge tragen dort
                 eine zweite Zeile mit Erklärung, und die braucht die Breite. */}
-            <div className="grid items-start gap-4 lg:grid-cols-[296px_minmax(0,1fr)]">
+            <div className="grid items-start gap-6 lg:grid-cols-[208px_minmax(0,1fr)]">
                 <nav aria-label="Einstellungsbereiche" className="lg:sticky lg:top-4 lg:self-start">
                     <ul className="flex gap-1.5 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
                         {sichtbar.map((tab) => (
@@ -118,29 +118,22 @@ export default function SettingsLayout(): JSX.Element {
                                 <NavLink
                                     to={tab.to}
                                     end={tab.end}
+                                    title={tab.hint}
                                     className={({ isActive }) => cn(
                                         // Karten statt Listenzeilen, wie im Entwurf:
                                         // 13 px Radius, eigener Rahmen, Erklärung
                                         // in zweiter Zeile.
-                                        'flex items-start gap-3 rounded-[13px] border p-3.5 transition-colors',
+                                        'flex items-center gap-2.5 rounded-md px-3 py-2.5 transition-colors',
                                         isActive
-                                            ? 'border-accent-500/30 bg-accent-500/[0.1] text-accent-500'
-                                            : 'border-overlay/[0.06] bg-overlay/[0.025] text-text-secondary hover:border-overlay/[0.12] hover:text-text-primary',
+                                            ? 'bg-accent-500/[0.08] text-accent-600'
+                                            : 'text-text-secondary hover:bg-surface hover:text-text-primary',
                                     )}
                                 >
-                                    {({ isActive }) => (
+                                    {() => (
                                         <>
                                             <tab.icon className="mt-px size-4 shrink-0" />
                                             <span className="flex min-w-0 flex-col gap-1">
-                                                <span className="truncate text-[12.5px] font-bold">{tab.label}</span>
-                                                <span
-                                                    className={cn(
-                                                        'hidden text-[11px] font-medium leading-[1.35] lg:block',
-                                                        isActive ? 'text-accent-500/70' : 'text-text-muted',
-                                                    )}
-                                                >
-                                                    {tab.hint}
-                                                </span>
+                                                <span className="truncate text-sm font-medium">{tab.label}</span>
                                             </span>
                                         </>
                                     )}
@@ -159,24 +152,24 @@ export default function SettingsLayout(): JSX.Element {
                         wer man gerade schaltet. Bei Rechteverwaltung ist das
                         kein Schmuck. */}
                     {user && (
-                        <div className="karte flex flex-wrap items-center gap-[18px] p-6">
+                        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
                             <span
                                 aria-hidden
-                                className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-500 to-accent-700 font-display text-xl font-bold text-white shadow-[0_8px_24px_hsl(var(--accent-500)/0.36)]"
+                                className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-canvas text-sm font-semibold text-text-secondary"
                             >
                                 {initialen(user.username || user.email)}
                             </span>
-                            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                <span className="truncate font-display text-xl font-semibold">
+                            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span className="truncate text-sm font-semibold">
                                     {user.username || '—'}
                                 </span>
-                                <span className="truncate font-mono text-[12px] text-text-muted">
+                                <span className="truncate text-xs text-text-muted">
                                     {user.email}
                                 </span>
                             </div>
                             {user.role && (
-                                <span className="shrink-0 rounded-lg border border-accent-500/[0.28] bg-accent-500/[0.14] px-[11px] py-[7px] font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-accent-500">
-                                    {user.role}
+                                <span className="shrink-0 rounded border border-border px-2 py-1 text-xs text-text-secondary">
+                                    {isSuperAdmin ? 'Administration' : 'Interner Zugang'}
                                 </span>
                             )}
                         </div>

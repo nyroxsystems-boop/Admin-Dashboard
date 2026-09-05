@@ -16,8 +16,10 @@
  * Ein Mailprogramm, das Post unleserlich macht, ist kaputt — auch wenn es
  * sicher ist.
  *
- * Jetzt läuft die Darstellung in einem iframe OHNE `allow-scripts` und OHNE
- * `allow-same-origin` (MailHtmlFrame.tsx). Der Inhalt kann dort kein Skript
+ * Die Darstellung läuft in einem iframe OHNE `allow-scripts`.
+ * `allow-same-origin` ermöglicht die Größenmessung im Parent.
+ * Eine eigene CSP in mailDocument.ts blockiert Netzwerkzugriffe standardmäßig.
+ * Der Inhalt kann dort kein Skript
  * ausführen, das Dokument der Anwendung nicht sehen, keine Cookies und keinen
  * localStorage lesen. Diese Abschottung hängt an keiner Kopfzeile und wirkt
  * deshalb auch dann, wenn die Content-Security-Policy unterwegs ersetzt wird —
@@ -47,16 +49,16 @@ import DOMPurify from 'dompurify';
 const VERBOTENE_TAGS = [
     'script', 'iframe', 'object', 'embed', 'applet',
     'form', 'input', 'button', 'select', 'textarea', 'option', 'label',
-    'base', 'meta', 'link',
+    'base', 'meta', 'link', 'style', 'video', 'audio', 'source', 'track',
 ];
 
 /**
  * Verbotene Attribute.
  *
  * Alle `on*`-Ereignisse entfernt DOMPurify von sich aus. `style` steht hier
- * NICHT mehr: es trägt bei Newslettern das komplette Layout, und DOMPurify
- * prüft CSS-Werte selbst. Im abgeschotteten Rahmen kann auch bösartiges CSS
- * nichts erreichen, was ausserhalb liegt.
+ * NICHT mehr: es trägt bei Newslettern das komplette Layout. DOMPurify ist
+ * kein CSS-Sanitizer; Ressourcen in CSS entfernt mailDocument.ts zusätzlich.
+ * Dessen CSP begrenzt die Netzwerkzugriffe unabhängig von der Bereinigung.
  */
 const VERBOTENE_ATTRIBUTE = ['ping', 'formaction'];
 
@@ -152,5 +154,4 @@ export function sanitizeMailHtml(roh: string | null | undefined): string {
         ADD_ATTR: ['target', 'rel', 'background', 'bgcolor', 'valign', 'align'],
     }));
 }
-
 

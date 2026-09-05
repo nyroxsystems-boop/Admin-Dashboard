@@ -7,6 +7,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { Outlet, useLocation } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopbar } from './AdminTopbar';
+import { WORKSPACE_FRAME } from './workspaceShell';
 import { ansichtenVorwaermen } from '@/routes/vorwaermen';
 
 /**
@@ -43,7 +44,7 @@ export function AdminLayout() {
   }, [pathname]);
 
   return (
-    <div className="flex h-screen h-dvh w-full overflow-hidden bg-canvas text-text-primary">
+    <div className={WORKSPACE_FRAME} data-workspace="admin">
       <a
         href="#admin-main-content"
         className="sr-only rounded-md bg-accent-500 px-3 py-2 text-sm font-medium text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100]"

@@ -29,6 +29,7 @@ import { getAdminStats } from '@/api/tenants';
 import { getAuditLog } from '@/api/audit';
 import { getSystemHealth } from '@/api/health';
 import { getOnboardingPipeline } from '@/api/onboarding';
+import { getAccessRequestHistory } from '@/api/accessRequests';
 import { listAppointments } from '@/api/appointments';
 import { terminfenster } from '@/views/dashboard/terminfenster';
 import { PushToggle } from './PushToggle';
@@ -37,7 +38,7 @@ export function MailLayout(): JSX.Element {
     // Der Empfangsweg kommt aus der API, nicht aus dem Quelltext. Ein festes
     // "RESEND AKTIV" wuerde auch dann noch gruen leuchten, wenn der Empfang
     // steht — und dann glaubt man ihm.
-    const { transport } = useMailboxes();
+    const { error: mailboxError, isLoading: mailboxesLoading } = useMailboxes();
     const qc = useQueryClient();
 
     /**
@@ -91,6 +92,11 @@ export function MailLayout(): JSX.Element {
      */
     const uebersichtVorwaermen = (): void => {
         void qc.prefetchQuery({
+            queryKey: ['admin', 'access-requests', 'verlauf'] as const,
+            queryFn: () => getAccessRequestHistory(),
+            staleTime: 30_000,
+        });
+        void qc.prefetchQuery({
             queryKey: ['admin', 'dashboard', 'metrics'] as const,
             queryFn: getAdminStats,
             staleTime: 30_000,
@@ -101,8 +107,8 @@ export function MailLayout(): JSX.Element {
             staleTime: 10_000,
         });
         void qc.prefetchQuery({
-            queryKey: ['admin', 'onboarding', 'pipeline'] as const,
-            queryFn: () => getOnboardingPipeline(),
+            queryKey: ['admin', 'onboarding-pipeline'] as const,
+            queryFn: getOnboardingPipeline,
             staleTime: 60_000,
         });
         void qc.prefetchQuery({
@@ -141,7 +147,7 @@ export function MailLayout(): JSX.Element {
                 Zum Hauptinhalt springen
             </a>
 
-            <header className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border-subtle bg-canvas/95 px-3 supports-[backdrop-filter]:bg-canvas/[0.82] supports-[backdrop-filter]:backdrop-blur-[18px] md:px-5">
+            <header className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border-subtle bg-surface px-3 md:px-5">
                 <Link
                     to="/"
                     onMouseEnter={uebersichtVorwaermen}
@@ -177,7 +183,7 @@ export function MailLayout(): JSX.Element {
                 <span className="h-4 w-px bg-border-subtle" aria-hidden />
 
                 <span className="flex items-center gap-2.5">
-                    <span className="flex size-[26px] shrink-0 items-center justify-center rounded-[8px] bg-gradient-to-br from-accent-500 to-accent-700">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent-500">
                         <img
                             src="/partsunion-symbol-weiss.png"
                             alt="Partsunion"
@@ -186,7 +192,7 @@ export function MailLayout(): JSX.Element {
                             className="size-4"
                         />
                     </span>
-                    <span className="font-display text-[12.5px] font-bold tracking-[0.02em]">
+                    <span className="text-sm font-semibold">
                         Partsunion Mail
                     </span>
                 </span>
@@ -196,18 +202,14 @@ export function MailLayout(): JSX.Element {
                     Bildlauf und damit meist unsichtbar. Solange die Antwort
                     nicht da ist, steht hier NICHTS — kein Merkmal ist besser
                     als ein falsches. */}
-                {transport && (
+                {(mailboxError || mailboxesLoading) ? (
                     <span
-                        className="ml-1 hidden items-center gap-1.5 rounded-[7px] border border-success/[0.24] bg-success/10 px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase text-success sm:inline-flex"
+                        className="ml-1 hidden items-center gap-1.5 rounded-md border border-border-subtle px-2 py-1 text-xs text-text-secondary sm:inline-flex"
                         role="status"
                     >
-                        <span
-                            aria-hidden
-                            className="size-[5px] shrink-0 rounded-full bg-success motion-safe:animate-pulse"
-                        />
-                        {transport} aktiv
+                        {mailboxError ? 'Postfächer nicht erreichbar' : 'Postfächer werden geladen…'}
                     </span>
-                )}
+                ) : null}
 
                 <div className="ml-auto flex items-center gap-1.5">
                     <PushToggle />
