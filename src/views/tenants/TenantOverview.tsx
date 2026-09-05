@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, Copy, ArrowUpRight } from 'lucide-react';
+import { Building2, Copy, ArrowUpRight, ClipboardList, ShieldCheck, Users, CreditCard, UserRound, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tenant, TenantDetail } from '@/api/types';
 import { getReadinessProfile } from '@/api/tenantProfile';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { copyToClipboard } from '@/utils/clipboard';
 import { presentTenantPaymentStatus } from './tenantStatus';
 import { setupLabel } from './tenantDirectory';
+import { uniqueTenantOwner } from './tenantOwner';
 
 const date = (value?: string | null) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleDateString('de-DE') : 'Nicht erfasst';
 
@@ -17,7 +18,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Panel({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: ReactNode; children: ReactNode }) {
-    return <section className="min-w-0 rounded-lg border border-border bg-surface"><header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-5 py-4"><div><h2 className="text-sm font-semibold">{title}</h2>{subtitle && <p className="mt-1 text-xs text-text-muted">{subtitle}</p>}</div>{action}</header><div className="px-5 py-2">{children}</div></section>;
+    const Icon = title === 'Firma & Kontakt' ? Building2 : title === 'Nutzung & Zugänge' ? Users : title === 'Konto & Vereinbarungen' ? ShieldCheck : ClipboardList;
+    return <section className="min-w-0 rounded-xl border border-border bg-surface shadow-sm"><header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 sm:px-5"><div className="flex items-center gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/10 text-accent-500"><Icon className="size-4" aria-hidden /></span><div><h2 className="text-sm font-semibold">{title}</h2>{subtitle && <p className="mt-1 text-xs text-text-muted">{subtitle}</p>}</div></div>{action}</header><div className="px-4 py-2 sm:px-5">{children}</div></section>;
 }
 
 function CopyValue({ value, label }: { value: string; label: string }) {
@@ -33,11 +35,22 @@ export function TenantOverview({ tenant, detail, detailLoading, detailError, ret
     const caseQ = useQuery({ queryKey: ['admin', 'provisioning', tenant.id], queryFn: () => getProvisioningCase(tenant.id), staleTime: 30_000 });
     const profile = profileQ.data;
     // An active staff user is not automatically the customer's owner/contact.
-    const owner = detail?.users.find(user => ['merchant', 'owner'].includes(user.role.toLowerCase()));
+    const owner = detail ? uniqueTenantOwner(detail.users) : undefined;
     const payment = presentTenantPaymentStatus(tenant.payment_status);
     const action = (label: string, section: string) => <Button variant="ghost" size="sm" onClick={() => onSection(section)}>{label}<ArrowUpRight size={14} className="ml-1" /></Button>;
     const contactState = detailLoading ? 'Kontaktdaten werden geladen…' : detailError ? 'Kontaktdaten nicht verfügbar.' : null;
+    const tasks = [
+        ...(['overdue', 'suspended'].includes(tenant.payment_status?.trim().toLowerCase() ?? '') ? [{ label: 'Zahlungsstatus klären', detail: payment.label, section: 'operations', icon: CreditCard, tone: 'text-status-warning bg-status-warning/10' }] : []),
+        ...(!detailLoading && !detailError && detail && !owner ? [{ label: 'Kontoinhaber prüfen', detail: 'Keine eindeutige Inhaberzuordnung', section: 'access', icon: UserRound, tone: 'text-status-warning bg-status-warning/10' }] : []),
+        ...(caseQ.data && !caseQ.isError && caseQ.data.readiness.blockers.length ? [{ label: 'Einrichtung vervollständigen', detail: `${caseQ.data.readiness.blockers.length} offene Freigabepunkte`, section: 'onboarding', icon: ClipboardList, tone: 'text-status-info bg-status-info/10' }] : []),
+        ...(caseQ.data && !caseQ.isError && !caseQ.data.ownerName?.trim() ? [{ label: 'Betreuung festlegen', detail: 'Noch keine verantwortliche Person', section: 'onboarding', icon: Users, tone: 'text-accent-500 bg-accent-500/10' }] : []),
+    ];
     return <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]" aria-label="Kundenakte">
+        <section aria-label="Nächste Schritte für diesen Händler" className="col-span-full rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-display text-lg font-semibold">Nächste Schritte</h2><span className="text-xs text-text-muted">Aus Kontostatus, Zugängen und Einrichtung</span></div>
+            {tasks.length > 0 && <div className="grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-2">{tasks.map(task => <button key={task.label} onClick={() => onSection(task.section)} className="group flex items-start gap-3 rounded-lg border border-border-subtle p-3 text-left transition-colors hover:border-accent-500/50 hover:bg-elevated/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"><span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${task.tone}`}><task.icon className="size-4" aria-hidden /></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{task.label}</span><span className="mt-1 block text-xs text-text-muted">{task.detail}</span></span><ArrowUpRight className="size-3.5 shrink-0 text-text-muted group-hover:text-accent-500" aria-hidden /></button>)}</div>}
+            {(detailLoading || caseQ.isLoading) ? <p role="status" className="mt-2 text-xs text-text-muted">Weitere Kontodaten werden geprüft…</p> : detailError || caseQ.isError ? <p role="status" className="mt-2 text-xs text-status-warning">Hinweise unvollständig: Eine Datenquelle ist nicht erreichbar. Details und erneutes Laden findest du unten.</p> : tasks.length === 0 && <p className="flex items-center gap-2 text-sm text-text-secondary"><CheckCircle2 className="size-4 text-status-success" aria-hidden />Keine offenen Hinweise aus diesen Kontodaten.</p>}
+        </section>
         <div className="min-w-0 space-y-5">
             <Panel title="Firma & Kontakt" subtitle="Firmenidentität und hinterlegter Kontoinhaber" action={action('Firmendaten öffnen', 'profile')}>
                 <div className="flex items-center gap-3 border-b border-border-subtle py-4"><span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-canvas text-text-secondary"><Building2 size={20} /></span><div className="min-w-0"><p className="break-words text-base font-semibold">{tenant.name}</p><p className="mt-1 text-xs text-text-muted">{tenant.is_demo ? 'Demozugang' : 'Händlerkonto'} · {tenant.slug}</p></div></div>

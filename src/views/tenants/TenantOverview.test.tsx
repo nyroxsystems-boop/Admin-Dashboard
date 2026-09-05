@@ -29,9 +29,18 @@ describe('Kundenakte', () => {
         expect(onSection).toHaveBeenCalledWith('onboarding');
     });
     it('never substitutes an arbitrary employee as account owner', async () => {
-        mount({ detail: { ...detail, users: [{ ...detail.users[0], role: 'staff' }] } });
+        const onSection = mount({ detail: { ...detail, users: [{ ...detail.users[0], role: 'staff' }] } });
         expect(await screen.findByText('Kein Kontoinhaber zugeordnet')).toBeInTheDocument();
         expect(screen.queryByText('anna@example.test')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: /Kontoinhaber prüfen/ }));
+        expect(onSection).toHaveBeenCalledWith('access');
+    });
+    it('links a payment issue and setup gaps to the relevant working areas', async () => {
+        const onSection = mount({ tenant: { ...tenant, payment_status: 'overdue' } });
+        fireEvent.click(await screen.findByRole('button', { name: /Zahlungsstatus klären/ }));
+        expect(onSection).toHaveBeenCalledWith('operations');
+        fireEvent.click(await screen.findByRole('button', { name: /Einrichtung vervollständigen/ }));
+        expect(onSection).toHaveBeenCalledWith('onboarding');
     });
     it('shows independent source errors and does not label failed agreement queries as absent', async () => {
         vi.mocked(getReadinessProfile).mockRejectedValue(new Error('Offline'));

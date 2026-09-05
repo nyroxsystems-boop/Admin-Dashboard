@@ -18,6 +18,20 @@ export function setupLabel(value?: string | null): string {
     return value!.trim();
 }
 
+/** Work queues use the same status rules as the directory, excluding tombstones. */
+export function directorySummary(tenants: Tenant[]) {
+    return tenants.reduce((result, tenant) => {
+        if (tenant.deleted) return result;
+        result.total++;
+        if (!setupComplete(tenant)) result.setup++;
+        if (!tenant.is_active) result.inactive++;
+        if (['overdue', 'suspended'].includes(normalizeStatus(tenant.payment_status))) result.payment++;
+        result.users += tenant.user_count ?? 0;
+        result.devices += tenant.device_count ?? 0;
+        return result;
+    }, { total: 0, setup: 0, payment: 0, inactive: 0, users: 0, devices: 0 });
+}
+
 export function filterDirectory(tenants: Tenant[], options: { search: string; status: DirectoryStatus; setup: DirectorySetup; kind: DirectoryKind; sort: string }): Tenant[] {
     const terms = options.search.trim().toLocaleLowerCase('de').split(/\s+/).filter(Boolean);
     return tenants.filter(tenant => {

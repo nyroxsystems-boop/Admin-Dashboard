@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Eye, EyeOff } from 'lucide-react';
 
 import { TenantProvisioning } from './TenantProvisioningPanel';
 import { TenantOperations } from './TenantOperations';
@@ -50,7 +51,8 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { formatDateTime, formatRelative } from '@/utils/format/date';
 import { resetTenantUserPassword, setTenantWhatsAppMeta, testTenantWhatsAppMeta, type WhatsAppMetaTestResult } from '@/api/tenants';
 import { getTenantOnboardingHealth, type OnboardingHealthRow, type OnboardingRisk } from '@/api/onboarding';
-import type { TenantUser } from '@/api/types';
+import { uniqueTenantOwner, validTenantResetPassword } from './tenantOwner';
+import { generateSecurePassword } from '@/utils/validation/password';
 import {
     presentTenantPaymentStatus,
     type TenantPaymentTone,
@@ -71,7 +73,7 @@ const MAX_DEVICES_MAX = 50;
 
 const PAYMENT_TONE_CLASS: Record<TenantPaymentTone, string> = {
     success: 'bg-status-success/10 text-status-success',
-    info: 'bg-accent-500/12 text-accent-500',
+    info: 'bg-accent-500/[0.12] text-accent-500',
     warning: 'bg-status-warning/10 text-status-warning',
     danger: 'bg-status-danger-muted text-status-danger',
     neutral: 'bg-surface text-text-secondary border border-border',
@@ -86,21 +88,6 @@ interface TenantLimitsDraft {
 interface TenantWhatsappDraft {
     tenantId: string;
     value: string;
-}
-
-/** Sicheres Zufallspasswort (clientseitig, crypto.getRandomValues). */
-function generatePassword(length = 16): string {
-    // Ohne leicht verwechselbare Zeichen (0/O, 1/l/I).
-    const charset =
-        'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*+-=?';
-    const values = new Uint32Array(length);
-    crypto.getRandomValues(values);
-    return Array.from(values, (v) => charset[v % charset.length]).join('');
-}
-
-/** Owner-User ermitteln: role 'merchant', Fallback erster aktiver User. */
-function findOwnerUser(users: TenantUser[]): TenantUser | undefined {
-    return users.find((u) => u.role === 'merchant') ?? users.find((u) => u.is_active);
 }
 
 export default function TenantDetailView(): JSX.Element {
@@ -131,7 +118,7 @@ function TenantDetailWorkspace(): JSX.Element {
         isLoading: devicesLoading,
         error: devicesError,
         refetch: refetchDevices,
-    } = useTenantDevices(id ?? null);
+    } = useTenantDevices(activeTab === 'access' ? id ?? null : null);
     const removeDeviceMut = useRemoveDevice();
     const suspendMut = useSuspendTenant();
     const unsuspendMut = useUnsuspendTenant();
@@ -208,6 +195,7 @@ function TenantDetailWorkspace(): JSX.Element {
 
     // ── Passwort-Reset-Dialog ──────────────────────────────────────────
     const [resetOpen, setResetOpen] = useState(false);
+    const [resetVisible, setResetVisible] = useState(false);
     const [resetPasswordInput, setResetPasswordInput] = useState('');
     const [resetBusy, setResetBusy] = useState(false);
     /** Nach Erfolg: das gesetzte Passwort — wird genau EINMAL angezeigt. */
@@ -215,7 +203,7 @@ function TenantDetailWorkspace(): JSX.Element {
 
     const suspended = tenant?.payment_status?.trim().toLowerCase() === 'suspended';
     const payment = presentTenantPaymentStatus(tenant?.payment_status);
-    const ownerUser = detail ? findOwnerUser(detail.users) : undefined;
+    const ownerUser = detail && !detailQ.isError ? uniqueTenantOwner(detail.users) : undefined;
     // P1.2: angezeigter Name = Draft (falls bearbeitet), sonst Server-Wert.
     const nameValue = nameDraft ?? tenant?.name ?? '';
 
@@ -250,7 +238,7 @@ function TenantDetailWorkspace(): JSX.Element {
     ), updateTenantMut.isPending || updateLimitsMut.isPending);
 
     function handleUnsuspend(): void {
-        if (!tenant) return;
+        if (!tenant || !can('billing.manage')) return;
         unsuspendMut.mutate(tenant.id, {
             onSuccess: () => toast.success(`${tenant.name} reaktiviert.`),
             onError: (err) =>
@@ -259,7 +247,7 @@ function TenantDetailWorkspace(): JSX.Element {
     }
 
     function handleImpersonate(): void {
-        if (id == null) return;
+        if (id == null || !can('tenants.impersonate')) return;
         impersonateMut.mutate(
             { tenantId: id, tenantName: tenant?.name },
             {
@@ -345,19 +333,22 @@ function TenantDetailWorkspace(): JSX.Element {
     }
 
     function openResetDialog(): void {
+        if (!can('users.resetPassword') || !ownerUser || detailQ.isLoading) return;
         setResetPasswordInput('');
+        setResetVisible(false);
         setResetResultPassword(null);
         setResetOpen(true);
     }
 
     async function handleResetPassword(): Promise<void> {
+        if (!can('users.resetPassword') || resetBusy) return;
         if (!ownerUser) {
             toast.error('Kein Owner-User gefunden — Passwort-Reset nicht möglich.');
             return;
         }
-        const pw = resetPasswordInput.trim();
-        if (pw.length < 6) {
-            toast.error('Passwort muss mindestens 6 Zeichen haben.');
+        const pw = resetPasswordInput;
+        if (!validTenantResetPassword(pw)) {
+            toast.error('Passwort muss zwischen 12 und 128 Zeichen haben.');
             return;
         }
         setResetBusy(true);
@@ -835,18 +826,18 @@ function TenantDetailWorkspace(): JSX.Element {
                                     >
                                         Audit anzeigen
                                     </Button>
-                                    <Button
+                                    {can('users.resetPassword') && <Button
                                         size="sm"
                                         variant="outline"
-                                        disabled={detailQ.isLoading}
+                                        disabled={detailQ.isLoading || !ownerUser}
                                         onClick={openResetDialog}
                                     >
                                         Passwort zurücksetzen
-                                    </Button>
-                                    <Button size="sm" variant="outline" onClick={handleImpersonate}>
+                                    </Button>}
+                                    {can('tenants.impersonate') && <Button size="sm" variant="outline" onClick={handleImpersonate}>
                                         Händleransicht öffnen
-                                    </Button>
-                                    {suspended ? (
+                                    </Button>}
+                                    {can('billing.manage') && (suspended ? (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -863,8 +854,9 @@ function TenantDetailWorkspace(): JSX.Element {
                                         >
                                             Sperren
                                         </Button>
-                                    )}
+                                    ))}
                                 </div>
+                                {can('users.resetPassword') && !detailQ.isLoading && !ownerUser && <p className="mt-3 text-xs text-status-warning">Passwortreset gesperrt: Der Kontoinhaber ist nicht eindeutig aus den verfügbaren Nutzerdaten bestimmbar. Es wird kein Mitarbeiterkonto ersatzweise ausgewählt.</p>}
                             </section>
                         </>
                     )}
@@ -913,7 +905,7 @@ function TenantDetailWorkspace(): JSX.Element {
             confirmLabel="Sperren"
             loading={suspendMut.isPending}
             onConfirm={async () => {
-                if (tenant) {
+                if (tenant && can('billing.manage')) {
                     try {
                         await suspendMut.mutateAsync(tenant.id);
                         toast.success(`${tenant.name} gesperrt.`);
@@ -975,23 +967,25 @@ function TenantDetailWorkspace(): JSX.Element {
                 ) : (
                     <div className="space-y-2">
                         <Label htmlFor="tenant-reset-password" className="text-xs">
-                            Neues Passwort (min. 6 Zeichen)
+                            Neues Passwort (12–128 Zeichen)
                         </Label>
                         <div className="flex items-center gap-2">
                             <Input
                                 id="tenant-reset-password"
-                                type="text"
+                                type={resetVisible ? 'text' : 'password'}
+                                maxLength={128}
                                 autoComplete="off"
                                 spellCheck={false}
                                 value={resetPasswordInput}
                                 onChange={(e) => setResetPasswordInput(e.target.value)}
                                 disabled={resetBusy || !ownerUser}
                             />
+                            <Button type="button" size="icon" variant="ghost" aria-label={resetVisible ? 'Passwort verbergen' : 'Passwort anzeigen'} aria-pressed={resetVisible} onClick={() => setResetVisible(value => !value)}>{resetVisible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</Button>
                             <Button
                                 size="sm"
                                 variant="outline"
                                 disabled={resetBusy || !ownerUser}
-                                onClick={() => setResetPasswordInput(generatePassword())}
+                                onClick={() => setResetPasswordInput(generateSecurePassword())}
                             >
                                 Generieren
                             </Button>
@@ -1017,7 +1011,7 @@ function TenantDetailWorkspace(): JSX.Element {
                                 disabled={
                                     resetBusy ||
                                     !ownerUser ||
-                                    resetPasswordInput.trim().length < 6
+                                    !validTenantResetPassword(resetPasswordInput)
                                 }
                                 onClick={() => void handleResetPassword()}
                             >

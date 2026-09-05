@@ -6,7 +6,7 @@
  * Status springt dann automatisch auf „Bestätigt". Termine sind einem Admin
  * (Elias/Bardia/Aaron/Fecat) zugewiesen und nach Zuständigem filterbar.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -35,6 +35,8 @@ import {
 import { cn } from '@/lib/utils';
 import { KALENDER_ZELLE } from '@/components/ui/dichte';
 import { WebsiteBookingStatus } from './WebsiteBookingStatus';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { appointmentConflicts, safeMeetingUrl, validateCalendarDraft } from './calendarForm';
 
 // ── Anzeige-Maps ──────────────────────────────────────────────────────────────
 
@@ -109,9 +111,15 @@ export default function CalendarView(): JSX.Element {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState(emptyForm());
     const [saving, setSaving] = useState(false);
+    const [formDirty, setFormDirty] = useState(false);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const [conflicts, setConflicts] = useState<Appointment[]>([]);
+    const [conflictConfirmed, setConflictConfirmed] = useState(false);
+    const saveLock = useRef(false);
     const [detail, setDetail] = useState<Appointment | null>(null);
     const [syncingMicrosoft, setSyncingMicrosoft] = useState(false);
     const [reviewsOpen, setReviewsOpen] = useState(false);
+    useUnsavedChanges('Kalendertermin', createOpen && formDirty, saving);
 
     const grid = useMemo(() => buildGrid(cursor), [cursor]);
     const todayKey = toKey(new Date());
@@ -187,6 +195,7 @@ export default function CalendarView(): JSX.Element {
     function openCreate(dayKey?: string) {
         setEditingId(null);
         setForm({ ...emptyForm(), date: dayKey || selectedDay || todayKey });
+        setFormDirty(false); setFormErrors({}); setConflicts([]); setConflictConfirmed(false);
         setCreateOpen(true);
     }
     function openEdit(a: Appointment) {
@@ -206,21 +215,43 @@ export default function CalendarView(): JSX.Element {
             date: dayKeyOf(a.start_at),
             time: timeOf(a.start_at),
         });
+        setFormDirty(false); setFormErrors({}); setConflicts([]); setConflictConfirmed(false);
         setDetail(null);
         setCreateOpen(true);
     }
+    function changeForm(update: (current: ReturnType<typeof emptyForm>) => ReturnType<typeof emptyForm>): void {
+        setFormDirty(true); setFormErrors({}); setConflicts([]); setConflictConfirmed(false); setForm(update);
+    }
+    function closeForm(): void {
+        if (saving) return;
+        if (formDirty && !window.confirm('Ungespeicherte Terminänderungen verwerfen?')) return;
+        setCreateOpen(false); setFormDirty(false); setFormErrors({}); setConflicts([]); setConflictConfirmed(false);
+    }
 
     async function submitForm() {
-        if (!form.date || !form.time) { toast.error('Bitte Datum und Uhrzeit angeben.'); return; }
+        if (saveLock.current) return;
+        const errors = validateCalendarDraft(form);
+        setFormErrors(errors);
+        if (Object.keys(errors).length) { toast.error('Bitte die markierten Termindaten prüfen.'); requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-admin-appointment-form] [aria-invalid="true"]')?.focus()); return; }
         const start = `${form.date}T${form.time}`;
         const payload: CreateAppointmentInput = {
             type: form.type, title: form.title?.trim() || undefined, notes: form.notes,
-            assigneeId: form.assigneeId, customerName: form.customerName, customerEmail: form.customerEmail,
-            customerPhone: form.customerPhone, durationMinutes: form.durationMinutes, location: form.location,
-            meetingLink: form.meetingLink, start, sendInvite: form.sendInvite,
+            assigneeId: form.assigneeId, customerName: form.customerName?.trim(), customerEmail: form.customerEmail?.trim(),
+            customerPhone: form.customerPhone?.trim(), durationMinutes: form.durationMinutes, location: form.location?.trim(),
+            meetingLink: form.meetingLink?.trim() ? safeMeetingUrl(form.meetingLink) : undefined, start, sendInvite: form.sendInvite,
         };
-        setSaving(true);
+        saveLock.current = true; setSaving(true);
         try {
+            let availability: { appointments: Appointment[] } = { appointments: [] };
+            try {
+                if (form.assigneeId) availability = await listAppointments({ from: `${form.date}T00:00`, to: `${form.date}T23:59`, assigneeId: form.assigneeId });
+            } catch {
+                toast.error('Die Verfügbarkeit konnte nicht aktuell geprüft werden. Bitte erneut versuchen.');
+                return;
+            }
+            const overlapping = appointmentConflicts(availability.appointments, start, form.durationMinutes || 30, form.assigneeId, editingId || undefined);
+            setConflicts(overlapping);
+            if (overlapping.length && !conflictConfirmed) { toast.error('Bitte die Terminüberschneidung prüfen und bewusst bestätigen.'); return; }
             if (editingId) {
                 const res = await updateAppointment(editingId, { ...payload, resendInvite: form.sendInvite });
                 if (res.calendarError) toast.warning(`Termin gespeichert, Teams-Synchronisierung ausstehend: ${res.calendarError}`);
@@ -235,12 +266,13 @@ export default function CalendarView(): JSX.Element {
                 if (res.calendarDecision && !res.calendarDecision.eligible) toast.info('Bewusst ohne Teams angelegt: kein eindeutiger digitaler Kundentermin erkannt.');
             }
             setCreateOpen(false);
-            setSelectedDay(form.date);
+            setFormDirty(false); setFormErrors({}); setConflicts([]); setConflictConfirmed(false);
+            setSelectedDay(form.date!);
             await appointmentsQ.refetch();
         } catch {
             toast.error(editingId ? 'Aktualisieren fehlgeschlagen.' : 'Anlegen fehlgeschlagen.');
         } finally {
-            setSaving(false);
+            saveLock.current = false; setSaving(false);
         }
     }
 
@@ -596,17 +628,17 @@ export default function CalendarView(): JSX.Element {
             </Dialog>
 
             {/* Create / Edit Modal */}
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <Dialog open={createOpen} onOpenChange={(open) => { if (!open) closeForm(); }}>
                 <DialogContent className="max-h-[90vh] overflow-auto sm:max-w-[560px]">
                     <DialogHeader>
                         <DialogTitle>{editingId ? 'Termin bearbeiten' : 'Neuer Termin'}</DialogTitle>
                         <DialogDescription>Quali- oder Sales-Call planen. Mit Kunden-E-Mail wird automatisch eine Einladung verschickt.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-3">
-                        <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-3" data-admin-appointment-form>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="grid gap-1.5">
                                 <Label>Art</Label>
-                                <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as CreateAppointmentInput['type'] }))}>
+                                <Select value={form.type} onValueChange={(v) => changeForm((f) => ({ ...f, type: v as CreateAppointmentInput['type'] }))}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="quali">Quali-Call</SelectItem>
@@ -618,7 +650,7 @@ export default function CalendarView(): JSX.Element {
                             </div>
                             <div className="grid gap-1.5">
                                 <Label>Zuständig</Label>
-                                <Select value={form.assigneeId || 'none'} onValueChange={(v) => setForm((f) => ({ ...f, assigneeId: v === 'none' ? undefined : v }))}>
+                                <Select value={form.assigneeId || 'none'} onValueChange={(v) => changeForm((f) => ({ ...f, assigneeId: v === 'none' ? undefined : v }))}>
                                     <SelectTrigger><SelectValue placeholder="Niemand" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="none">— Niemand —</SelectItem>
@@ -627,65 +659,82 @@ export default function CalendarView(): JSX.Element {
                                 </Select>
                             </div>
                         </div>
-                        <div className="grid grid-cols-[1fr_auto_auto] gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
                             <div className="grid gap-1.5">
-                                <Label>Datum</Label>
-                                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+                                <Label htmlFor="admin-appointment-date">Datum</Label>
+                                <Input id="admin-appointment-date" type="date" value={form.date} aria-invalid={!!formErrors.date} aria-describedby={formErrors.date ? 'admin-appointment-date-error' : undefined} onChange={(e) => changeForm((f) => ({ ...f, date: e.target.value }))} />
+                                {formErrors.date && <p id="admin-appointment-date-error" className="text-xs font-medium text-destructive">{formErrors.date}</p>}
                             </div>
                             <div className="grid gap-1.5">
-                                <Label>Uhrzeit</Label>
-                                <Input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} className="w-[120px]" />
+                                <Label htmlFor="admin-appointment-time">Uhrzeit</Label>
+                                <Input id="admin-appointment-time" type="time" value={form.time} aria-invalid={!!formErrors.time} aria-describedby={formErrors.time ? 'admin-appointment-time-error' : undefined} onChange={(e) => changeForm((f) => ({ ...f, time: e.target.value }))} className="w-full sm:w-[120px]" />
+                                {formErrors.time && <p id="admin-appointment-time-error" className="text-xs font-medium text-destructive">{formErrors.time}</p>}
                             </div>
                             <div className="grid gap-1.5">
                                 <Label>Dauer</Label>
-                                <Select value={String(form.durationMinutes)} onValueChange={(v) => setForm((f) => ({ ...f, durationMinutes: Number(v) }))}>
-                                    <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+                                <Select value={String(form.durationMinutes)} onValueChange={(v) => changeForm((f) => ({ ...f, durationMinutes: Number(v) }))}>
+                                    <SelectTrigger className="w-full sm:w-[110px]"><SelectValue /></SelectTrigger>
                                     <SelectContent>{DURATIONS.map((d) => <SelectItem key={d} value={String(d)}>{d} Min.</SelectItem>)}</SelectContent>
                                 </Select>
                             </div>
                         </div>
                         <div className="grid gap-1.5">
                             <Label>Titel <span className="text-muted-foreground">(optional)</span></Label>
-                            <Input value={form.title || ''} placeholder="z. B. Erstgespräch Werkstatt Müller" onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+                            <Input value={form.title || ''} placeholder="z. B. Erstgespräch Werkstatt Müller" onChange={(e) => changeForm((f) => ({ ...f, title: e.target.value }))} />
                         </div>
                         <div className="border-t pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Kunde</div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="grid gap-1.5">
                                 <Label>Name</Label>
-                                <Input value={form.customerName || ''} placeholder="Firma / Ansprechpartner" onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))} />
+                                <Input value={form.customerName || ''} placeholder="Firma / Ansprechpartner" onChange={(e) => changeForm((f) => ({ ...f, customerName: e.target.value }))} />
                             </div>
                             <div className="grid gap-1.5">
                                 <Label>Telefon</Label>
-                                <Input value={form.customerPhone || ''} placeholder="+49 …" onChange={(e) => setForm((f) => ({ ...f, customerPhone: e.target.value }))} />
+                                <Input value={form.customerPhone || ''} placeholder="+49 …" onChange={(e) => changeForm((f) => ({ ...f, customerPhone: e.target.value }))} />
                             </div>
                         </div>
                         <div className="grid gap-1.5">
-                            <Label>E-Mail <span className="text-muted-foreground">(für die Einladung)</span></Label>
-                            <Input type="email" value={form.customerEmail || ''} placeholder="kunde@firma.de" onChange={(e) => setForm((f) => ({ ...f, customerEmail: e.target.value }))} />
+                            <Label htmlFor="admin-appointment-email">E-Mail <span className="text-muted-foreground">(für die Einladung)</span></Label>
+                            <Input id="admin-appointment-email" type="email" value={form.customerEmail || ''} placeholder="kunde@firma.de" aria-invalid={!!formErrors.customerEmail} aria-describedby={formErrors.customerEmail ? 'admin-appointment-email-error' : undefined} onChange={(e) => changeForm((f) => ({ ...f, customerEmail: e.target.value }))} />
+                            {formErrors.customerEmail && <p id="admin-appointment-email-error" className="text-xs font-medium text-destructive">{formErrors.customerEmail}</p>}
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div className="grid gap-1.5">
                                 <Label>Ort</Label>
-                                <Input value={form.location || ''} placeholder="Telefon / vor Ort" onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
+                                <Input value={form.location || ''} placeholder="Telefon / vor Ort" onChange={(e) => changeForm((f) => ({ ...f, location: e.target.value }))} />
                             </div>
                             <div className="grid gap-1.5">
-                                <Label>Meeting-Link</Label>
-                                <Input value={form.meetingLink || ''} placeholder="https://meet…" onChange={(e) => setForm((f) => ({ ...f, meetingLink: e.target.value }))} />
+                                <Label htmlFor="admin-appointment-meeting-link">Meeting-Link</Label>
+                                <Input id="admin-appointment-meeting-link" value={form.meetingLink || ''} placeholder="https://meet…" aria-invalid={!!formErrors.meetingLink} aria-describedby={formErrors.meetingLink ? 'admin-appointment-meeting-link-error' : undefined} onChange={(e) => changeForm((f) => ({ ...f, meetingLink: e.target.value }))} />
+                                {formErrors.meetingLink && <p id="admin-appointment-meeting-link-error" className="text-xs font-medium text-destructive">{formErrors.meetingLink}</p>}
                             </div>
                         </div>
                         <div className="grid gap-1.5">
                             <Label>Notizen <span className="text-muted-foreground">(steuern Teams automatisch)</span></Label>
-                            <Textarea rows={2} value={form.notes || ''} placeholder="z. B. Teams-Beratung / vor Ort / telefonischer Rückruf" onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+                            <Textarea rows={2} value={form.notes || ''} placeholder="z. B. Teams-Beratung / vor Ort / telefonischer Rückruf" onChange={(e) => changeForm((f) => ({ ...f, notes: e.target.value }))} />
                             <p className="text-xs text-muted-foreground">Der Terminmanager liest diese internen Notizen. Digitale Quali-/Sales-Termine erhalten automatisch einen Teams-Link; vor Ort, Telefon und interne Blöcke nicht.</p>
                         </div>
+                        {conflicts.length > 0 && (
+                            <div role="alert" className="rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                                <p className="font-semibold">Terminüberschneidung erkannt</p>
+                                <p className="mt-1 text-xs opacity-80">Für diese zuständige Person liegen bereits folgende aktive Termine im Zeitraum:</p>
+                                <ul className="mt-2 space-y-1 text-xs">
+                                    {conflicts.map((item) => <li key={item.id}>• {timeOf(item.start_at)}–{timeOf(item.end_at)} · {item.customer_name || item.title}</li>)}
+                                </ul>
+                                <label className="mt-3 flex cursor-pointer items-center gap-2 font-medium">
+                                    <input type="checkbox" checked={conflictConfirmed} onChange={(event) => setConflictConfirmed(event.target.checked)} className="size-4 accent-primary" />
+                                    Trotzdem bewusst speichern
+                                </label>
+                            </div>
+                        )}
                         <label className="flex items-center gap-2 rounded-lg border bg-muted/30 p-2.5 text-sm">
-                            <input type="checkbox" checked={!!form.sendInvite} onChange={(e) => setForm((f) => ({ ...f, sendInvite: e.target.checked }))} className="size-4 accent-primary" />
+                            <input type="checkbox" checked={!!form.sendInvite} onChange={(e) => changeForm((f) => ({ ...f, sendInvite: e.target.checked }))} className="size-4 accent-primary" />
                             <Mail className="size-4 text-muted-foreground" />
                             {editingId ? 'Neue Einladung per E-Mail senden' : 'Einladung per E-Mail an den Kunden senden'}
                         </label>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>Abbrechen</Button>
+                        <Button variant="outline" onClick={closeForm} disabled={saving}>Abbrechen</Button>
                         <Button onClick={submitForm} disabled={saving}>
                             {saving ? <Loader2 className="size-4 animate-spin" /> : (editingId ? <Check className="size-4" /> : <Plus className="size-4" />)}
                             {editingId ? 'Speichern' : 'Anlegen'}
@@ -717,9 +766,9 @@ export default function CalendarView(): JSX.Element {
                                     {detail.assignee_name && <Row icon={<User className="size-4" />} text={`Zuständig: ${detail.assignee_name}`} />}
                                     {detail.customer_email && <Row icon={<Mail className="size-4" />} text={detail.customer_email} />}
                                     {detail.customer_phone && <Row icon={<Phone className="size-4" />} text={detail.customer_phone} />}
-                                    {detail.meeting_link && (
+                                    {safeMeetingUrl(detail.meeting_link || undefined) && (
                                         <a
-                                            href={detail.meeting_link}
+                                            href={safeMeetingUrl(detail.meeting_link || undefined)}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="flex min-w-0 items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 font-medium text-primary transition-colors hover:bg-muted"

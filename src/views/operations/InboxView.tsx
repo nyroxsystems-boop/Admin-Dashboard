@@ -57,6 +57,7 @@ import {
 import { formatDateTime, formatRelative } from '@/utils/format/date';
 import { cn } from '@/lib/utils';
 import { SEITEN_RAND_OHNE_BREITE } from '@/components/ui/seite';
+import { inboxAttention, nextInboxMessageId } from './inboxWorkspace';
 
 function senderLabel(message: InboxMessage): string {
     if (message.direction === 'outbound') return message.to[0] || 'Unbekannter Empfänger';
@@ -103,6 +104,14 @@ const FOLDER_ICONS: Record<InboxFolder, typeof Inbox> = {
     trash: Trash2,
     spam: ShieldAlert,
 };
+
+const WORK_QUEUES = [
+    { value: 'all', label: 'Alle' },
+    { value: 'mine', label: 'Meine' },
+    { value: 'open', label: 'Offen' },
+    { value: 'in_progress', label: 'In Arbeit' },
+    { value: 'done', label: 'Erledigt' },
+] as const;
 
 export default function InboxView(): JSX.Element {
     const [folder, setFolder] = useState<InboxFolder>('inbox');
@@ -250,7 +259,8 @@ export default function InboxView(): JSX.Element {
     /** Nach dem Verschieben verschwindet die Nachricht aus der Liste. */
     function moveTo(message: InboxMessage, target: 'archive' | 'trash'): void {
         if (!confirmDiscard()) return;
-        setSelectedId(null);
+        const nextId = nextInboxMessageId(inboxQuery.items, message.id);
+        setSelectedId(nextId);
         moveMessage.mutate(
             { id: message.id, folder: target },
             {
@@ -258,7 +268,7 @@ export default function InboxView(): JSX.Element {
                     target === 'trash' ? 'In den Papierkorb verschoben.' : 'Archiviert.',
                 ),
                 onError: (error) => {
-                    setSelectedId(message.id);
+                    setSelectedId(current => current === nextId ? message.id : current);
                     toast.error(error instanceof Error ? error.message : 'Verschieben fehlgeschlagen.');
                 },
             },
@@ -267,11 +277,12 @@ export default function InboxView(): JSX.Element {
 
     function restore(message: InboxMessage): void {
         if (!confirmDiscard()) return;
-        setSelectedId(null);
+        const nextId = nextInboxMessageId(inboxQuery.items, message.id);
+        setSelectedId(nextId);
         restoreMessage.mutate(message.id, {
             onSuccess: () => toast.success('Wiederhergestellt.'),
             onError: (error) => {
-                setSelectedId(message.id);
+                setSelectedId(current => current === nextId ? message.id : current);
                 toast.error(error instanceof Error ? error.message : 'Wiederherstellen fehlgeschlagen.');
             },
         });
@@ -284,13 +295,14 @@ export default function InboxView(): JSX.Element {
      */
     function reportSpam(message: InboxMessage): void {
         if (!confirmDiscard()) return;
-        setSelectedId(null);
+        const nextId = nextInboxMessageId(inboxQuery.items, message.id);
+        setSelectedId(nextId);
         markSpam.mutate(
             { id: message.id, blockSender: true },
             {
                 onSuccess: () => toast.success(`Als Spam markiert. ${message.from} ist jetzt gesperrt.`),
                 onError: (error) => {
-                    setSelectedId(message.id);
+                    setSelectedId(current => current === nextId ? message.id : current);
                     toast.error(error instanceof Error ? error.message : 'Markieren fehlgeschlagen.');
                 },
             },
@@ -299,11 +311,12 @@ export default function InboxView(): JSX.Element {
 
     function reportNotSpam(message: InboxMessage): void {
         if (!confirmDiscard()) return;
-        setSelectedId(null);
+        const nextId = nextInboxMessageId(inboxQuery.items, message.id);
+        setSelectedId(nextId);
         markNotSpam.mutate(message.id, {
             onSuccess: () => toast.success('Kein Spam — Absender wieder freigegeben.'),
             onError: (error) => {
-                setSelectedId(message.id);
+                setSelectedId(current => current === nextId ? message.id : current);
                 toast.error(error instanceof Error ? error.message : 'Freigeben fehlgeschlagen.');
             },
         });
@@ -436,9 +449,11 @@ export default function InboxView(): JSX.Element {
 
     return (
         <div className="flex h-full min-h-[520px] flex-col overflow-hidden bg-canvas">
-            <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface px-4 md:px-5">
+            <header className="flex min-h-20 shrink-0 items-center gap-3 border-b border-border-subtle bg-surface px-4 py-3 md:px-5">
+                <span aria-hidden className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-accent-500/10 text-accent-500 sm:flex"><Inbox className="size-5" /></span>
                 <div className="sr-only shrink-0 sm:not-sr-only">
-                    <h1 className="text-lg font-semibold tracking-tight">Postfach</h1>
+                    <h1 className="font-display text-xl font-semibold tracking-tight">Postfach</h1>
+                    <p className="mt-0.5 text-xs text-text-muted">Kundenkommunikation im Team</p>
                 </div>
 
                 <div className="relative ml-auto min-w-0 flex-1 max-w-md">
@@ -449,7 +464,7 @@ export default function InboxView(): JSX.Element {
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Nachrichten durchsuchen…"
                         aria-label="E-Mails durchsuchen"
-                        className="h-9 bg-elevated pl-9 shadow-none"
+                        className="h-10 rounded-lg bg-elevated/50 pl-9 shadow-none"
                     />
                 </div>
                 <Button
@@ -478,14 +493,8 @@ export default function InboxView(): JSX.Element {
                 </select>
             </div>
 
-            {/* Drei Spalten als KARTEN mit Abstand, wie im Entwurf
-                (196px | 372px | Rest). Vorher lagen sie kantenbündig
-                nebeneinander, nur durch Linien getrennt.
-
-                Die Seite selbst bleibt eigenständig — ganzer Bildschirm, nicht
-                im Dashboard-Rahmen. Übernommen wird das Aussehen, nicht die
-                Einbettung. */}
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-px bg-border-subtle lg:grid-cols-[190px_minmax(280px,340px)_minmax(0,1fr)]">
+            {/* The reader gets remaining width; message bodies still load only on demand. */}
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-px bg-border-subtle lg:grid-cols-[180px_minmax(280px,340px)_minmax(0,1fr)] xl:grid-cols-[196px_minmax(300px,370px)_minmax(0,1fr)]">
                 <MailboxRail
                     folder={folder}
                     mailbox={mailbox}
@@ -503,25 +512,21 @@ export default function InboxView(): JSX.Element {
                         selected ? 'hidden lg:flex' : 'flex',
                     )}
                 >
-                    <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-4">
+                    <div className="flex min-h-16 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
                         <div>
                             <h2 className="text-sm font-semibold">{FOLDER_LABELS[folder]}</h2>
                             <p className="text-[11px] text-text-muted">
-                                {inboxQuery.items.length} {inboxQuery.items.length === 1 ? 'Nachricht' : 'Nachrichten'}
+                                {inboxQuery.isLoading ? 'Wird geladen…' : inboxQuery.error ? 'Nicht verfügbar' : `${inboxQuery.items.length} Nachrichten geladen${inboxQuery.hasNextPage ? ' · weitere vorhanden' : ''}`}
                             </p>
                         </div>
                         {debouncedSearch && <span className="max-w-32 truncate text-[11px] text-text-muted">„{debouncedSearch}“</span>}
                     </div>
 
                     <div className="border-b border-border-subtle px-3 py-2">
-                        <label className="sr-only" htmlFor="mail-work-queue">Arbeitsansicht</label>
-                        <select id="mail-work-queue" value={workQueue} onChange={(event) => { if (confirmDiscard()) { setWorkQueue(event.target.value); setSelectedId(null); } }} className="h-9 w-full rounded-md border border-border-subtle bg-surface px-2 text-sm">
-                            <option value="all">Alle Nachrichten</option>
-                            <option value="mine">Von mir übernommen</option>
-                            <option value="open">Offene Nachrichten</option>
-                            <option value="in_progress">In Bearbeitung</option>
-                            <option value="done">Erledigt</option>
-                        </select>
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">Arbeitsliste</p>
+                        <nav aria-label="Arbeitsansicht" className="flex gap-1 overflow-x-auto pb-1">
+                            {WORK_QUEUES.map(queue => <button key={queue.value} type="button" aria-pressed={workQueue === queue.value} onClick={() => { if (workQueue !== queue.value && confirmDiscard()) { setWorkQueue(queue.value); setSelectedId(null); } }} className={cn('shrink-0 rounded-md px-2 py-1.5 text-xs font-medium transition-colors', workQueue === queue.value ? 'bg-accent-600 text-white shadow-sm' : 'text-text-secondary hover:bg-elevated')}>{queue.label}</button>)}
+                        </nav>
                         {folder === 'inbox' && <label className="mt-2 flex min-h-9 cursor-pointer items-center gap-2 text-sm text-text-secondary lg:hidden"><input type="checkbox" checked={unreadOnly} onChange={event => { if (confirmDiscard()) { setUnreadOnly(event.target.checked); setSelectedId(null); } }} className="size-4 accent-accent-500" />Nur ungelesene</label>}
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -545,7 +550,16 @@ export default function InboxView(): JSX.Element {
                                 className="m-4 border-0 bg-transparent"
                             />
                         ) : (
-                            <ul role="listbox" aria-label="E-Mail-Liste" aria-busy={Boolean(draftLoading)}>
+                            <ul aria-label="E-Mail-Liste" aria-busy={Boolean(draftLoading)} onKeyDown={event => {
+                                if (event.altKey || event.ctrlKey || event.metaKey || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+                                const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('li > button:not(:disabled)'));
+                                const index = buttons.indexOf(event.target as HTMLButtonElement);
+                                if (index < 0) return;
+                                event.preventDefault();
+                                const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : Math.max(0, Math.min(buttons.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
+                                // Moving focus must not mark another message as read. Enter opens it.
+                                buttons[next]?.focus();
+                            }}>
                                 {inboxQuery.items.map((message) => (
                                     <MessageListItem
                                         key={message.id}
@@ -692,11 +706,12 @@ function MailboxRail({
                         <button
                             key={item.id}
                             type="button"
+                            aria-pressed={mailbox === item.id}
                             onClick={() => onMailboxChange(item.id)}
                             className={cn(
                                 'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors',
                                 mailbox === item.id
-                                    ? 'bg-elevated text-text-primary'
+                                    ? 'bg-accent-500/10 font-semibold text-accent-500'
                                     : 'text-text-secondary hover:bg-elevated/70 hover:text-text-primary',
                             )}
                         >
@@ -711,6 +726,7 @@ function MailboxRail({
                     ))}
                 </div>
             </div>
+            <div className="border-t border-border-subtle p-4 text-xs leading-6 text-text-muted"><p className="font-medium text-text-secondary">Schneller arbeiten</p><p><kbd>J</kbd> / <kbd>K</kbd> Nachricht wechseln</p><p><kbd>R</kbd> Antworten · <kbd>/</kbd> Suchen</p></div>
         </aside>
     );
 }
@@ -731,11 +747,12 @@ function RailButton({
     return (
         <button
             type="button"
+            aria-pressed={active}
             onClick={onClick}
             className={cn(
-                'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                'flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
                 active
-                    ? 'bg-accent-500/10 font-medium text-accent-500'
+                    ? 'bg-accent-600 font-semibold text-white shadow-sm'
                     : 'text-text-secondary hover:bg-elevated hover:text-text-primary',
             )}
         >
@@ -758,22 +775,23 @@ function MessageListItem({
     loading: boolean;
 }): JSX.Element {
     const label = senderLabel(message);
+    const attention = inboxAttention(message);
     return (
-        <li role="option" aria-selected={selected}>
+        <li>
             <button
                 type="button"
+                aria-current={selected ? 'true' : undefined}
                 onClick={onSelect}
                 disabled={loading}
                 className={cn(
-                    'group relative w-full border-b border-border-subtle px-4 py-3 text-left transition-colors',
-                    selected ? 'bg-accent-500/10' : 'hover:bg-elevated/70',
-                    !message.is_read && message.direction === 'inbound' && 'bg-elevated/35',
+                    'group relative w-full border-b border-border-subtle px-4 py-4 text-left transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-500',
+                    selected ? 'bg-accent-500/10' : !message.is_read && message.direction === 'inbound' ? 'bg-accent-500/[0.03] hover:bg-elevated/70' : 'hover:bg-elevated/70',
                 )}
             >
-                {selected && <span className="absolute inset-y-2 left-0 w-0.5 rounded-r bg-accent-500" />}
+                {selected && <span aria-hidden className="absolute inset-y-0 left-0 w-1 bg-accent-500" />}
                 <div className="flex items-start gap-3">
                     <div className={cn(
-                        'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                        'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl text-xs font-semibold',
                         !message.is_read && message.direction === 'inbound'
                             ? 'bg-accent-500 text-white'
                             : 'bg-elevated text-text-secondary',
@@ -788,20 +806,23 @@ function MessageListItem({
                             )}>
                                 {label}
                             </span>
-                            <time className="shrink-0 text-xs text-text-muted">{formatRelative(message.received_at)}</time>
+                            <time className="shrink-0 text-xs text-text-muted" dateTime={message.received_at} title={formatDateTime(message.received_at)}>{formatRelative(message.received_at)}</time>
                         </div>
                         <div className={cn(
-                            'mt-0.5 truncate text-xs',
+                            'mt-1 truncate text-sm',
                             !message.is_read && message.direction === 'inbound' ? 'font-medium text-text-primary' : 'text-text-secondary',
                         )}>
                             {message.subject || '(ohne Betreff)'}
                         </div>
-                        <div className="mt-1 flex items-center gap-2">
-                            <p className="min-w-0 flex-1 truncate text-xs text-text-muted">{preview(message.body)}</p>
-                            {message.assignment_status === 'in_progress' && <span className="text-xs text-accent-500">Bearbeitung</span>}
-                            {message.assignment_status === 'done' && <span className="text-xs text-success">Erledigt</span>}
-                            {message.attachments.length > 0 && <Paperclip className="size-3 shrink-0 text-text-muted" />}
-                            {!message.is_read && message.direction === 'inbound' && <span className="size-1.5 shrink-0 rounded-full bg-accent-500" />}
+                        <p className="mt-1.5 line-clamp-2 break-words text-xs leading-5 text-text-muted">{preview(message.body)}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                            {!message.is_read && message.direction === 'inbound' && <span className="inline-flex items-center gap-1 text-accent-500"><span aria-hidden className="size-1.5 rounded-full bg-accent-500" />Ungelesen</span>}
+                            {message.assignment_status === 'open' && <span className="rounded-md bg-status-warning/10 px-1.5 py-0.5 text-status-warning">Offen</span>}
+                            {message.assignment_status === 'in_progress' && <span className="rounded-md bg-accent-500/10 px-1.5 py-0.5 text-accent-500">In Bearbeitung</span>}
+                            {message.assignment_status === 'done' && <span className="rounded-md bg-success/10 px-1.5 py-0.5 text-success">Erledigt</span>}
+                            {message.assigned_to && <span className="max-w-28 truncate text-text-muted" title={`Zuständig: ${message.assigned_to}`}>{message.assigned_to}</span>}
+                            {attention && <span className={cn('rounded-md px-1.5 py-0.5 font-medium', attention.urgent ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning')}>{attention.label}</span>}
+                            {message.attachments.length > 0 && <span className="ml-auto inline-flex items-center gap-1 text-text-muted"><Paperclip className="size-3 shrink-0" aria-hidden /><span>{message.attachments.length}<span className="sr-only"> Anhänge</span></span></span>}
                         </div>
                     </div>
                 </div>
@@ -856,13 +877,13 @@ function MessageDetail({
 
     if (!message) {
         return (
-            <section className="hidden min-h-0 items-center justify-center bg-surface lg:flex" aria-label="Keine E-Mail ausgewählt">
-                <div className="max-w-xs text-center">
-                    <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full border border-border-subtle bg-surface text-text-muted">
-                        <MailOpen className="size-5" />
+            <section className="hidden min-h-0 items-center justify-center bg-canvas p-6 lg:flex" aria-label="Keine E-Mail ausgewählt">
+                <div className="max-w-sm text-center">
+                    <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl border border-accent-500/20 bg-accent-500/10 text-accent-500">
+                        <MailOpen className="size-7" />
                     </div>
-                    <h2 className="text-sm font-semibold">E-Mail auswählen</h2>
-                    <p className="mt-1 text-xs leading-relaxed text-text-muted">Wähle links eine Nachricht, um sie hier zu lesen.</p>
+                    <h2 className="font-display text-xl font-semibold">Platz für das nächste Gespräch</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-text-muted">Wähle eine E-Mail, um den Verlauf zu lesen, die Zuständigkeit zu klären oder zu antworten.</p>
                 </div>
             </section>
         );
@@ -929,9 +950,9 @@ function MessageDetail({
                         <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-baseline gap-x-2">
                                 <span className="font-medium text-text-primary">{detailName}</span>
-                                <span className="text-xs text-text-muted">&lt;{detailAddress}&gt;</span>
+                                <span className="break-all text-xs text-text-muted">&lt;{detailAddress}&gt;</span>
                             </div>
-                            <div className="mt-1 text-xs text-text-muted">
+                            <div className="mt-1 break-words text-xs text-text-muted">
                                 An: {message.to.join(', ') || 'Unbekannt'}
                                 {message.cc.length > 0 && ` · Cc: ${message.cc.join(', ')}`}
                             </div>

@@ -23,9 +23,11 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
+import { mailWorkspaceMessages } from './fixtures/mailWorkspace';
+import { TenantDetailSchema, TenantSchema } from '@/api/types';
 
 // Nur die Anmeldung wird vorgetäuscht — SUPER_ADMIN, damit auch die Einträge
 // im Bild sind, die sonst nur diese Rolle sieht. Alles Übrige ist echt.
@@ -59,9 +61,15 @@ vi.mock('@/hooks/useSystemHealth', () => ({
     }),
 }));
 vi.mock('@/hooks/useInbox', () => ({
+    useInbox: () => ({ items: mailWorkspaceMessages, isLoading: false, error: null, isFetching: false, hasNextPage: false, refetch: () => {} }),
+    useMarkInboxRead: () => ({ mutate: () => {}, isPending: false }),
+    useMoveInboxMessage: () => ({ mutate: () => {}, isPending: false }),
+    useMarkAsSpam: () => ({ mutate: () => {}, isPending: false }),
+    useMarkAsNotSpam: () => ({ mutate: () => {}, isPending: false }),
+    useRestoreInboxMessage: () => ({ mutate: () => {}, isPending: false }),
     useMailboxes: () => ({
-        mailboxes: [{ id: 'all', label: 'Alle', unread: 3 }],
-        sendingAddresses: [],
+        mailboxes: [{ id: 'all', name: 'Alle Postfächer', unread: 1 }, { id: 'team', name: 'Team Partsunion', unread: 1 }],
+        sendingAddresses: ['team@partsunion.de'],
         transport: 'resend',
         isLoading: false,
         error: null,
@@ -158,6 +166,9 @@ vi.mock('@/hooks/useActiveImpersonation', () => ({ useActiveImpersonation: () =>
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { AdminTopbar } from '@/components/layout/AdminTopbar';
 import { MailLayout } from '@/components/layout/MailLayout';
+import InboxView from '@/views/operations/InboxView';
+import { TenantOverview } from '@/views/tenants/TenantOverview';
+import { TenantOperations } from '@/views/tenants/TenantOperations';
 import OverviewView from '@/views/dashboard/OverviewView';
 import TenantsListView from '@/views/tenants/TenantsListView';
 import OnboardingPipelineView from '@/views/onboarding/OnboardingPipelineView';
@@ -262,7 +273,7 @@ const TERMINE = [
       customer_name: 'Werkstatt Süd', assignee_name: 'Bardia', status: 'proposed' },
 ];
 
-function rendern(inhalt: JSX.Element): string {
+function rendern(inhalt: JSX.Element, route = '/'): string {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(['admin', 'appointments', 'uebersicht'], { appointments: TERMINE.map((appointment, index) => ({
         ...appointment, start_at: new Date(Date.now() + (index + 1) * 36e5).toISOString(),
@@ -285,9 +296,12 @@ function rendern(inhalt: JSX.Element): string {
     // dieselben Daten unter verschiedenen Namen ab.
     qc.setQueryData(['admin', 'onboarding', 'pipeline'], onboarding);
     qc.setQueryData(['admin', 'onboarding-pipeline'], onboarding);
+    qc.setQueryData(['admin', 'readiness-profile', '1'], { billing: { company_name: 'A-V-G Autozubehör GmbH', company_address: 'Hafenstraße 12', company_zip: '20457', company_city: 'Hamburg' }, tax: { business_type: 'company', vat_id: 'DE000000000' }, dpaAcceptedAt: '2026-08-01', dpaVersion: '1.2' });
+    qc.setQueryData(['admin', 'provisioning', '1'], { ownerName: 'Elias', dueAt: '2026-09-12', stage: 'integration', checks: {}, notes: '', updatedAt: '2026-09-05', version: 1, readiness: { ready: false, blockers: ['WhatsApp-Anbindung testen', 'Einweisung abschließen'] } });
+    qc.setQueryData(['admin', 'tenant-operations', '1'], { generatedAt: '2026-09-05T12:00:00Z', orders: { total: 84, open: 7, completed: 77, lastOrderAt: '2026-09-05T10:00:00Z' }, finance: { issuedCount: 28, openCount: 4, overdueCount: 2, outstandingCents: 184500, overdueCents: 62900, currency: 'EUR' }, inventory: { products: 1320, units: 8840, lowStock: 12, locations: 3 }, procurement: { openOrders: 5, overdueOrders: 1 }, unavailable: [] });
     return renderToStaticMarkup(
         <QueryClientProvider client={qc}>
-            <MemoryRouter initialEntries={['/']}>{inhalt}</MemoryRouter>
+            <MemoryRouter initialEntries={[route]}>{inhalt}</MemoryRouter>
         </QueryClientProvider>,
     );
 }
@@ -373,7 +387,7 @@ describe('Bildprobe Redesign', () => {
     });
 
     it.skipIf(!css)('schreibt die Mail-Hülle nach dist-probe/', () => {
-        const markup = rendern(<MailLayout />);
+        const markup = rendern(<Routes><Route element={<MailLayout />}><Route path="/" element={<InboxView />} /></Route></Routes>);
         const seite = `<!doctype html>
 <html lang="de" class="dark">
 <head>
@@ -381,7 +395,6 @@ describe('Bildprobe Redesign', () => {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Probe — Partsunion Mail</title>
 <style>${css}</style>
-<style>.hidden.sm\\:inline-flex { display: inline-flex !important; } .hidden.sm\\:inline { display: inline !important; }</style>
 </head>
 <body class="bg-canvas text-text-primary">${markup}</body>
 </html>`;
@@ -416,16 +429,34 @@ describe('Bildprobe Redesign', () => {
         mkdirSync(AUSGABE, { recursive: true });
         beiwerkKopieren();
         writeFileSync(join(AUSGABE, 'kunden.html'), `<!doctype html>
-<html lang="de" class="dark"><head><meta charset="utf-8"><title>Probe — Kunden</title>
+<html lang="de" class="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Probe — Kunden</title>
 <style>${css}</style>
 <style>
 </style>
 </head><body class="bg-canvas text-text-primary">${markup}</body></html>`, 'utf8');
 
         // Die Merkmale des Entwurfs stehen im Markup.
-        expect(markup).toContain('Händlerkonten');
+        expect(markup).toContain('Händler-Arbeitsansichten');
         expect(markup).toContain('Name, Kennung oder WhatsApp suchen');
         expect(markup).toContain('text-sm');
+    });
+
+    it.skipIf(!css)('schreibt die Kundenakte mit echten Komponenten und Beispieldaten', () => {
+        const tenant = TenantSchema.parse({ id: '1', name: 'A-V-G Autozubehör', slug: 'avg-autozubehoer', is_active: true, user_count: 3, max_users: 5, device_count: 4, max_devices: 10, payment_status: 'overdue', onboarding_status: 'configured', created_at: '2026-08-01' });
+        const detail = TenantDetailSchema.parse({ id: '1', users: [{ id: 'owner-1', role: 'merchant', name: 'Anna Nord', email: 'anna@beispiel.invalid', created_at: '2026-08-01' }], settings: { max_users: 5, max_devices: 10 }, devices: [], stats: {} });
+        const markup = rendern(<div className="flex h-screen w-full overflow-hidden bg-canvas text-text-primary" data-workspace="admin"><AdminSidebar /><div className="flex min-w-0 flex-1 flex-col"><AdminTopbar /><main className="min-w-0 flex-1 overflow-auto p-4 md:p-7"><h1 className="mb-5 font-display text-2xl font-semibold">A-V-G Autozubehör</h1><TenantOverview tenant={tenant} detail={detail} detailLoading={false} detailError={false} retryDetail={() => {}} onSection={() => {}} /></main></div></div>, '/tenants/1');
+        mkdirSync(AUSGABE, { recursive: true }); beiwerkKopieren();
+        writeFileSync(join(AUSGABE, 'kundenakte.html'), `<!doctype html><html lang="de" class="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Probe — Kundenakte</title><style>${css}</style></head><body class="bg-canvas text-text-primary">${markup}</body></html>`, 'utf8');
+        expect(markup).toContain('Nächste Schritte für diesen Händler');
+        expect(markup).toContain('Zahlungsstatus klären');
+    });
+
+    it.skipIf(!css)('schreibt die ERP-Arbeitsansicht mit betrieblichen Hinweisen', () => {
+        const markup = rendern(<div className="flex h-screen w-full overflow-hidden bg-canvas text-text-primary" data-workspace="admin"><AdminSidebar /><div className="flex min-w-0 flex-1 flex-col"><AdminTopbar /><main className="min-w-0 flex-1 overflow-auto p-4 md:p-7"><h1 className="mb-5 font-display text-2xl font-semibold">A-V-G Autozubehör · Betrieb</h1><TenantOperations tenantId="1" /></main></div></div>, '/tenants/1?tab=operations');
+        mkdirSync(AUSGABE, { recursive: true }); beiwerkKopieren();
+        writeFileSync(join(AUSGABE, 'erp.html'), `<!doctype html><html lang="de" class="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Probe — ERP</title><style>${css}</style></head><body class="bg-canvas text-text-primary">${markup}</body></html>`, 'utf8');
+        expect(markup).toContain('Betrieblicher Handlungsbedarf');
+        expect(markup).toContain('12 Artikel am Mindestbestand');
     });
 
     it.skipIf(!css)('schreibt die Onboarding-Ansicht nach dist-probe/', () => {
@@ -441,7 +472,7 @@ describe('Bildprobe Redesign', () => {
         mkdirSync(AUSGABE, { recursive: true });
         beiwerkKopieren();
         writeFileSync(join(AUSGABE, 'onboarding.html'), `<!doctype html>
-<html lang="de" class="dark"><head><meta charset="utf-8"><title>Probe — Onboarding</title>
+<html lang="de" class="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Probe — Onboarding</title>
 <style>${css}</style>
 <style>
 </style>

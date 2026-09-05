@@ -38,6 +38,13 @@ describe('Tenant operations drilldown', () => {
         expect(screen.queryByText('Keine Vorgänge für diesen Filter vorhanden.')).not.toBeInTheDocument();
         expect(screen.getAllByText('Datenquelle nicht verfügbar.')).toHaveLength(3);
     });
+    it('opens an overdue finance task directly in the matching work queue', async () => {
+        vi.mocked(apiFetch).mockImplementation(async (path) => String(path).endsWith('/operations') ? summary : { ...detail, filter: 'overdue', items: [] });
+        mount();
+        fireEvent.click(await screen.findByRole('button', { name: /1 überfällige Rechnung/ }));
+        await waitFor(() => expect(apiFetch).toHaveBeenCalledWith('/api/admin/tenants/dealer-a/operations/invoices?filter=overdue&limit=50'));
+        expect(screen.getByLabelText('Vorgänge filtern')).toHaveValue('overdue');
+    });
     it('loads the history only when expanded and follows its version cursor', async () => {
         vi.mocked(apiFetch).mockImplementation(async (path) => ({ events: [{ id: String(path).includes('cursor=1') ? 'event-b' : 'event-a', version: String(path).includes('cursor=1') ? 2 : 1, occurredAt: summary.generatedAt, actorId: 'operator-id', actorName: 'Alex Beispiel', fromStage: 'draft', toStage: 'provisioning' }], nextCursor: String(path).includes('cursor=1') ? null : '1' }));
         mount(<TenantProvisioningHistory tenantId="dealer-a" />);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TenantSchema } from '@/api/types';
-import { filterDirectory, setupLabel, csvField } from './tenantDirectory';
+import { directorySummary, filterDirectory, setupLabel, csvField } from './tenantDirectory';
 
 const tenants = [
     TenantSchema.parse({ id: 'a', name: 'Müller Nord', slug: 'NORD', whatsapp_number: '+493012345', payment_status: ' PAID ', onboarding_status: 'completed' }),
@@ -9,6 +9,16 @@ const tenants = [
 ];
 const base = { search: '', status: 'all' as const, setup: 'all' as const, kind: 'all' as const, sort: 'name' };
 describe('Händlerverzeichnis', () => {
+    it('counts work queues exactly like their filters and excludes deleted account usage', () => {
+        const data = [...tenants, TenantSchema.parse({ id: 'd', name: 'Entfernt', deleted: true, payment_status: 'overdue', user_count: 99, device_count: 99 })];
+        const summary = directorySummary(data);
+        expect(summary.total).toBe(filterDirectory(data, base).length);
+        expect(summary.setup).toBe(filterDirectory(data, { ...base, setup: 'open' }).length);
+        expect(summary.payment).toBe(filterDirectory(data, { ...base, status: 'overdue' }).length);
+        expect(summary.inactive).toBe(filterDirectory(data, { ...base, status: 'inactive' }).length);
+        expect(summary.users).toBeLessThan(99);
+        expect(summary.devices).toBeLessThan(99);
+    });
     it('combines search terms across known fields and ignores letter case', () => {
         expect(filterDirectory(tenants, { ...base, search: 'MÜLLER nord +4930' }).map(t => t.id)).toEqual(['a']);
     });
