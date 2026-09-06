@@ -33,6 +33,7 @@ const CalendarView = lazy(() => import('@/views/calendar/CalendarView'));
 const OemFinderView = lazy(() => import('@/views/operations/OemFinderView'));
 const OutreachView = lazy(() => import('@/views/operations/OutreachView'));
 const MarketingView = lazy(() => import('@/views/marketing/MarketingView'));
+const ErpCenterView = lazy(() => import('@/views/erp/ErpCenterView'));
 
 // ── Einstellungen ──────────────────────────────────────────────────────────
 const SettingsLayout = lazy(() => import('@/views/settings/SettingsLayout'));
@@ -134,6 +135,7 @@ export function AdminRoutes(): JSX.Element {
                 <Route path="oem-finder" element={withSuspense(<OemFinderView />)} />
                 <Route path="outreach" element={withSuspense(<OutreachView />)} />
                 <Route path="marketing" element={withSuspense(<MarketingView />)} />
+                <Route path="erp" element={withSuspense(<ErpCenterView />)} />
 
                 {/* ── Einstellungen mit Unterbereichen ── */}
                 <Route path="einstellungen" element={withSuspense(<SettingsLayout />)}>

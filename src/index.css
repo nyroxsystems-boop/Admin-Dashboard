@@ -186,6 +186,78 @@ body {
     line-height: 1.5;
 }
 
+/* ── Admin Operations Shell ──────────────────────────────────────────────
+   Die Navigation bleibt in beiden Farbmodi dunkel. Damit erhält das Admin-
+   Produkt eine klare räumliche Hierarchie: Navigation = Steuerpult,
+   Hauptfläche = Arbeit. Das ist bewusst keine dekorative Verlaufskarte. */
+.admin-sidebar {
+    background: hsl(var(--admin-nav-bg));
+    border-color: hsl(var(--admin-nav-border));
+    color: white;
+    box-shadow: 14px 0 36px -30px hsl(218 60% 4% / 0.9);
+}
+
+.admin-sidebar-scroll {
+    scrollbar-color: hsl(var(--admin-nav-border)) transparent;
+    scrollbar-width: thin;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--admin-nav-border));
+}
+
+.admin-topbar {
+    box-shadow: 0 1px 0 hsl(var(--border)), 0 10px 24px -24px hsl(218 45% 18% / 0.45);
+}
+
+[data-workspace="admin"] main {
+    background-color: hsl(var(--bg-canvas));
+}
+
+/* Wiedererkennbare Seitenöffnung: kräftige Funktionskante und dichte
+   Informationshierarchie anstelle eines übergroßen Hero-Banners. */
+.admin-page-intro {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    border-left: 4px solid hsl(var(--accent-500));
+    border-radius: var(--radius);
+    background: hsl(var(--bg-surface));
+    box-shadow: var(--shadow-card);
+}
+
+.admin-work-panel {
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    background: hsl(var(--bg-surface));
+    box-shadow: var(--shadow-card);
+}
+
+.admin-signal-rail {
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    background: hsl(var(--bg-surface));
+    box-shadow: var(--shadow-xs);
+}
+
+.admin-signal-cell {
+    position: relative;
+    min-width: 0;
+}
+
+.admin-signal-cell::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--signal-color, hsl(var(--accent-500)));
+}
+
 /* Breite Bestandsansichten profitieren ebenfalls von der neuen Tiefe, ohne
    dass Tabellen, Formfelder oder Dialoge zu dekorativen Karten werden. */
 [data-workspace="admin"] main :is(section, article).rounded-lg.border.bg-surface,

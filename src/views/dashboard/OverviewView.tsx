@@ -4,11 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import {
     Activity,
     ArrowUpRight,
+    Boxes,
     Building2,
     CalendarDays,
     CircleDollarSign,
     KeyRound,
     Mail,
+    Megaphone,
     RefreshCw,
     ShoppingCart,
     Users,
@@ -31,7 +33,7 @@ import { terminfenster } from './terminfenster';
 import { merchantNextStep, merchantQueue, nextAppointments } from './operationsQueue';
 
 const textLink = 'inline-flex items-center gap-1 text-sm font-semibold text-accent-500 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500';
-const sectionPanel = 'min-w-0 overflow-hidden rounded-xl border border-border bg-surface shadow-card';
+const sectionPanel = 'admin-work-panel min-w-0 overflow-hidden';
 const sectionHeader = 'flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4';
 
 /** Keep return-to-dashboard timing without tying first paint to a data request. */
@@ -88,25 +90,32 @@ export default function OverviewView(): JSX.Element {
     const serviceReady = !health.isLoading && !health.error && Boolean(health.zustand?.erreichbar);
 
     return <div className={SEITEN_RAND}>
-        <section className="mb-4 border-b border-border pb-4 pt-1">
+        <section className="admin-page-intro mb-4 px-5 py-5 md:px-6">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-muted">Plattformbetrieb</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-accent-500">Admin Operations / Heute</span>
                 <span className={`inline-flex items-center gap-2 text-xs font-semibold ${serviceReady ? 'text-success' : 'text-warning'}`}><span className={`size-1.5 rounded-full ${serviceReady ? 'bg-success' : 'bg-warning'}`} />{health.isLoading ? 'API wird geprüft' : serviceReady ? 'API erreichbar' : 'API-Status prüfen'}</span>
             </div>
-            <SeitenKopf titel="Arbeitsübersicht" beileile="Einrichtungen, Rückfragen und die nächsten Termine – priorisiert für den heutigen Betrieb."
+            <SeitenKopf titel="Arbeitsübersicht" beileile="Die wichtigen Betriebsfälle zuerst: Händlerstart, Kommunikation, Aufträge und Plattformzustand."
                 aktionen={<><button type="button" className={NEBEN_AKTION} disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Aktualisieren</button>{can('tenants.create') && <Link to="/tenants/new" className={HAUPT_AKTION}>Händler einrichten</Link>}</>} />
         </section>
 
-        <section aria-label="Plattformzahlen" className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <section aria-label="Plattformzahlen" className="admin-signal-rail mb-3 grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
             {facts.map(fact => {
                 const Icon = fact.icon;
-                return <Link key={fact.label} to={fact.to} className={`admin-metric-card karte group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 ${WORKSPACE_METRIC}`} style={{ '--metric-color': fact.color } as CSSProperties}>
+                return <Link key={fact.label} to={fact.to} className={`admin-signal-cell group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 ${WORKSPACE_METRIC}`} style={{ '--signal-color': fact.color } as CSSProperties}>
                     <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${fact.iconClass}`}><Icon size={16} /></span>
                     <span className="min-w-0"><span className="block truncate text-xs font-semibold text-text-secondary">{fact.label}</span><span className="mt-0.5 block truncate text-[11px] text-text-muted">{fact.detail}</span></span>
                     <span className={`max-w-[132px] truncate text-right font-display font-bold leading-none tabular-nums text-text-primary ${fact.label === 'Monatsumsatz' ? WORKSPACE_METRIC_VALUE_LONG : WORKSPACE_METRIC_VALUE}`}>{metrics.isLoading ? '—' : fact.value ?? '—'}</span>
                 </Link>;
             })}
         </section>
+
+        <nav aria-label="Schnellzugriffe" className="mb-5 grid overflow-hidden border border-border bg-surface shadow-xs sm:grid-cols-2 lg:grid-cols-4">
+            <Link to="/erp" className="group flex items-center gap-3 border-b border-border px-4 py-3 transition-colors hover:bg-warning/[0.06] sm:border-r lg:border-b-0"><span className="flex size-8 items-center justify-center rounded-md bg-warning/10 text-warning"><Boxes size={16} /></span><span className="min-w-0 flex-1"><strong className="block text-xs">ERP steuern</strong><span className="block truncate text-[11px] text-text-muted">Lager, Einkauf, Forderungen</span></span><ArrowUpRight size={13} className="text-text-faint group-hover:text-warning" /></Link>
+            <Link to="/mail" className="group flex items-center gap-3 border-b border-border px-4 py-3 transition-colors hover:bg-info/[0.06] lg:border-b-0 lg:border-r"><span className="flex size-8 items-center justify-center rounded-md bg-info/10 text-info"><Mail size={16} /></span><span className="min-w-0 flex-1"><strong className="block text-xs">Postfach öffnen</strong><span className="block truncate text-[11px] text-text-muted">Antworten und zuordnen</span></span><ArrowUpRight size={13} className="text-text-faint group-hover:text-info" /></Link>
+            <Link to="/marketing" className="group flex items-center gap-3 border-b border-border px-4 py-3 transition-colors hover:bg-danger/[0.05] sm:border-r lg:border-b-0"><span className="flex size-8 items-center justify-center rounded-md bg-danger/10 text-danger"><Megaphone size={16} /></span><span className="min-w-0 flex-1"><strong className="block text-xs">Marketing & Ads</strong><span className="block truncate text-[11px] text-text-muted">Google, Meta, Website</span></span><ArrowUpRight size={13} className="text-text-faint group-hover:text-danger" /></Link>
+            <Link to="/onboarding" className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-success/[0.06]"><span className="flex size-8 items-center justify-center rounded-md bg-success/10 text-success"><Building2 size={16} /></span><span className="min-w-0 flex-1"><strong className="block text-xs">Händlerstart</strong><span className="block truncate text-[11px] text-text-muted">Einrichtung und Freigabe</span></span><ArrowUpRight size={13} className="text-text-faint group-hover:text-success" /></Link>
+        </nav>
 
         {metrics.error ? <p role="alert" className="mb-5 text-sm text-warning">Plattformzahlen konnten nicht aktualisiert werden. Angezeigte Werte können veraltet sein. <button type="button" onClick={metrics.refetch} className={textLink}>Erneut laden</button></p> : !metrics.isLoading && facts.some(fact => fact.value == null) && <p className="mb-5 text-xs text-text-muted">Nicht verfügbare Kennzahlen werden als „—“ angezeigt.</p>}
 

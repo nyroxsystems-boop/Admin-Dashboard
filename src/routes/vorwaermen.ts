@@ -37,6 +37,7 @@ const HAUPTANSICHTEN = [
     () => import('@/views/operations/OemFinderView'),
     () => import('@/views/operations/OutreachView'),
     () => import('@/views/marketing/MarketingView'),
+    () => import('@/views/erp/ErpCenterView'),
     () => import('@/views/settings/SettingsLayout'),
     () => import('@/views/admins/AdminsListView'),
 ];

@@ -311,8 +311,11 @@ export default function MarketingView(): JSX.Element {
     const visitDurationLabel = `${Math.floor(visitDuration / 60)}:${String(Math.round(visitDuration % 60)).padStart(2, '0')} min`;
 
     return (
-        <div className={cn(SEITEN_RAND, 'space-y-7')}>
-            <SeitenKopf titel="Marketing-Zentrale" beileile="Werbung steuern, Website-Nachfrage verstehen und Wirkung über alle Kanäle vergleichen – ohne Zugangsdaten im Browser." aktionen={<><span className="text-xs text-text-muted">{data ? relativeGeneratedAt(data.generatedAt) : ''}</span><button type="button" className={NEBEN_AKTION} onClick={() => setRefreshToken((value) => value + 1)} disabled={query.isFetching}><RefreshCw size={15} className={query.isFetching ? 'animate-spin' : ''} />Aktualisieren</button></>} />
+        <div className={cn(SEITEN_RAND, 'space-y-5')}>
+            <section className="admin-page-intro px-5 py-5 md:px-6">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-danger">Growth Operations / Paid Media</div>
+                <SeitenKopf titel="Marketing & Ads" beileile="Google und Meta steuern, Website-Nachfrage verstehen und Wirkung kanalübergreifend vergleichen – ohne Zugangsdaten im Browser." aktionen={<><span className="text-xs text-text-muted">{data ? relativeGeneratedAt(data.generatedAt) : ''}</span><button type="button" className={NEBEN_AKTION} onClick={() => setRefreshToken((value) => value + 1)} disabled={query.isFetching}><RefreshCw size={15} className={query.isFetching ? 'animate-spin' : ''} />Aktualisieren</button></>} />
+            </section>
 
             <section className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm" aria-label="Auswertungszeitraum">
                 <div className="mr-auto flex flex-wrap gap-2">{[7, 30, 90].map((days) => { const preset = datePreset(days); const active = preset.from === from && preset.to === to; return <FilterPille key={days} aktiv={active} onClick={() => { setFrom(preset.from); setTo(preset.to); }}>{days} Tage</FilterPille>; })}</div>

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Building2,
+  Boxes,
   Calendar,
   KeyRound,
   LayoutDashboard,
@@ -40,7 +41,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { WORKSPACE_BRAND, WORKSPACE_MARK, WORKSPACE_NAV_ITEM, WORKSPACE_NAV_ACTIVE } from './workspaceShell';
+import { WORKSPACE_BRAND, WORKSPACE_MARK, WORKSPACE_NAV_ITEM } from './workspaceShell';
 import { usePermissions, type Permission } from '@/auth/usePermissions';
 
 const STORAGE_KEY = 'pu.admin.sidebar.collapsed.v1';
@@ -54,6 +55,7 @@ interface NavItem {
   /** Only shown to SUPER_ADMIN — route is also SUPER_ADMIN-guarded. */
   superAdmin?: boolean;
   permission?: Permission;
+  badge?: string;
 }
 
 type NavTone = 'accent' | 'info' | 'success' | 'warning' | 'danger';
@@ -86,37 +88,48 @@ interface NavSection {
 const NAV_SECTIONS: NavSection[] = [
   {
     id: 'top',
-    label: 'Arbeitsplatz',
+    label: 'Heute',
     items: [
-      { to: '/', label: 'Arbeitsübersicht', icon: LayoutDashboard, tone: 'accent', end: true },
+      { to: '/', label: 'Betriebszentrale', icon: LayoutDashboard, tone: 'accent', end: true },
       { to: '/mail', label: 'E-Mail', icon: Mail, tone: 'info', permission: 'inbox.read' },
       { to: '/calendar', label: 'Kalender', icon: Calendar, tone: 'warning' },
     ],
   },
   {
     id: 'kunden',
-    label: 'Händler betreuen',
+    label: 'Betrieb & Händler',
     items: [
-      { to: '/tenants', label: 'Händlerübersicht', icon: Building2, tone: 'success', permission: 'tenants.read' },
+      { to: '/tenants', label: 'Händler & Kunden', icon: Building2, tone: 'success', permission: 'tenants.read' },
       { to: '/onboarding', label: 'Einrichtungen', icon: ClipboardCheck, tone: 'accent', permission: 'tenants.read' },
-      { to: '/access-requests', label: 'Zugangsanfragen', icon: KeyRound, tone: 'warning', permission: 'tenants.read' },
+      { to: '/erp', label: 'ERP-Zentrale', icon: Boxes, tone: 'warning', badge: 'CONTROL' },
       { to: '/orders', label: 'Bestellungen', icon: ShoppingCart, tone: 'info', permission: 'orders.read' },
+      { to: '/access-requests', label: 'Zugangsanfragen', icon: KeyRound, tone: 'warning', permission: 'tenants.read' },
     ],
   },
   {
     id: 'wachstum',
-    label: 'Wachstum',
+    label: 'Wachstum & Vertrieb',
     items: [
-      { to: '/marketing', label: 'Marketing', icon: Megaphone, tone: 'accent', permission: 'marketing.read' },
+      // Jede Person, die diese Plattform betreten darf, soll den Bereich
+      // finden. Schreibrechte bleiben in der Ansicht und im Backend separat
+      // geschützt; eine Navigationsberechtigung darf den Einstieg nicht
+      // unsichtbar machen.
+      { to: '/marketing', label: 'Marketing & Ads', icon: Megaphone, tone: 'danger', badge: 'LIVE' },
+      { to: '/outreach', label: 'Outreach', icon: Send, tone: 'accent', permission: 'emails.send' },
     ],
   },
   {
     id: 'werkzeuge',
-    label: 'Werkzeuge',
+    label: 'Teile & Qualität',
     items: [
       { to: '/oe-quality', label: 'Teilequalität', icon: ShieldCheck, tone: 'success', permission: 'oem.read' },
       { to: '/oem-finder', label: 'OEM-Finder', icon: Search, tone: 'info', permission: 'oem.read' },
-      { to: '/outreach', label: 'Outreach', icon: Send, tone: 'accent', permission: 'emails.send' },
+    ],
+  },
+  {
+    id: 'intern',
+    label: 'Intern',
+    items: [
       { to: '/notizen', label: 'Notizen', icon: NotebookPen, tone: 'warning' },
       { to: '/feedback', label: 'Feedback', icon: MessageSquareText, tone: 'danger' },
     ],
@@ -189,10 +202,9 @@ export function AdminSidebar({
         // Redesign: durchscheinende Verlaufsflaeche statt deckendem Grau. Die
         // Leiste sitzt damit auf dem Lichtverlauf der Seite, statt ihn zu
         // verdecken.
-        'border-r border-border-subtle',
-        'bg-surface',
+        'admin-sidebar border-r',
         'transition-[width] duration-200 ease-out',
-        collapsed ? 'w-16' : 'w-64',
+        collapsed ? 'w-[68px]' : 'w-[272px]',
         className,
       )}
       aria-label="Hauptnavigation"
@@ -209,7 +221,7 @@ export function AdminSidebar({
       <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
         <SheetContent
           side="left"
-          className="w-64 p-0 bg-surface border-r border-border-subtle"
+          className="admin-sidebar w-[272px] border-r p-0"
         >
           <SheetTitle className="sr-only">Admin-Navigation</SheetTitle>
           <SheetDescription className="sr-only">Arbeitsbereich auswählen</SheetDescription>
@@ -255,11 +267,11 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
       </span>
       {!collapsed && (
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate font-display text-sm font-bold tracking-[0.02em] text-text-primary">
+          <span className="truncate font-display text-[15px] font-bold tracking-[-0.01em] text-[hsl(var(--admin-nav-text))]">
             Partsunion
           </span>
-          <span className="text-xs font-medium text-text-muted">
-            Admin · Betrieb
+          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--admin-nav-muted))]">
+            Operations Console
           </span>
         </span>
       )}
@@ -284,7 +296,7 @@ function SidebarNav({
     }))
     .filter((section) => section.items.length > 0);
   return (
-    <nav className="flex-1 overflow-y-auto px-0 pb-3 pt-5" aria-label="Navigation">
+    <nav className="admin-sidebar-scroll flex-1 overflow-y-auto px-0 pb-3 pt-4" aria-label="Navigation">
       {sections.map((section) => (
         <SidebarSection
           key={section.id}
@@ -309,7 +321,7 @@ function SidebarSection({
   return (
     <div className="mb-4">
       {!collapsed && (
-        <div className="mb-2 px-[22px] text-xs font-medium text-text-muted">
+        <div className="mb-1.5 px-[22px] text-[10px] font-bold uppercase tracking-[0.14em] text-[hsl(var(--admin-nav-faint))]">
           {section.label}
         </div>
       )}
@@ -346,17 +358,14 @@ function SidebarLink({
           // Redesign: 10 px Radius, Manrope halbfett, durchscheinende
           // Auflage beim Ueberfahren statt deckender Flaeche.
           WORKSPACE_NAV_ITEM,
-          'text-text-tertiary',
-          'hover:bg-overlay/[0.05] hover:text-text-primary',
+          'text-[hsl(var(--admin-nav-muted))]',
+          'hover:bg-[rgb(var(--admin-nav-overlay)/0.06)] hover:text-[hsl(var(--admin-nav-text))]',
           collapsed ? 'justify-center px-0' : 'gap-[11px] px-[11px]',
           // Aktiv: waagerechter Akzentverlauf, der nach rechts ausläuft — plus
           // der 2-px-Balken am linken Rand (unten als Element, nicht als
           // inset-Schatten: der wuerde beim Radius mitgerundet).
           isActive &&
-            // text-text-primary, NICHT text-white: der Verlauf ist
-            // durchscheinend, und im Hellmodus wäre weisse Schrift darauf
-            // unsichtbar. Am Bild nachgemessen.
-            WORKSPACE_NAV_ACTIVE,
+            'bg-[rgb(var(--admin-nav-overlay)/0.09)] text-[hsl(var(--admin-nav-text))] before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-[hsl(var(--admin-nav-signal))]',
         )
       }
     >
@@ -366,18 +375,19 @@ function SidebarLink({
           {isActive && (
             <span
               aria-hidden
-              className="absolute inset-y-0 left-0 w-[2px] rounded-r-full bg-accent-500"
+              className="absolute inset-y-2 left-0 w-[2px] rounded-r-full bg-[hsl(var(--admin-nav-signal))]"
             />
           )}
           <span
             className={cn(
               'flex size-7 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,transform] group-hover:scale-105',
-              isActive ? 'bg-accent-600 text-white shadow-sm' : NAV_TONES[item.tone],
+              isActive ? 'bg-[hsl(var(--admin-nav-signal))] text-[hsl(var(--admin-nav-text))] shadow-sm' : NAV_TONES[item.tone],
             )}
           >
             <Icon size={15} aria-hidden />
           </span>
           {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+          {!collapsed && item.badge && <span className="rounded border border-[rgb(var(--admin-nav-overlay)/0.10)] bg-[rgb(var(--admin-nav-overlay)/0.06)] px-1.5 py-0.5 text-[8px] font-bold tracking-[0.12em] text-[hsl(var(--admin-nav-faint))]">{item.badge}</span>}
         </>
       )}
     </NavLink>
@@ -408,7 +418,7 @@ function SidebarFooter({
       onClick={onToggle}
       className={cn(
         'flex w-full items-center rounded-lg py-1.5 text-xs font-semibold transition-colors',
-        'text-text-muted hover:text-text-primary',
+        'text-[hsl(var(--admin-nav-muted))] hover:bg-[rgb(var(--admin-nav-overlay)/0.05)] hover:text-[hsl(var(--admin-nav-text))]',
         collapsed ? 'justify-center px-0' : 'justify-start gap-2 px-1',
       )}
       aria-label={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
@@ -416,7 +426,7 @@ function SidebarFooter({
       {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
       {!collapsed && <span>Einklappen</span>}
       {!collapsed && (
-        <kbd className="ml-auto rounded-[5px] bg-overlay/[0.05] px-1.5 py-[3px] font-mono text-[10px] font-medium text-text-muted">
+        <kbd className="ml-auto rounded-[5px] bg-[rgb(var(--admin-nav-overlay)/0.06)] px-1.5 py-[3px] font-mono text-[10px] font-medium text-[hsl(var(--admin-nav-faint))]">
           ⌘\
         </kbd>
       )}
@@ -424,7 +434,7 @@ function SidebarFooter({
   );
 
   return (
-    <div className="shrink-0 border-t border-border-subtle p-3.5">
+    <div className="shrink-0 border-t border-[rgb(var(--admin-nav-overlay)/0.08)] p-3.5">
       {collapsed ? (
         <Tooltip>
           <TooltipTrigger asChild>{button}</TooltipTrigger>

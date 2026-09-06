@@ -58,6 +58,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'live-sim': 'Live-Simulation',
   inbox: 'Inbox',
   orders: 'Bestellungen',
+  erp: 'ERP & Warenwirtschaft',
   maintenance: 'Maintenance',
   marketing: 'Marketing-Zentrale',
   settings: 'Settings',
@@ -196,7 +197,7 @@ export function AdminTopbar({
           // abzuschneiden — durchscheinend mit Weichzeichner. `supports` sorgt
           // dafuer, dass sie ohne backdrop-filter deckend bleibt und der Text
           // darunter nicht durchscheint.
-          'border-b border-border bg-surface',
+          'admin-topbar border-b border-border bg-surface',
         )}
         role="banner"
       >

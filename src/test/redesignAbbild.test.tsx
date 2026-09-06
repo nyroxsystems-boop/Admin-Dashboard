@@ -349,9 +349,11 @@ describe('Bildprobe Redesign', () => {
 
         // Belegt, dass die Redesign-Merkmale wirklich im Markup stehen und
         // nicht nur im Kopf des Autors.
-        expect(markup).toContain('Admin · Betrieb');
-        expect(markup).toContain('w-64');
-        expect(markup).toContain('Händlerübersicht');
+        expect(markup).toContain('Operations Console');
+        expect(markup).toContain('w-[272px]');
+        expect(markup).toContain('Händler &amp; Kunden');
+        expect(markup).toContain('ERP-Zentrale');
+        expect(markup).toContain('Marketing &amp; Ads');
         expect(markup).toContain('Bestellungen');
     });
 

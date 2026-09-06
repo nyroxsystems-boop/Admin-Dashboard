@@ -61,6 +61,7 @@ const ROUTES = [
     '/',
     '/calendar',
     '/marketing',
+    '/erp',
     '/tenants',
     '/tenants/new',
     '/tenants/tenant-1',

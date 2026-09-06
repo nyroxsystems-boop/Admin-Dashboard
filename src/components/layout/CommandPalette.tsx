@@ -24,6 +24,7 @@ import {
   ArrowRight,
   Bot,
   Building2,
+  Boxes,
   Clock,
   Command as CommandIcon,
   Headset,
@@ -184,6 +185,7 @@ export function CommandPalette({
       nav('/mail', 'E-Mail', <Inbox size={14} />, ['mail', 'posteingang', 'inbox', 'nachrichten']),
       nav('/oem-finder', 'OEM-Finder', <Workflow size={14} />, ['oem', 'teile', 'nummer']),
       nav('/marketing', 'Marketing-Zentrale', <Megaphone size={14} />, ['google ads', 'meta ads', 'statistik', 'website', 'kampagnen']),
+      nav('/erp', 'ERP & Warenwirtschaft', <Boxes size={14} />, ['erp', 'wawi', 'lager', 'bestand', 'einkauf', 'rechnungen', 'forderungen']),
 
       // Einstellungen — die Bereiche sind einzeln auffindbar, damit man sie
       // nicht erst über die Sammelseite suchen muss.
