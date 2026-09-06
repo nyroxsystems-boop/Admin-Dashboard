@@ -49,10 +49,10 @@
 export const KARTE_INNEN = 'p-4';
 
 /** Shared workspace hierarchy; compact tables retain KARTE_INNEN. */
-export const WORKSPACE_CARD_INNER = 'p-5';
-export const WORKSPACE_METRIC = 'min-h-[132px] p-3 sm:p-5';
-export const WORKSPACE_METRIC_VALUE = 'text-[clamp(1.65rem,2.3vw,2.15rem)]';
-export const WORKSPACE_METRIC_VALUE_LONG = 'text-[clamp(1rem,5.2vw,1.65rem)] sm:text-[clamp(1.65rem,2.3vw,2.15rem)]';
+export const WORKSPACE_CARD_INNER = 'p-4 sm:p-5';
+export const WORKSPACE_METRIC = 'min-h-[76px] px-3.5 py-3 sm:px-4';
+export const WORKSPACE_METRIC_VALUE = 'text-[clamp(1.25rem,1.6vw,1.55rem)]';
+export const WORKSPACE_METRIC_VALUE_LONG = 'text-[clamp(1rem,3.8vw,1.35rem)] sm:text-[clamp(1.15rem,1.5vw,1.45rem)]';
 
 /**
  * Kennzahl-Kachel: Symbol und Beschriftung oben, Wert darunter.

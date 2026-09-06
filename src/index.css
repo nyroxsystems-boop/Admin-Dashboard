@@ -61,7 +61,7 @@
        --glass-bg/--glass-blur/--glass-border (never in tokens.css) and was
        unused anywhere in the app. */
     .surface-card {
-        background: linear-gradient(180deg, var(--karte-von), var(--karte-bis));
+        background: hsl(var(--bg-surface));
         border: 1px solid hsl(var(--border));
         border-radius: var(--radius);
         box-shadow: var(--shadow-card);
@@ -96,10 +96,10 @@
          * Helle Oberflächen bauen Tiefe andersherum: getönter Grund, weisse
          * Karte, Abstand über den Schatten. Deshalb --karte-*.
          */
-        background: linear-gradient(180deg, var(--karte-von), var(--karte-bis));
+        background: hsl(var(--bg-surface));
         border: 1px solid var(--karte-rand);
         box-shadow: var(--karte-schatten);
-        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
     }
 
     .karte {
@@ -110,8 +110,8 @@
         border-radius: var(--radius);
     }
 
-    .karte:hover,
-    .karte-klein:hover {
+    .karte:is(a, button, [role="button"]):hover,
+    .karte-klein:is(a, button, [role="button"]):hover {
         border-color: var(--karte-rand-hover);
         box-shadow: var(--shadow-card-hover);
     }
@@ -180,14 +180,7 @@ html {
  * er mit dem Inhalt und der Eindruck einer Lichtquelle zerfaellt.
  */
 body {
-    /* Die Deckung der beiden Lichtquellen steckt in --schein-1/-2: auf hellem
-       Grund wirkt derselbe Wert doppelt so stark und die Seite bekäme einen
-       Blaustich. Werte siehe tokens.css. */
-    background:
-        radial-gradient(1100px 560px at 8% -10%, hsl(var(--accent-500) / var(--schein-1)), transparent 62%),
-        radial-gradient(820px 500px at 96% 0%, hsl(var(--success) / var(--schein-2)), transparent 62%),
-        hsl(var(--bg-canvas));
-    background-attachment: fixed;
+    background: hsl(var(--bg-canvas));
     color: hsl(var(--text-primary));
     font-size: 0.875rem;
     line-height: 1.5;
@@ -212,10 +205,22 @@ body {
 .admin-metric-card::after {
     content: '';
     position: absolute;
-    inset: auto 0 0;
-    height: 3px;
+    inset: 12px auto 12px 0;
+    width: 2px;
     background: var(--metric-color, hsl(var(--accent-500)));
     opacity: 0.82;
+}
+
+/* Interaktive Elemente müssen sich auch ohne komponentenspezifische Klasse
+   eindeutig anklickbar anfühlen. Radix deaktiviert über aria-disabled. */
+:where(a[href], button:not(:disabled), summary, label[for], select:not(:disabled),
+  input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled),
+  [role="button"]:not([aria-disabled="true"])) {
+    cursor: pointer;
+}
+
+:where(button:disabled, select:disabled, input:disabled, [aria-disabled="true"]) {
+    cursor: not-allowed;
 }
 
 h1,

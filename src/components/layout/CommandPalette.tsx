@@ -31,6 +31,7 @@ import {
   KeyRound,
   LayoutDashboard,
   MessageSquareText,
+  Megaphone,
   NotebookPen,
   Plus,
   Power,
@@ -182,6 +183,7 @@ export function CommandPalette({
       nav('/onboarding', 'Onboarding', <Building2 size={14} />, ['onboarding', 'einrichtung']),
       nav('/mail', 'E-Mail', <Inbox size={14} />, ['mail', 'posteingang', 'inbox', 'nachrichten']),
       nav('/oem-finder', 'OEM-Finder', <Workflow size={14} />, ['oem', 'teile', 'nummer']),
+      nav('/marketing', 'Marketing-Zentrale', <Megaphone size={14} />, ['google ads', 'meta ads', 'statistik', 'website', 'kampagnen']),
 
       // Einstellungen — die Bereiche sind einzeln auffindbar, damit man sie
       // nicht erst über die Sammelseite suchen muss.

@@ -19,6 +19,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Mail,
+  Megaphone,
   MessageSquareText,
   NotebookPen,
   PanelLeftClose,
@@ -100,6 +101,13 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/onboarding', label: 'Einrichtungen', icon: ClipboardCheck, tone: 'accent', permission: 'tenants.read' },
       { to: '/access-requests', label: 'Zugangsanfragen', icon: KeyRound, tone: 'warning', permission: 'tenants.read' },
       { to: '/orders', label: 'Bestellungen', icon: ShoppingCart, tone: 'info', permission: 'orders.read' },
+    ],
+  },
+  {
+    id: 'wachstum',
+    label: 'Wachstum',
+    items: [
+      { to: '/marketing', label: 'Marketing', icon: Megaphone, tone: 'accent', permission: 'marketing.read' },
     ],
   },
   {

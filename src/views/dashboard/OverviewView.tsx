@@ -10,7 +10,6 @@ import {
     KeyRound,
     Mail,
     RefreshCw,
-    ServerCog,
     ShoppingCart,
     Users,
 } from 'lucide-react';
@@ -89,24 +88,22 @@ export default function OverviewView(): JSX.Element {
     const serviceReady = !health.isLoading && !health.error && Boolean(health.zustand?.erreichbar);
 
     return <div className={SEITEN_RAND}>
-        <section className="relative mb-5 overflow-hidden rounded-2xl border border-accent-500/20 px-5 py-5 shadow-card md:px-6 md:py-6" style={{ background: 'var(--hero-verlauf)' }}>
-            <div className="relative">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                    <span className="flex items-center gap-2 text-xs font-bold text-accent-500"><span className="flex size-6 items-center justify-center rounded-lg bg-accent-500/[0.12]"><ServerCog className="size-3.5" /></span>PLATTFORMBETRIEB</span>
-                    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${serviceReady ? 'border-success/20 bg-success/10 text-success' : 'border-warning/20 bg-warning/10 text-warning'}`}><span className={`size-2 rounded-full ${serviceReady ? 'bg-success' : 'bg-warning'}`} />{health.isLoading ? 'API wird geprüft' : serviceReady ? 'API erreichbar' : 'API-Status prüfen'}</span>
-                </div>
-                <SeitenKopf titel="Arbeitsübersicht" beileile="Einrichtungen, Rückfragen und die nächsten Termine – priorisiert für den heutigen Betrieb."
-                    aktionen={<><button type="button" className={NEBEN_AKTION} disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Aktualisieren</button>{can('tenants.create') && <Link to="/tenants/new" className={HAUPT_AKTION}>Händler einrichten</Link>}</>} />
+        <section className="mb-4 border-b border-border pb-4 pt-1">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-text-muted">Plattformbetrieb</span>
+                <span className={`inline-flex items-center gap-2 text-xs font-semibold ${serviceReady ? 'text-success' : 'text-warning'}`}><span className={`size-1.5 rounded-full ${serviceReady ? 'bg-success' : 'bg-warning'}`} />{health.isLoading ? 'API wird geprüft' : serviceReady ? 'API erreichbar' : 'API-Status prüfen'}</span>
             </div>
+            <SeitenKopf titel="Arbeitsübersicht" beileile="Einrichtungen, Rückfragen und die nächsten Termine – priorisiert für den heutigen Betrieb."
+                aktionen={<><button type="button" className={NEBEN_AKTION} disabled={refreshing} onClick={refresh}><RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />Aktualisieren</button>{can('tenants.create') && <Link to="/tenants/new" className={HAUPT_AKTION}>Händler einrichten</Link>}</>} />
         </section>
 
-        <section aria-label="Plattformzahlen" className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <section aria-label="Plattformzahlen" className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {facts.map(fact => {
                 const Icon = fact.icon;
-                return <Link key={fact.label} to={fact.to} className={`admin-metric-card karte group relative flex flex-col transition-transform hover:-translate-y-0.5 ${WORKSPACE_METRIC}`} style={{ '--metric-color': fact.color } as CSSProperties}>
-                    <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-text-secondary sm:text-sm">{fact.label}</span><span className={`flex size-7 shrink-0 items-center justify-center rounded-lg sm:size-9 sm:rounded-xl ${fact.iconClass}`}><Icon size={18} /></span></div>
-                    <span className={`mt-2 font-display font-bold leading-none tabular-nums text-text-primary ${fact.label === 'Monatsumsatz' ? WORKSPACE_METRIC_VALUE_LONG : WORKSPACE_METRIC_VALUE}`}>{metrics.isLoading ? '—' : fact.value ?? '—'}</span>
-                    <span className="mt-2 text-xs font-medium text-text-muted">{fact.detail}</span>
+                return <Link key={fact.label} to={fact.to} className={`admin-metric-card karte group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 ${WORKSPACE_METRIC}`} style={{ '--metric-color': fact.color } as CSSProperties}>
+                    <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${fact.iconClass}`}><Icon size={16} /></span>
+                    <span className="min-w-0"><span className="block truncate text-xs font-semibold text-text-secondary">{fact.label}</span><span className="mt-0.5 block truncate text-[11px] text-text-muted">{fact.detail}</span></span>
+                    <span className={`max-w-[132px] truncate text-right font-display font-bold leading-none tabular-nums text-text-primary ${fact.label === 'Monatsumsatz' ? WORKSPACE_METRIC_VALUE_LONG : WORKSPACE_METRIC_VALUE}`}>{metrics.isLoading ? '—' : fact.value ?? '—'}</span>
                 </Link>;
             })}
         </section>

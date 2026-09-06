@@ -60,6 +60,7 @@ import { AdminRoutes } from './adminRoutes';
 const ROUTES = [
     '/',
     '/calendar',
+    '/marketing',
     '/tenants',
     '/tenants/new',
     '/tenants/tenant-1',

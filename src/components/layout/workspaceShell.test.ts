@@ -4,8 +4,8 @@ import * as shell from './workspaceShell';
 const crm = '../CRM-System/src/app/components/layout/workspaceShell.ts';
 describe('Shared internal shell contract', () => {
     it('fixes header and brand to the same height and preserves visible keyboard focus', () => {
-        expect(shell.WORKSPACE_HEADER).toContain('h-16');
-        expect(shell.WORKSPACE_BRAND).toContain('h-16');
+        expect(shell.WORKSPACE_HEADER).toContain('h-14');
+        expect(shell.WORKSPACE_BRAND).toContain('h-14');
         expect(shell.WORKSPACE_FRAME).toContain('h-dvh');
         expect(shell.WORKSPACE_NAV_ITEM).toContain('focus-visible:ring-2');
     });

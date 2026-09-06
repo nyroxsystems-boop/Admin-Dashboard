@@ -34,6 +34,7 @@ import { ErscheinungsbildKnopf } from './ErscheinungsbildKnopf';
 import type { Admin } from '@/api/types';
 import { useConfirmDiscard } from '@/hooks/useUnsavedChanges';
 import { WORKSPACE_HEADER, WORKSPACE_SEARCH, WORKSPACE_ACTION, WORKSPACE_AVATAR } from './workspaceShell';
+import { canUseWorkspaceSwitch } from '@/lib/workspaceAccess';
 
 const ROUTE_LABELS: Record<string, string> = {
   '': 'Arbeitsübersicht',
@@ -58,6 +59,7 @@ const ROUTE_LABELS: Record<string, string> = {
   inbox: 'Inbox',
   orders: 'Bestellungen',
   maintenance: 'Maintenance',
+  marketing: 'Marketing-Zentrale',
   settings: 'Settings',
   profile: 'Profil',
 };
@@ -228,7 +230,7 @@ export function AdminTopbar({
           derselben Breite. Wer hier klickt, hat den Zeiger nach dem Wechsel
           direkt auf dem Knopf zurück. Der Wert steht in beiden Anwendungen als
           WECHSEL_BREITE; wer ihn ändert, muss es dort auch tun. */}
-      <a
+      {canUseWorkspaceSwitch(user) && user?.app_access?.crm !== false && <a
         href="https://crm.partsunion.de"
         className={cn(WORKSPACE_ACTION, WECHSEL_BREITE)}
         aria-label="Zum CRM wechseln"
@@ -236,7 +238,7 @@ export function AdminTopbar({
       >
         <Briefcase size={15} className="shrink-0 text-text-tertiary" />
         <span className="hidden md:inline">CRM</span>
-      </a>
+      </a>}
 
       <UserMenu user={user} onLogout={handleLogout} />
 

@@ -25,6 +25,9 @@ export type Permission =
     | 'tenants.impersonate'
     | 'users.resetPassword'
     | 'billing.manage'
+    // Marketing
+    | 'marketing.read'
+    | 'marketing.manage'
     // Admins (read-only + self-service email; no create/delete/role server endpoints)
     | 'admins.read'
     | 'admins.update'
@@ -62,6 +65,7 @@ const READ_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
     'maintenance.read',
     'inbox.read',
     'orders.read',
+    'marketing.read',
 ]);
 
 const SUPPORT_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
